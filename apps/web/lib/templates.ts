@@ -1,3 +1,22 @@
+import {
+  Scissors,
+  Landmark,
+  Heart,
+  Home,
+  Stethoscope,
+  UtensilsCrossed,
+  MessageCircle,
+  Sparkles,
+  Database,
+  Wand2,
+  CreditCard,
+  CalendarDays,
+  ShieldCheck,
+  AlertTriangle,
+  Mail,
+  FileText,
+  Truck,
+} from 'lucide-react';
 import type { Template } from './types';
 
 /**
@@ -15,7 +34,7 @@ export const TEMPLATES: Template[] = [
   {
     slug: 'salon-booking',
     name: 'Salon Booking Assistant',
-    icon: '💇',
+    icon: Scissors,
     tone: 'amber',
     vertical: 'Beauty & Salons',
     business: 'Asha Salon',
@@ -34,12 +53,12 @@ export const TEMPLATES: Template[] = [
       { title: 'Switch English/Swahili', desc: 'Auto-detect language' },
     ],
     workflow: [
-      { type: 'trigger', icon: '📨', label: 'WA message' },
-      { type: 'ai',      icon: '🧠', label: 'Intent' },
-      { type: 'data',    icon: '📚', label: 'Services KB' },
-      { type: 'ai',      icon: '✨', label: 'Reply' },
-      { type: 'payment', icon: '💰', label: 'M-Pesa STK' },
-      { type: 'data',    icon: '📅', label: 'Calendar' },
+      { type: 'trigger', icon: MessageCircle, label: 'WA message' },
+      { type: 'ai',      icon: Sparkles,      label: 'Intent' },
+      { type: 'data',    icon: Database,      label: 'Services KB' },
+      { type: 'ai',      icon: Wand2,         label: 'Reply' },
+      { type: 'payment', icon: CreditCard,    label: 'M-Pesa STK' },
+      { type: 'data',    icon: CalendarDays,  label: 'Calendar' },
     ],
     suggestions: [
       'Naomba kubook braids weekend',
@@ -60,13 +79,14 @@ export const TEMPLATES: Template[] = [
       default:
         'I can help you with bookings, pricing, or rescheduling. What would you like to do today?',
     },
+    integrations: ['whatsapp', 'mpesa', 'google-calendar'],
   },
 
   // ─── SACCO SUPPORT ────────────────────────────────────────────
   {
     slug: 'sacco-support',
     name: 'SACCO Support Bot',
-    icon: '🏦',
+    icon: Landmark,
     tone: 'green',
     vertical: 'Financial Services',
     business: 'Jenga SACCO',
@@ -85,11 +105,11 @@ export const TEMPLATES: Template[] = [
       { title: 'Officer escalation',     desc: 'When sensitive or complex' },
     ],
     workflow: [
-      { type: 'trigger', icon: '📨', label: 'WA message' },
-      { type: 'ai',      icon: '🧠', label: 'Verify member' },
-      { type: 'data',    icon: '🔐', label: 'CRM lookup' },
-      { type: 'ai',      icon: '✨', label: 'Reply' },
-      { type: 'logic',   icon: '⚠️', label: 'Escalate?' },
+      { type: 'trigger', icon: MessageCircle, label: 'WA message' },
+      { type: 'ai',      icon: ShieldCheck,   label: 'Verify member' },
+      { type: 'data',    icon: Database,      label: 'CRM lookup' },
+      { type: 'ai',      icon: Wand2,         label: 'Reply' },
+      { type: 'logic',   icon: AlertTriangle, label: 'Escalate?' },
     ],
     suggestions: [
       "What's my loan balance?",
@@ -112,13 +132,14 @@ export const TEMPLATES: Template[] = [
       default:
         'I can help with: loan inquiries, balance checks, contribution status, or officer handoff. What do you need?',
     },
+    integrations: ['whatsapp', 'openai'],
   },
 
   // ─── CHURCH FOLLOW-UP ─────────────────────────────────────────
   {
     slug: 'church-followup',
     name: 'Church Follow-Up Bot',
-    icon: '⛪',
+    icon: Heart,
     tone: 'violet',
     vertical: 'Faith Community',
     business: 'Mavuno Hill',
@@ -137,11 +158,11 @@ export const TEMPLATES: Template[] = [
       { title: 'Pastoral handoff',      desc: 'For sensitive conversations' },
     ],
     workflow: [
-      { type: 'trigger', icon: '📨', label: 'WA message' },
-      { type: 'ai',      icon: '🧠', label: 'Intent' },
-      { type: 'data',    icon: '📅', label: 'Events' },
-      { type: 'ai',      icon: '💝', label: 'Pastoral reply' },
-      { type: 'data',    icon: '📨', label: 'Add to list' },
+      { type: 'trigger', icon: MessageCircle, label: 'WA message' },
+      { type: 'ai',      icon: Sparkles,      label: 'Intent' },
+      { type: 'data',    icon: CalendarDays,  label: 'Events' },
+      { type: 'ai',      icon: Heart,         label: 'Pastoral reply' },
+      { type: 'data',    icon: Mail,          label: 'Add to list' },
     ],
     suggestions: [
       'I visited last Sunday',
@@ -162,13 +183,14 @@ export const TEMPLATES: Template[] = [
       default:
         'Karibu! 🙏 I can help with: service times, prayer requests, event registration, or connecting you with a pastor. What can I help with today?',
     },
+    integrations: ['whatsapp', 'gmail', 'google-calendar'],
   },
 
   // ─── REAL ESTATE INQUIRY ──────────────────────────────────────
   {
     slug: 'realestate-inquiry',
     name: 'Real Estate Inquiry Bot',
-    icon: '🏘️',
+    icon: Home,
     tone: 'blue',
     vertical: 'Real Estate',
     business: 'Pacific Place',
@@ -187,11 +209,11 @@ export const TEMPLATES: Template[] = [
       { title: 'Agent handoff',          desc: 'Only warm leads reach humans' },
     ],
     workflow: [
-      { type: 'trigger', icon: '📨', label: 'WA message' },
-      { type: 'ai',      icon: '🧠', label: 'Qualify lead' },
-      { type: 'data',    icon: '🏘️', label: 'Listings DB' },
-      { type: 'ai',      icon: '✨', label: 'Send brochure' },
-      { type: 'data',    icon: '📅', label: 'Book viewing' },
+      { type: 'trigger', icon: MessageCircle, label: 'WA message' },
+      { type: 'ai',      icon: Sparkles,      label: 'Qualify lead' },
+      { type: 'data',    icon: Home,          label: 'Listings DB' },
+      { type: 'ai',      icon: FileText,      label: 'Send brochure' },
+      { type: 'data',    icon: CalendarDays,  label: 'Book viewing' },
     ],
     suggestions: [
       '2-bedroom in Westlands',
@@ -212,13 +234,14 @@ export const TEMPLATES: Template[] = [
       default:
         'I can help with: property search, viewings, payment plans, or connecting you to an agent. What are you looking for?',
     },
+    integrations: ['whatsapp', 'google-calendar', 'google-drive'],
   },
 
   // ─── CLINIC BOOKING ───────────────────────────────────────────
   {
     slug: 'clinic-booking',
     name: 'Clinic Booking Assistant',
-    icon: '🏥',
+    icon: Stethoscope,
     tone: 'teal',
     vertical: 'Healthcare',
     business: 'Lifecare Clinic',
@@ -237,11 +260,11 @@ export const TEMPLATES: Template[] = [
       { title: 'Insurance check',       desc: 'NHIF, AAR, Jubilee, etc.' },
     ],
     workflow: [
-      { type: 'trigger', icon: '📨', label: 'WA message' },
-      { type: 'logic',   icon: '⚠️', label: 'Emergency?' },
-      { type: 'ai',      icon: '🧠', label: 'Intent' },
-      { type: 'data',    icon: '📅', label: 'Calendar' },
-      { type: 'ai',      icon: '✨', label: 'Confirm' },
+      { type: 'trigger', icon: MessageCircle, label: 'WA message' },
+      { type: 'logic',   icon: AlertTriangle, label: 'Emergency?' },
+      { type: 'ai',      icon: Sparkles,      label: 'Intent' },
+      { type: 'data',    icon: CalendarDays,  label: 'Calendar' },
+      { type: 'ai',      icon: Wand2,         label: 'Confirm' },
     ],
     suggestions: [
       'Need to see a doctor tomorrow',
@@ -264,13 +287,14 @@ export const TEMPLATES: Template[] = [
       default:
         'I can help with: booking appointments, prescription refills (existing patients), or directing emergencies. What do you need? In emergencies, call 0700-123-456.',
     },
+    integrations: ['whatsapp', 'google-calendar', 'openai'],
   },
 
   // ─── RESTAURANT ORDERING ──────────────────────────────────────
   {
     slug: 'restaurant-ordering',
     name: 'Restaurant Ordering Assistant',
-    icon: '🍽️',
+    icon: UtensilsCrossed,
     tone: 'rose',
     vertical: 'Food & Beverage',
     business: "Mama Oliech's",
@@ -289,11 +313,11 @@ export const TEMPLATES: Template[] = [
       { title: 'Order tracking',        desc: 'Live ETA updates' },
     ],
     workflow: [
-      { type: 'trigger', icon: '📨', label: 'WA message' },
-      { type: 'ai',      icon: '🧠', label: 'Build order' },
-      { type: 'data',    icon: '🍽️', label: 'Menu KB' },
-      { type: 'payment', icon: '💰', label: 'M-Pesa' },
-      { type: 'data',    icon: '🛵', label: 'Dispatch' },
+      { type: 'trigger', icon: MessageCircle,  label: 'WA message' },
+      { type: 'ai',      icon: Sparkles,        label: 'Build order' },
+      { type: 'data',    icon: UtensilsCrossed, label: 'Menu KB' },
+      { type: 'payment', icon: CreditCard,      label: 'M-Pesa' },
+      { type: 'data',    icon: Truck,           label: 'Dispatch' },
     ],
     suggestions: [
       'Two chapati and beef stew',
@@ -314,6 +338,7 @@ export const TEMPLATES: Template[] = [
       default:
         "Karibu Mama Oliech's! 🍽️ I can show you the menu, take your order, or update you on delivery. What's good with you today?",
     },
+    integrations: ['whatsapp', 'mpesa', 'google-maps'],
   },
 ];
 
@@ -323,7 +348,7 @@ export function getTemplate(slug: string): Template | undefined {
 
 // Simple keyword router used by the mock chat API and inline chat preview.
 // In production this is replaced by the workflow engine + Claude API.
-export function pickResponse(template: Template, input: string): string {
+export function pickResponse(template: Pick<Template, 'slug' | 'responses'>, input: string): string {
   const low = input.toLowerCase();
   const r = template.responses;
 

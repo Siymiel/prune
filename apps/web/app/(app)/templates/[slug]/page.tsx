@@ -20,6 +20,8 @@ export default async function TemplateDetailPage({ params }: PageProps) {
   const template = getTemplate(slug);
   if (!template) notFound();
 
+  const TemplateIcon = template.icon;
+
   return (
     <>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -36,11 +38,11 @@ export default async function TemplateDetailPage({ params }: PageProps) {
           <div className="flex gap-4 mb-6">
             <div
               className={cn(
-                'h-16 w-16 rounded-[14px] flex items-center justify-center text-[32px] shrink-0',
+                'h-16 w-16 rounded-[14px] flex items-center justify-center shrink-0',
                 TONE_CLASSES[template.tone],
               )}
             >
-              {template.icon}
+              <TemplateIcon className="h-8 w-8" />
             </div>
             <div>
               <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1">
@@ -91,28 +93,29 @@ export default async function TemplateDetailPage({ params }: PageProps) {
             <div className="relative p-5 rounded-lg bg-muted/40 border overflow-hidden">
               <div className="absolute inset-0 grid-dots pointer-events-none" />
               <div className="relative flex items-center gap-2 flex-wrap">
-                {template.workflow.map((n, i) => (
+                {template.workflow.map((n, i) => {
+                  const NodeIcon = n.icon;
+                  return (
                   <span key={i} className="contents">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-background border text-xs font-medium">
-                      <span
+                      <NodeIcon
                         className={cn(
-                          'text-sm',
+                          'h-3.5 w-3.5',
                           n.type === 'trigger' && 'text-emerald-600',
                           n.type === 'ai' && 'text-primary',
                           n.type === 'payment' && 'text-emerald-600',
                           n.type === 'data' && 'text-sky-600',
                           n.type === 'logic' && 'text-rose-600',
                         )}
-                      >
-                        {n.icon}
-                      </span>
+                      />
                       {n.label}
                     </span>
                     {i < template.workflow.length - 1 && (
                       <span className="text-muted-foreground text-xs">→</span>
                     )}
                   </span>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -136,7 +139,14 @@ export default async function TemplateDetailPage({ params }: PageProps) {
           </section>
         </div>
 
-        <ChatPreview template={template} />
+        <ChatPreview template={{
+          slug: template.slug,
+          avatar: template.avatar,
+          business: template.business,
+          seedMessages: template.seedMessages,
+          suggestions: template.suggestions,
+          responses: template.responses,
+        }} />
       </div>
     </>
   );

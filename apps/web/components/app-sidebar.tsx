@@ -3,16 +3,16 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  LayoutDashboard,
-  Sparkles,
+  House,
+  Bot,
   Inbox,
-  Network,
-  FileText,
-  TrendingUp,
-  Plug,
-  Users,
-  CreditCard,
-  Settings,
+  Workflow,
+  BookOpen,
+  BarChart3,
+  Puzzle,
+  UsersRound,
+  Receipt,
+  Settings2,
   ChevronsUpDown,
 } from "lucide-react"
 
@@ -38,19 +38,19 @@ interface NavItem {
 }
 
 const WORKSPACE_NAV: NavItem[] = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/templates", label: "Templates", icon: Sparkles, badge: "6" },
+  { href: "/dashboard", label: "Overview", icon: House },
+  { href: "/templates", label: "Templates", icon: Bot, badge: "6" },
   { href: "/inbox", label: "Inbox", icon: Inbox, badge: "12" },
-  { href: "/builder", label: "Workflows", icon: Network },
-  { href: "/knowledge", label: "Knowledge base", icon: FileText },
-  { href: "/analytics", label: "Analytics", icon: TrendingUp },
-  { href: "/integrations", label: "Integrations", icon: Plug },
+  { href: "/builder", label: "Workflows", icon: Workflow },
+  { href: "/knowledge", label: "Knowledge base", icon: BookOpen },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/integrations", label: "Integrations", icon: Puzzle },
 ]
 
 const SETTINGS_NAV: NavItem[] = [
-  { href: "/team", label: "Team", icon: Users },
-  { href: "/billing", label: "Billing", icon: CreditCard },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/team", label: "Team", icon: UsersRound },
+  { href: "/billing", label: "Billing", icon: Receipt },
+  { href: "/settings", label: "Settings", icon: Settings2 },
 ]
 
 export function AppSidebar() {

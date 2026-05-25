@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
-import type { Template, SeedMessage } from '@/lib/types';
+import { SendHorizontal } from 'lucide-react';
+import type { ChatTemplateData, SeedMessage } from '@/lib/types';
 import { pickResponse } from '@/lib/templates';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ const TRACE_STAGES = [
   { label: 'whatsapp.send',    durationMs: 167 },
 ];
 
-export function ChatPreview({ template }: { template: Template }) {
+export function ChatPreview({ template }: { template: ChatTemplateData }) {
   const [messages, setMessages] = useState<DisplayMessage[]>(template.seedMessages);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -156,7 +156,7 @@ export function ChatPreview({ template }: { template: Template }) {
           aria-label="Send"
           className="h-9 w-9 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <Send className="h-3.5 w-3.5" strokeWidth={2.5} />
+          <SendHorizontal className="h-3.5 w-3.5" />
         </button>
       </form>
     </div>

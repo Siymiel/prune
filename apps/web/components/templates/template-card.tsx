@@ -1,18 +1,12 @@
 import Link from 'next/link';
-import { Clock } from 'lucide-react';
+import { Timer } from 'lucide-react';
 import type { Template } from '@/lib/types';
 import { TONE_CLASSES } from '@/lib/tones';
+import { IntegrationLogo } from '@/components/templates/integration-logo';
 import { cn } from '@/lib/utils';
 
-const TAG_LABEL: Record<string, string> = {
-  bookings: 'Bookings',
-  support: 'Support',
-  payments: 'Payments',
-  'lead-capture': 'Lead capture',
-  multilingual: 'Multilingual',
-};
-
 export function TemplateCard({ template }: { template: Template }) {
+  const Icon = template.icon;
   return (
     <Link
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,11 +20,11 @@ export function TemplateCard({ template }: { template: Template }) {
       <div className="p-5 pb-3 flex items-start gap-3.5">
         <div
           className={cn(
-            'h-11 w-11 rounded-[10px] flex items-center justify-center text-[22px] shrink-0',
+            'h-11 w-11 rounded-[10px] flex items-center justify-center shrink-0',
             TONE_CLASSES[template.tone],
           )}
         >
-          {template.icon}
+          <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold tracking-tight">
@@ -48,17 +42,12 @@ export function TemplateCard({ template }: { template: Template }) {
         </p>
       </div>
 
-      <div className="px-5 py-3 border-t flex items-center gap-2">
-        {template.tags.slice(0, 2).map((tag) => (
-          <span
-            key={tag}
-            className="px-2 py-0.5 rounded-full bg-muted border text-xs font-medium text-muted-foreground"
-          >
-            {TAG_LABEL[tag] ?? tag}
-          </span>
+      <div className="px-5 py-3 border-t flex items-center gap-1">
+        {template.integrations.map((id) => (
+          <IntegrationLogo key={id} id={id} />
         ))}
         <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-2.5 w-2.5" />
+          <Timer className="h-2.5 w-2.5" />
           5 min
         </span>
       </div>

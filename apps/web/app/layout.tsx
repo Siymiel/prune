@@ -38,7 +38,7 @@ export default function RootLayout({
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${instrument.variable}`}
     >
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

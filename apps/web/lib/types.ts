@@ -1,5 +1,9 @@
 // Shared TypeScript types across the Prune AI frontend.
 
+// Matches Lucide React icon components (and any other icon component library).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type LucideIcon = (props: { className?: string; size?: number; color?: string; strokeWidth?: number; [key: string]: any }) => any;
+
 export type TemplateCategory =
   | 'bookings'
   | 'support'
@@ -17,9 +21,19 @@ export type IconTone =
 
 export type NodeType = 'trigger' | 'ai' | 'data' | 'payment' | 'logic';
 
+export type IntegrationId =
+  | 'whatsapp'
+  | 'mpesa'
+  | 'openai'
+  | 'google-calendar'
+  | 'google-drive'
+  | 'gmail'
+  | 'slack'
+  | 'google-maps';
+
 export interface WorkflowNodePreview {
   type: NodeType;
-  icon: string;
+  icon: LucideIcon;
   label: string;
 }
 
@@ -37,7 +51,7 @@ export interface SeedMessage {
 export interface Template {
   slug: string;
   name: string;
-  icon: string;
+  icon: LucideIcon;
   tone: IconTone;
   vertical: string;
   /** Business name used in chat preview header */
@@ -56,7 +70,12 @@ export interface Template {
   seedMessages: SeedMessage[];
   /** Keyword-routed mock responses for the demo */
   responses: Record<string, string>;
+  /** Third-party integration logos shown on the card */
+  integrations: IntegrationId[];
 }
+
+/** Serializable subset of Template passed to Client Components. */
+export type ChatTemplateData = Pick<Template, 'slug' | 'avatar' | 'business' | 'seedMessages' | 'suggestions' | 'responses'>;
 
 export interface Conversation {
   id: string;
