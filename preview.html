@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prune AI — AI Workflow Platform for African Businesses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --bg-elev-1: #111114;
+    --bg-elev-2: #16161a;
+    --bg-elev-3: #1c1c21;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.12);
+    --border-bright: rgba(252, 177, 58, 0.4);
+
+    --text: #f5f5f7;
+    --text-dim: #a1a1aa;
+    --text-mute: #71717a;
+    --text-faint: #52525b;
+
+    --accent: #fcb13a;
+    --accent-dim: #cd901e;
+    --accent-bg: rgba(252, 177, 58, 0.08);
+    --accent-border: rgba(252, 177, 58, 0.2);
+
+    --success: #22c55e;
+    --success-bg: rgba(34, 197, 94, 0.1);
+    --info: #38bdf8;
+    --info-bg: rgba(56, 189, 248, 0.1);
+    --danger: #f43f5e;
+
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+
+    --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+    --font-serif: 'Instrument Serif', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    height: 100%;
+    overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea { font-family: inherit; background: none; border: none; color: inherit; outline: none; }
+  input:focus, textarea:focus { outline: none; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+  /* App shell ------------------------------------------------------ */
+  .app {
+    display: grid;
+    grid-template-columns: 248px 1fr;
+    height: 100vh;
+  }
+
+  /* Sidebar -------------------------------------------------------- */
+  .sidebar {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 12px;
+    gap: 4px;
+    overflow-y: auto;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    margin-bottom: 12px;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent) 0%, #f97316 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #1a0f00; font-weight: 700; font-size: 16px;
+    box-shadow: 0 0 0 1px rgba(252,177,58,0.2), 0 2px 8px rgba(252,177,58,0.15);
+  }
+  .brand-name {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .brand-name span { color: var(--accent); }
+
+  .workspace {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; margin: 4px 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elev-1);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .workspace:hover { border-color: var(--border-strong); }
+  .workspace-info { display: flex; align-items: center; gap: 8px; }
+  .workspace-avatar {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: #2d4a32; color: #86efac;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+  }
+  .workspace-name { font-size: 13px; font-weight: 500; }
+  .workspace-plan { font-size: 11px; color: var(--text-mute); }
+
+  .nav-section { margin-top: 8px; }
+  .nav-label {
+    font-size: 11px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 6px 10px; font-weight: 500;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 8px;
+    font-size: 13px; color: var(--text-dim);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .nav-item:hover { background: var(--bg-elev-1); color: var(--text); }
+  .nav-item.active {
+    background: var(--bg-elev-2);
+    color: var(--text);
+  }
+  .nav-item.active .nav-icon { color: var(--accent); }
+  .nav-icon {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-mute);
+  }
+  .nav-item.active .nav-icon { color: var(--accent); }
+  .nav-badge {
+    margin-left: auto;
+    font-size: 10px; padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+  }
+  .usage-card {
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .usage-row {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-mute);
+    margin-bottom: 6px;
+  }
+  .usage-bar {
+    height: 4px; background: var(--bg-elev-2);
+    border-radius: 2px; overflow: hidden;
+  }
+  .usage-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent) 0%, #f97316 100%);
+    width: 34%;
+  }
+
+  /* Main content -------------------------------------------------- */
+  .main {
+    overflow-y: auto;
+    background: var(--bg);
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 28px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: rgba(10,10,11,0.85);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+  }
+  .topbar-search {
+    flex: 1; max-width: 420px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-mute);
+    font-size: 13px;
+  }
+  .topbar-search:hover { border-color: var(--border-strong); }
+  .topbar-search kbd {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 5px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-mute);
+  }
+  .topbar-actions {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    color: var(--text-dim);
+    transition: all 0.12s;
+  }
+  .icon-btn:hover { background: var(--bg-elev-1); color: var(--text); }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    background: var(--accent);
+    color: #1a0f00;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    transition: all 0.12s;
+  }
+  .btn-primary:hover { background: #fbc167; transform: translateY(-1px); }
+
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    transition: all 0.12s;
+  }
+  .btn-secondary:hover { border-color: var(--border-strong); background: var(--bg-elev-2); }
+
+  /* Content area -------------------------------------------------- */
+  .content { padding: 28px 28px 60px; max-width: 1280px; margin: 0 auto; }
+
+  /* View: hidden by default; .active reveals */
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Page header */
+  .page-header { margin-bottom: 24px; }
+  .page-title {
+    font-size: 26px; font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 8px;
+  }
+  .page-title em {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--accent);
+  }
+  .page-subtitle {
+    color: var(--text-dim); font-size: 14px;
+    max-width: 640px;
+  }
+
+  /* Filter row */
+  .filter-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 20px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    padding: 5px 11px;
+    font-size: 12px; font-weight: 500;
+    color: var(--text-dim);
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    transition: all 0.12s;
+  }
+  .filter-chip:hover { color: var(--text); border-color: var(--border-strong); }
+  .filter-chip.active {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .filter-spacer { flex: 1; }
+  .filter-sort {
+    font-size: 12px; color: var(--text-mute);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* Templates grid */
+  .templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .template-card {
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .template-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    background: var(--bg-elev-2);
+  }
+  .template-card::after {
+    content: ''; position: absolute; inset: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 0 0 1px transparent;
+    pointer-events: none;
+    transition: box-shadow 0.2s;
+  }
+  .template-card:hover::after {
+    box-shadow: 0 0 24px rgba(252, 177, 58, 0.06);
+  }
+
+  .template-card-hero {
+    padding: 20px 20px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .template-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .template-icon[data-tone="amber"]  { background: rgba(252,177,58,0.12);  color: #fcb13a; }
+  .template-icon[data-tone="green"]  { background: rgba(34,197,94,0.12);   color: #4ade80; }
+  .template-icon[data-tone="rose"]   { background: rgba(244,63,94,0.12);   color: #fb7185; }
+  .template-icon[data-tone="blue"]   { background: rgba(56,189,248,0.12);  color: #38bdf8; }
+  .template-icon[data-tone="violet"] { background: rgba(167,139,250,0.12); color: #a78bfa; }
+  .template-icon[data-tone="teal"]   { background: rgba(45,212,191,0.12);  color: #2dd4bf; }
+
+  .template-meta { flex: 1; min-width: 0; }
+  .template-name {
+    font-size: 15px; font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .template-vertical {
+    font-size: 11px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  .template-card-body {
+    padding: 0 20px 16px;
+    flex: 1;
+  }
+  .template-desc {
+    font-size: 13px; color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  .template-card-foot {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    gap: 8px;
+    font-size: 11px; color: var(--text-mute);
+  }
+  .capability-tag {
+    padding: 3px 8px;
+    background: var(--bg-elev-3);
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .deploy-time {
+    margin-left: auto;
+    color: var(--text-mute);
+    font-size: 11px;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* Section divider */
+  .section-divider {
+    margin: 40px 0 20px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .section-divider-title {
+    font-size: 13px; font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .section-divider-line {
+    flex: 1; height: 1px;
+    background: var(--border);
+  }
+
+  /* Template detail view ----------------------------------------- */
+  .detail {
+    display: grid;
+    grid-template-columns: 1fr 440px;
+    gap: 28px;
+    margin-top: 0;
+  }
+
+  .detail-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+  .detail-back:hover { color: var(--text); }
+
+  .detail-hero {
+    display: flex; gap: 18px;
+    margin-bottom: 24px;
+  }
+  .detail-hero .template-icon {
+    width: 64px; height: 64px;
+    font-size: 32px;
+    border-radius: 14px;
+  }
+  .detail-title { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .detail-vertical { font-size: 12px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; margin-bottom: 8px; }
+  .detail-desc { font-size: 15px; color: var(--text-dim); line-height: 1.6; max-width: 560px; }
+
+  .detail-section { margin-bottom: 28px; }
+  .detail-section-title {
+    font-size: 12px; font-weight: 500;
+    color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 12px;
+  }
+
+  .capabilities-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .capability-item {
+    display: flex; gap: 10px;
+    padding: 12px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .capability-check {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    background: var(--success-bg);
+    color: var(--success);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .capability-text { font-size: 13px; color: var(--text); line-height: 1.45; }
+  .capability-text small { color: var(--text-mute); display: block; margin-top: 2px; font-size: 11.5px; }
+
+  .integrations-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .integration-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12.5px;
+    color: var(--text);
+  }
+  .integration-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+  }
+
+  /* Workflow preview (mini) */
+  .workflow-preview {
+    padding: 20px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    position: relative;
+    overflow: hidden;
+  }
+  .workflow-preview::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0);
+    background-size: 16px 16px;
+    pointer-events: none;
+  }
+  .workflow-nodes {
+    display: flex; align-items: center;
+    gap: 8px; flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+  .wf-node {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px;
+    background: var(--bg-elev-3);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .wf-node-icon { color: var(--accent); font-size: 13px; }
+  .wf-node[data-type="trigger"] .wf-node-icon { color: var(--success); }
+  .wf-node[data-type="ai"] .wf-node-icon { color: var(--accent); }
+  .wf-node[data-type="payment"] .wf-node-icon { color: var(--success); }
+  .wf-node[data-type="data"] .wf-node-icon { color: var(--info); }
+  .wf-arrow { color: var(--text-faint); font-size: 12px; }
+
+  /* Chat preview (right column) ---------------------------------- */
+  .chat-preview {
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 76px;
+    height: calc(100vh - 110px);
+  }
+  .chat-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .chat-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--success-bg);
+    color: var(--success);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .chat-business { font-size: 13px; font-weight: 600; }
+  .chat-status {
+    font-size: 11px; color: var(--text-mute);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .chat-status::before {
+    content: ''; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--success);
+  }
+  .chat-channel {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 3px 8px;
+    background: var(--success-bg);
+    color: var(--success);
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  .chat-body {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.02) 1px, transparent 0);
+    background-size: 20px 20px;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .msg {
+    max-width: 78%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    animation: msgIn 0.25s ease;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .msg-in {
+    align-self: flex-start;
+    background: var(--bg-elev-2);
+    border-bottom-left-radius: 4px;
+    color: var(--text);
+  }
+  .msg-out {
+    align-self: flex-end;
+    background: #2a5a3a;
+    color: #d1fae5;
+    border-bottom-right-radius: 4px;
+  }
+  .msg-meta {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 2px;
+    align-self: flex-end;
+    padding: 0 4px;
+  }
+  .msg-meta-in { align-self: flex-start; }
+
+  .msg-system {
+    align-self: center;
+    font-size: 11px;
+    color: var(--text-mute);
+    background: var(--bg-elev-2);
+    padding: 5px 10px;
+    border-radius: 999px;
+    margin: 4px 0;
+  }
+  .msg-payment {
+    align-self: flex-end;
+    background: var(--bg-elev-3);
+    border: 1px solid var(--success);
+    color: var(--success);
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    max-width: 78%;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .msg-payment-title { font-weight: 600; font-size: 13px; color: var(--success); }
+  .msg-payment-amount { font-size: 20px; font-weight: 600; color: var(--text); font-family: var(--font-mono); }
+  .msg-payment-desc { color: var(--text-dim); font-size: 11.5px; }
+
+  .typing {
+    align-self: flex-start;
+    padding: 10px 14px;
+    background: var(--bg-elev-2);
+    border-radius: 12px;
+    border-bottom-left-radius: 4px;
+    display: flex; gap: 4px;
+  }
+  .typing-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-mute);
+    animation: typingBounce 1.2s infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+
+  .chat-trace {
+    border-top: 1px solid var(--border);
+    background: var(--bg-elev-1);
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--text-mute);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-height: 36px;
+  }
+  .chat-trace-label { color: var(--text-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .trace-step {
+    padding: 2px 6px;
+    background: var(--bg-elev-2);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 10.5px;
+  }
+  .trace-step.success { color: var(--success); border-left: 2px solid var(--success); }
+
+  .chat-input-wrap {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-elev-1);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .chat-input {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .chat-input:focus { border-color: var(--border-strong); }
+  .chat-send {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #1a0f00;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.12s;
+  }
+  .chat-send:hover { background: #fbc167; }
+  .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .suggestions {
+    padding: 8px 16px 0;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .suggestion {
+    padding: 5px 10px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--text-dim);
+    transition: all 0.12s;
+  }
+  .suggestion:hover { color: var(--text); border-color: var(--border-strong); }
+
+  /* Detail action bar */
+  .detail-actions {
+    display: flex; gap: 10px;
+    margin-top: 20px;
+  }
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .stat {
+    padding: 12px 14px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .stat-label { font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-value { font-size: 18px; font-weight: 600; margin-top: 4px; }
+  .stat-value em { font-family: var(--font-mono); font-style: normal; color: var(--accent); }
+
+  /* Inbox view --------------------------------------------------- */
+  .inbox-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: calc(100vh - 75px);
+    margin: -28px -28px 0;
+    border-top: 1px solid var(--border);
+  }
+  .conv-list {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .conv-list-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0;
+    background: var(--bg);
+    z-index: 1;
+  }
+  .conv-list-title { font-size: 14px; font-weight: 600; }
+  .conv-tab-row { display: flex; gap: 4px; margin-left: auto; }
+  .conv-tab {
+    font-size: 11px; padding: 4px 8px;
+    border-radius: 6px;
+    color: var(--text-mute);
+  }
+  .conv-tab.active { background: var(--bg-elev-2); color: var(--text); }
+
+  .conv-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex; gap: 12px;
+    transition: background 0.1s;
+  }
+  .conv-item:hover { background: var(--bg-elev-1); }
+  .conv-item.active { background: var(--bg-elev-1); border-left: 2px solid var(--accent); padding-left: 14px; }
+  .conv-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-elev-2);
+    color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 500;
+    flex-shrink: 0;
+  }
+  .conv-body { flex: 1; min-width: 0; }
+  .conv-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .conv-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv-time { font-size: 11px; color: var(--text-mute); flex-shrink: 0; }
+  .conv-preview {
+    font-size: 12px; color: var(--text-mute);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  .conv-badges { display: flex; gap: 4px; margin-top: 4px; }
+  .badge-ai { font-size: 9.5px; padding: 1px 5px; background: var(--accent-bg); color: var(--accent); border-radius: 4px; font-weight: 500; }
+  .badge-human { font-size: 9.5px; padding: 1px 5px; background: var(--info-bg); color: var(--info); border-radius: 4px; font-weight: 500; }
+  .badge-paid { font-size: 9.5px; padding: 1px 5px; background: var(--success-bg); color: var(--success); border-radius: 4px; font-weight: 500; }
+
+  .conv-detail {
+    display: flex; flex-direction: column;
+    background: var(--bg-elev-1);
+  }
+  .conv-detail-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg);
+  }
+  .conv-detail-body {
+    flex: 1; overflow-y: auto;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--bg-elev-1);
+  }
+  .conv-detail-footer {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    background: var(--bg);
+  }
+  .handoff-banner {
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    background: var(--info-bg);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--info);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .handoff-banner button {
+    margin-left: auto;
+    padding: 4px 10px;
+    background: var(--info);
+    color: #001a2e;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Dashboard ---------------------------------------------------- */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    padding: 18px 20px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .stat-card-label {
+    font-size: 11.5px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-card-value {
+    font-size: 28px; font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .stat-card-value small {
+    font-size: 14px; color: var(--text-mute);
+    font-weight: 400; margin-left: 4px;
+  }
+  .stat-card-delta {
+    font-size: 12px;
+    margin-top: 6px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .stat-card-delta.up { color: var(--success); }
+  .stat-card-delta.down { color: var(--danger); }
+
+  .panel {
+    padding: 20px;
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .panel-title {
+    font-size: 14px; font-weight: 600;
+    margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title small {
+    font-size: 11px; color: var(--text-mute);
+    font-weight: 400;
+  }
+
+  .chart-area {
+    height: 200px;
+    display: flex; align-items: flex-end;
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .chart-bar {
+    flex: 1;
+    background: linear-gradient(180deg, var(--accent) 0%, rgba(252,177,58,0.2) 100%);
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    min-height: 4px;
+    transition: opacity 0.2s;
+  }
+  .chart-bar:hover { opacity: 0.7; }
+  .chart-bar::after {
+    content: attr(data-day);
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-mute);
+  }
+
+  .activity-list { display: flex; flex-direction: column; }
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+  .activity-dot.success { background: var(--success); }
+  .activity-dot.info { background: var(--info); }
+  .activity-text { flex: 1; line-height: 1.5; }
+  .activity-text strong { font-weight: 500; }
+  .activity-text small { color: var(--text-mute); display: block; font-size: 11px; margin-top: 2px; }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+  }
+
+  /* Empty / footer ----------------------------------------------- */
+  .footer-cta {
+    margin-top: 40px;
+    padding: 24px 28px;
+    background: linear-gradient(135deg, rgba(252,177,58,0.06) 0%, rgba(34,197,94,0.03) 100%);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-lg);
+    display: flex; align-items: center; gap: 20px;
+  }
+  .footer-cta-text h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .footer-cta-text p { font-size: 13px; color: var(--text-dim); max-width: 480px; }
+  .footer-cta-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  /* Tabler-ish icon helpers (we use unicode/css icons) ----------- */
+  .i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em; height: 1em;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============== SIDEBAR =================================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div class="brand-name">Prune<span>.</span>ai</div>
+    </div>
+
+    <div class="workspace">
+      <div class="workspace-info">
+        <div class="workspace-avatar">AS</div>
+        <div>
+          <div class="workspace-name">Asha Salon</div>
+          <div class="workspace-plan">Starter · Westlands</div>
+        </div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-mute)"><path d="m8 9 4-4 4 4"/><path d="m16 15-4 4-4-4"/></svg>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" data-view="dashboard">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
+        Overview
+      </a>
+      <a class="nav-item active" data-view="templates">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg></span>
+        Templates
+        <span class="nav-badge">6</span>
+      </a>
+      <a class="nav-item" data-view="inbox">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        Inbox
+        <span class="nav-badge">12</span>
+      </a>
+      <a class="nav-item" data-view="builder">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6"/><path d="M9 18h6"/><path d="M6 9v6"/></svg></span>
+        Workflows
+      </a>
+      <a class="nav-item">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+        Knowledge base
+      </a>
+      <a class="nav-item">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
+        Analytics
+      </a>
+      <a class="nav-item">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M21 8 12 17l-4-4-7 7"/></svg></span>
+        Integrations
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Settings</div>
+      <a class="nav-item">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg></span>
+        Team
+      </a>
+      <a class="nav-item">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+        Billing
+      </a>
+      <a class="nav-item">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1"/></svg></span>
+        Settings
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="usage-card">
+        <div class="usage-row">
+          <span>Messages this month</span>
+          <span style="color:var(--text);font-weight:500">340 / 1k</span>
+        </div>
+        <div class="usage-bar"><div class="usage-fill"></div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============== MAIN ====================================== -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>Search templates, contacts, workflows…</span>
+        <kbd>⌘K</kbd>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" aria-label="Notifications">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        </button>
+        <button class="btn-secondary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+        <button class="btn-primary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          New workflow
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ====================================================
+           VIEW: TEMPLATES (default / main product surface)
+      ===================================================== -->
+      <section id="view-templates" class="view active">
+        <div class="page-header">
+          <h1 class="page-title">Start with a <em>template</em> made for African businesses.</h1>
+          <p class="page-subtitle">Pre-built AI assistants for the real workflows of Kenyan SMEs — pre-wired with WhatsApp, M-Pesa, and Swahili. Deploy one in five minutes, customize as you grow.</p>
+        </div>
+
+        <div class="filter-row">
+          <button class="filter-chip active">All templates</button>
+          <button class="filter-chip">Bookings</button>
+          <button class="filter-chip">Support</button>
+          <button class="filter-chip">Payments</button>
+          <button class="filter-chip">Lead capture</button>
+          <button class="filter-chip">Multilingual</button>
+          <div class="filter-spacer"></div>
+          <div class="filter-sort">
+            Sort by
+            <span style="color:var(--text)">Most popular</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+
+        <div class="templates-grid" id="templates-grid">
+          <!-- populated by JS -->
+        </div>
+
+        <div class="footer-cta">
+          <div class="footer-cta-text">
+            <h3>Don't see your use case?</h3>
+            <p>Start with the closest template and modify in the visual builder — or describe what you want and our AI will draft a custom workflow.</p>
+          </div>
+          <div class="footer-cta-actions">
+            <button class="btn-secondary">Describe with AI</button>
+            <button class="btn-primary">Build from scratch</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           VIEW: TEMPLATE DETAIL
+      ===================================================== -->
+      <section id="view-detail" class="view">
+        <a class="detail-back" data-view="templates">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+          Back to templates
+        </a>
+
+        <div class="detail">
+          <div class="detail-left">
+            <div class="detail-hero">
+              <div class="template-icon" id="detail-icon" data-tone="amber">💇</div>
+              <div>
+                <div class="detail-vertical" id="detail-vertical">Beauty & Salons</div>
+                <h1 class="detail-title" id="detail-title">Salon Booking Assistant</h1>
+                <p class="detail-desc" id="detail-desc">Customers WhatsApp your salon to book — and the assistant handles it end-to-end: shows your services, offers available slots, takes an M-Pesa deposit, and sends a confirmation.</p>
+              </div>
+            </div>
+
+            <div class="detail-actions">
+              <button class="btn-primary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Deploy this template</button>
+              <button class="btn-secondary">Open in builder</button>
+              <button class="btn-secondary">Duplicate</button>
+            </div>
+
+            <div class="detail-section" style="margin-top: 28px;">
+              <div class="detail-section-title">What this assistant does</div>
+              <div class="capabilities-list" id="detail-capabilities">
+                <!-- populated by JS -->
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-title">Workflow preview</div>
+              <div class="workflow-preview">
+                <div class="workflow-nodes" id="detail-workflow">
+                  <!-- populated by JS -->
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-title">Required integrations</div>
+              <div class="integrations-row">
+                <div class="integration-badge"><span class="integration-dot"></span>WhatsApp Business</div>
+                <div class="integration-badge"><span class="integration-dot" style="background:var(--accent)"></span>M-Pesa Daraja</div>
+                <div class="integration-badge"><span class="integration-dot" style="background:var(--info)"></span>Google Calendar</div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section-title">What businesses like you achieve</div>
+              <div class="stat-row">
+                <div class="stat">
+                  <div class="stat-label">Avg. response</div>
+                  <div class="stat-value"><em>3.4s</em></div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Automation rate</div>
+                  <div class="stat-value"><em>87%</em></div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Deploy time</div>
+                  <div class="stat-value"><em>~5min</em></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: chat preview -->
+          <div class="chat-preview">
+            <div class="chat-header">
+              <div class="chat-avatar" id="chat-avatar">A</div>
+              <div>
+                <div class="chat-business" id="chat-business">Asha Salon</div>
+                <div class="chat-status">AI assistant active</div>
+              </div>
+              <div class="chat-channel">WhatsApp</div>
+            </div>
+            <div class="chat-body" id="chat-body">
+              <!-- populated by JS -->
+            </div>
+            <div class="suggestions" id="suggestions">
+              <!-- populated by JS -->
+            </div>
+            <div class="chat-trace" id="chat-trace">
+              <span class="chat-trace-label">Run trace:</span>
+              <span class="trace-step">idle</span>
+            </div>
+            <div class="chat-input-wrap">
+              <input class="chat-input" id="chat-input" placeholder="Type as a customer would…" />
+              <button class="chat-send" id="chat-send" aria-label="Send">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           VIEW: INBOX
+      ===================================================== -->
+      <section id="view-inbox" class="view">
+        <div class="page-header">
+          <h1 class="page-title">Inbox</h1>
+          <p class="page-subtitle">Live conversations across all your channels. Watch the AI handle them — step in when you need to.</p>
+        </div>
+
+        <div class="inbox-grid">
+          <div class="conv-list">
+            <div class="conv-list-header">
+              <div class="conv-list-title">Conversations</div>
+              <div class="conv-tab-row">
+                <button class="conv-tab active">All</button>
+                <button class="conv-tab">AI</button>
+                <button class="conv-tab">Human</button>
+              </div>
+            </div>
+
+            <div class="conv-item active">
+              <div class="conv-avatar">WK</div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <div class="conv-name">Wanjiku Kamau</div>
+                  <div class="conv-time">2m</div>
+                </div>
+                <div class="conv-preview">Asante! What time works for Saturday?</div>
+                <div class="conv-badges"><span class="badge-ai">AI</span> <span class="badge-paid">KES 500 paid</span></div>
+              </div>
+            </div>
+            <div class="conv-item">
+              <div class="conv-avatar">JO</div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <div class="conv-name">John Odhiambo</div>
+                  <div class="conv-time">8m</div>
+                </div>
+                <div class="conv-preview">Just sent KSh 500 via M-Pesa, ref QPL...</div>
+                <div class="conv-badges"><span class="badge-ai">AI</span></div>
+              </div>
+            </div>
+            <div class="conv-item">
+              <div class="conv-avatar">MN</div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <div class="conv-name">Mary Njeri</div>
+                  <div class="conv-time">17m</div>
+                </div>
+                <div class="conv-preview">Can I speak to someone please?</div>
+                <div class="conv-badges"><span class="badge-human">Human</span></div>
+              </div>
+            </div>
+            <div class="conv-item">
+              <div class="conv-avatar">DK</div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <div class="conv-name">David Kiprop</div>
+                  <div class="conv-time">34m</div>
+                </div>
+                <div class="conv-preview">Sawa, weekend booking confirmed.</div>
+                <div class="conv-badges"><span class="badge-ai">AI</span></div>
+              </div>
+            </div>
+            <div class="conv-item">
+              <div class="conv-avatar">AS</div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <div class="conv-name">Aisha Said</div>
+                  <div class="conv-time">1h</div>
+                </div>
+                <div class="conv-preview">What's the price for cornrows?</div>
+                <div class="conv-badges"><span class="badge-ai">AI</span></div>
+              </div>
+            </div>
+            <div class="conv-item">
+              <div class="conv-avatar">PM</div>
+              <div class="conv-body">
+                <div class="conv-top">
+                  <div class="conv-name">Peter Mwangi</div>
+                  <div class="conv-time">2h</div>
+                </div>
+                <div class="conv-preview">Karibu, asante for visiting us...</div>
+                <div class="conv-badges"><span class="badge-ai">AI</span> <span class="badge-paid">KES 1,200 paid</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="conv-detail">
+            <div class="conv-detail-header">
+              <div class="conv-avatar">WK</div>
+              <div>
+                <div style="font-size: 14px; font-weight: 600;">Wanjiku Kamau</div>
+                <div style="font-size: 11px; color: var(--text-mute)">+254 712 345 678 · WhatsApp · Westlands</div>
+              </div>
+              <div style="margin-left: auto; display: flex; gap: 6px;">
+                <button class="btn-secondary" style="font-size: 12px; padding: 5px 10px;">Take over from AI</button>
+                <button class="icon-btn" aria-label="Snooze"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+              </div>
+            </div>
+            <div class="conv-detail-body">
+              <div class="msg msg-in">Habari! Naomba kubook braids weekend hii.</div>
+              <div class="msg-meta msg-meta-in">10:42 AM</div>
+              <div class="msg msg-out">Habari Wanjiku! Box braids 🎉 We have these slots this weekend:<br><br>📅 Sat — 10am, 2pm, 5pm<br>📅 Sun — 11am, 3pm<br><br>Deposit ni KES 500 via M-Pesa kuconfirm. Saa gani inakufaa?</div>
+              <div class="msg-meta">10:42 AM</div>
+              <div class="msg msg-in">Saturday 2pm please</div>
+              <div class="msg-meta msg-meta-in">10:43 AM</div>
+              <div class="msg msg-out">Perfect ✨ Sending STK push for KES 500 on +254 712 345 678. Please enter your M-Pesa PIN to confirm.</div>
+              <div class="msg-meta">10:43 AM</div>
+              <div class="msg-system">M-Pesa STK Push initiated · awaiting confirmation</div>
+              <div class="msg-payment">
+                <div class="msg-payment-title">✓ Payment received</div>
+                <div class="msg-payment-amount">KES 500</div>
+                <div class="msg-payment-desc">M-Pesa ref · QPL7XZ4M2N · 10:44 AM</div>
+              </div>
+              <div class="msg msg-out">Asante sana Wanjiku! 🙏 Your booking is confirmed:<br><br>📅 Saturday, 2:00 PM<br>💇 Box braids<br>📍 Asha Salon, Westlands<br><br>Tutakuona Saturday. Karibu!</div>
+              <div class="msg-meta">10:44 AM</div>
+              <div class="msg msg-in">Asante! What time works for Saturday?</div>
+              <div class="msg-meta msg-meta-in">10:45 AM</div>
+            </div>
+            <div class="conv-detail-footer">
+              <div class="handoff-banner">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                AI is responding to this conversation. Your reply will pause the AI.
+                <button>Take over</button>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input class="chat-input" placeholder="Reply to Wanjiku…" style="flex: 1" />
+                <button class="chat-send" aria-label="Send">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           VIEW: DASHBOARD
+      ===================================================== -->
+      <section id="view-dashboard" class="view">
+        <div class="page-header">
+          <h1 class="page-title">Welcome back, Asha 👋</h1>
+          <p class="page-subtitle">Here's how your AI assistants performed this week.</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">Conversations</div>
+            <div class="stat-card-value">340</div>
+            <div class="stat-card-delta up">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" transform="scale(1,-1) translate(0,-24)"/></svg>
+              +12% vs last week
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Automation rate</div>
+            <div class="stat-card-value">87<small>%</small></div>
+            <div class="stat-card-delta up">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" transform="scale(1,-1) translate(0,-24)"/></svg>
+              +4 pts
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">M-Pesa volume</div>
+            <div class="stat-card-value">KES 184<small>k</small></div>
+            <div class="stat-card-delta up">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" transform="scale(1,-1) translate(0,-24)"/></svg>
+              +KES 22k
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Time saved</div>
+            <div class="stat-card-value">26<small>hrs</small></div>
+            <div class="stat-card-delta up">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" transform="scale(1,-1) translate(0,-24)"/></svg>
+              ≈ 3 work days
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="panel">
+            <div class="panel-title">
+              Conversations this week
+              <small>Mon–Sun · all channels</small>
+            </div>
+            <div class="chart-area">
+              <div class="chart-bar" style="height: 40%" data-day="Mon"></div>
+              <div class="chart-bar" style="height: 65%" data-day="Tue"></div>
+              <div class="chart-bar" style="height: 55%" data-day="Wed"></div>
+              <div class="chart-bar" style="height: 78%" data-day="Thu"></div>
+              <div class="chart-bar" style="height: 92%" data-day="Fri"></div>
+              <div class="chart-bar" style="height: 88%" data-day="Sat"></div>
+              <div class="chart-bar" style="height: 35%" data-day="Sun"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Recent activity</div>
+            <div class="activity-list">
+              <div class="activity-item">
+                <div class="activity-dot success"></div>
+                <div class="activity-text">
+                  <strong>Wanjiku K.</strong> paid KES 500 deposit
+                  <small>2 min ago · Salon booking</small>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot"></div>
+                <div class="activity-text">
+                  <strong>Mary N.</strong> requested human handoff
+                  <small>17 min ago · Asked for owner</small>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot info"></div>
+                <div class="activity-text">
+                  <strong>Aisha S.</strong> new contact added
+                  <small>1 hour ago · First WhatsApp</small>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot success"></div>
+                <div class="activity-text">
+                  <strong>Peter M.</strong> paid KES 1,200 (cornrows)
+                  <small>2 hours ago · Repeat customer</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           VIEW: BUILDER (peek)
+      ===================================================== -->
+      <section id="view-builder" class="view">
+        <div class="page-header">
+          <h1 class="page-title">Workflows</h1>
+          <p class="page-subtitle">Templates power your workflows. Click into one to inspect the visual graph.</p>
+        </div>
+        <div class="panel" style="min-height: 500px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;">
+          <div style="font-size: 48px; opacity: 0.4;">🔧</div>
+          <div style="font-size: 15px; font-weight: 500;">Visual workflow builder</div>
+          <div style="color: var(--text-mute); font-size: 13px; text-align: center; max-width: 360px;">React Flow-based drag-and-drop canvas. Coming in the next milestone — for now, every template is fully editable as JSON via the API.</div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ============== TEMPLATE DATA + APP LOGIC =============== -->
+<script>
+const TEMPLATES = [
+  {
+    slug: 'salon-booking',
+    name: 'Salon Booking Assistant',
+    icon: '💇',
+    tone: 'amber',
+    vertical: 'Beauty & Salons',
+    avatar: 'A',
+    business: 'Asha Salon',
+    description: 'Customers WhatsApp your salon to book — and the assistant handles it end-to-end: shows your services, offers available slots, takes an M-Pesa deposit, and sends a confirmation.',
+    shortDesc: 'Books appointments via WhatsApp, takes M-Pesa deposits, sends reminders.',
+    tags: ['Bookings', 'M-Pesa', 'Multilingual'],
+    capabilities: [
+      { title: 'Show services & pricing', desc: 'Pulls from your knowledge base' },
+      { title: 'Check availability', desc: 'Real-time from your calendar' },
+      { title: 'Take M-Pesa deposit', desc: 'STK push, confirmation, receipt' },
+      { title: 'Send reminders', desc: '24h and 2h before appointment' },
+      { title: 'Reschedule & cancel', desc: 'No call needed' },
+      { title: 'Switch to English/Swahili', desc: 'Auto-detect language' }
+    ],
+    workflow: [
+      { type: 'trigger', icon: '📨', label: 'WA message' },
+      { type: 'ai', icon: '🧠', label: 'Intent' },
+      { type: 'data', icon: '📚', label: 'Services KB' },
+      { type: 'ai', icon: '✨', label: 'Reply' },
+      { type: 'payment', icon: '💰', label: 'M-Pesa STK' },
+      { type: 'data', icon: '📅', label: 'Calendar' }
+    ],
+    suggestions: [
+      'Naomba kubook braids weekend',
+      'How much for cornrows?',
+      'Can I cancel Saturday?'
+    ],
+    seedMessages: [
+      { dir: 'in', text: 'Hi! Looking to book braids this Saturday', time: '10:42 AM' },
+      { dir: 'out', text: 'Habari! 💇 Box braids on Saturday — we have 10am, 2pm, or 5pm available. Deposit is KES 500 via M-Pesa to confirm. Saa gani inakufaa?', time: '10:42 AM' }
+    ],
+    responses: {
+      booking: 'Sawa! Sending STK push for KES 500 deposit to your number now. Please enter your M-Pesa PIN to confirm. Your slot is held for 5 minutes.',
+      pricing: 'Here\'s our menu:\n• Box braids — KES 2,500\n• Cornrows — KES 1,200\n• Twist out — KES 1,800\n• Hair wash + style — KES 800\n\nWould you like to book any of these?',
+      cancel: 'No worries! Which booking would you like to cancel? Please share your name or the date/time of the appointment.',
+      default: 'I can help you with bookings, pricing, or rescheduling. What would you like to do today?'
+    }
+  },
+  {
+    slug: 'sacco-support',
+    name: 'SACCO Support Bot',
+    icon: '🏦',
+    tone: 'green',
+    vertical: 'Financial Services',
+    avatar: 'J',
+    business: 'Jenga SACCO',
+    description: 'Members WhatsApp your SACCO for loan inquiries, balance checks, contribution status, and FAQs — with secure verification and clean handoff to officers for sensitive cases.',
+    shortDesc: 'Handles loan inquiries, balance checks, and FAQs for SACCO members securely.',
+    tags: ['Support', 'Multilingual'],
+    capabilities: [
+      { title: 'Loan eligibility check', desc: 'Based on contribution history' },
+      { title: 'Member verification', desc: 'Multi-factor, never asks for PIN' },
+      { title: 'Balance & statements', desc: 'On-demand mini-statements' },
+      { title: 'Contribution reminders', desc: 'Scheduled by membership tier' },
+      { title: 'Loan calculator', desc: 'Interest, term, monthly repayment' },
+      { title: 'Officer escalation', desc: 'When sensitive or complex' }
+    ],
+    workflow: [
+      { type: 'trigger', icon: '📨', label: 'WA message' },
+      { type: 'ai', icon: '🧠', label: 'Verify member' },
+      { type: 'data', icon: '🔐', label: 'CRM lookup' },
+      { type: 'ai', icon: '✨', label: 'Reply' },
+      { type: 'data', icon: '⚠️', label: 'Escalate?' }
+    ],
+    suggestions: [
+      'What\'s my loan balance?',
+      'How do I apply for a loan?',
+      'I want to speak to an officer'
+    ],
+    seedMessages: [
+      { dir: 'in', text: 'Habari, naomba kujua status ya loan yangu', time: '09:15 AM' },
+      { dir: 'out', text: 'Habari! 🙏 To check your loan status securely, please share your member number (e.g. JNS-1234). I won\'t ever ask for your PIN or password.', time: '09:15 AM' }
+    ],
+    responses: {
+      loan: 'Based on your contribution record, you qualify for a loan up to KES 240,000 at 12% p.a. for up to 36 months. Would you like to start an application? An officer will be assigned to guide you.',
+      balance: 'Your current loan balance is KES 87,500 with KES 12,500 paid this month. Next installment of KES 8,200 is due on the 15th. Would you like a full statement?',
+      pricing: 'Our loan rates depend on type:\n• Personal — 12% p.a.\n• Emergency — 10% p.a.\n• School fees — 8% p.a.\n• Business — 14% p.a.\n\nAll for up to 36 months.',
+      human: 'I\'ll connect you with a loans officer. Your spot in queue is #3 — average wait is 4 minutes. Stay on this chat and they\'ll join shortly.',
+      default: 'I can help with: loan inquiries, balance checks, contribution status, or officer handoff. What do you need?'
+    }
+  },
+  {
+    slug: 'church-followup',
+    name: 'Church Follow-Up Bot',
+    icon: '⛪',
+    tone: 'violet',
+    vertical: 'Faith Community',
+    avatar: 'M',
+    business: 'Mavuno Hill',
+    description: 'Warmly welcome first-time visitors, collect prayer requests, share service times, register people for events, and send weekly devotionals — without losing the personal touch.',
+    shortDesc: 'Welcomes visitors, collects prayer requests, registers for events, sends devotionals.',
+    tags: ['Lead capture', 'Multilingual'],
+    capabilities: [
+      { title: 'Welcome new visitors', desc: 'Personalized after first service' },
+      { title: 'Prayer request intake', desc: 'Routed to prayer team' },
+      { title: 'Event registration', desc: 'Sunday service, conferences, retreats' },
+      { title: 'Weekly devotional', desc: 'Opt-in, sent Wednesday mornings' },
+      { title: 'Service time queries', desc: 'Locations, languages, kid service' },
+      { title: 'Pastoral handoff', desc: 'For sensitive conversations' }
+    ],
+    workflow: [
+      { type: 'trigger', icon: '📨', label: 'WA message' },
+      { type: 'ai', icon: '🧠', label: 'Intent' },
+      { type: 'data', icon: '📅', label: 'Events' },
+      { type: 'ai', icon: '💝', label: 'Pastoral reply' },
+      { type: 'data', icon: '📨', label: 'Add to list' }
+    ],
+    suggestions: [
+      'I visited last Sunday',
+      'I\'d like prayer for my family',
+      'When is the next service?'
+    ],
+    seedMessages: [
+      { dir: 'in', text: 'Hi, I came to your service yesterday for the first time', time: '08:30 AM' },
+      { dir: 'out', text: 'Karibu sana! 🙏 We\'re so blessed you joined us. May I know your name? I\'d love to make sure our team welcomes you properly next Sunday.', time: '08:30 AM' }
+    ],
+    responses: {
+      visit: 'That\'s wonderful! 🙏 Pastor James would love to greet you personally next Sunday. We have services at 8am (English), 10am (Swahili), and 4pm (Youth). Which time works for you? Also — would you like to receive our weekly devotional?',
+      prayer: 'Thank you for sharing this with us 💝 Your request is being sent to our prayer team, and we\'ll pray for you this week. Would you like a pastor to reach out personally? Everything you share is confidential.',
+      service: 'Our service times this Sunday:\n\n⛪ 8:00 AM — English\n⛪ 10:00 AM — Swahili\n⛪ 4:00 PM — Youth service\n\nLocation: Mavuno Hill, off Mombasa Rd. Kids ministry runs at all services. Karibu!',
+      default: 'Karibu! 🙏 I can help with: service times, prayer requests, event registration, or connecting you with a pastor. What can I help with today?'
+    }
+  },
+  {
+    slug: 'realestate-inquiry',
+    name: 'Real Estate Inquiry Bot',
+    icon: '🏘️',
+    tone: 'blue',
+    vertical: 'Real Estate',
+    avatar: 'P',
+    business: 'Pacific Place',
+    description: 'Capture leads from your listings on Property24, Jumia, OLX. Qualify by budget, location, and intent. Schedule viewings, share floor plans, and hand warm leads to your agent.',
+    shortDesc: 'Qualifies leads, shares listings, books viewings, hands warm leads to agents.',
+    tags: ['Lead capture', 'Bookings'],
+    capabilities: [
+      { title: 'Qualify by budget', desc: 'KES range, payment plan' },
+      { title: 'Filter by location', desc: 'Westlands, Karen, Kilimani, etc.' },
+      { title: 'Send floor plans', desc: 'Direct to WhatsApp' },
+      { title: 'Schedule viewings', desc: 'Synced to agent calendar' },
+      { title: 'Financing pre-screen', desc: 'Mortgage vs cash vs SACCO' },
+      { title: 'Agent handoff', desc: 'Only warm leads reach humans' }
+    ],
+    workflow: [
+      { type: 'trigger', icon: '📨', label: 'WA message' },
+      { type: 'ai', icon: '🧠', label: 'Qualify lead' },
+      { type: 'data', icon: '🏘️', label: 'Listings DB' },
+      { type: 'ai', icon: '✨', label: 'Send brochure' },
+      { type: 'data', icon: '📅', label: 'Book viewing' }
+    ],
+    suggestions: [
+      '2-bedroom in Westlands',
+      'What\'s your payment plan?',
+      'Can I view this weekend?'
+    ],
+    seedMessages: [
+      { dir: 'in', text: 'Looking for a 2 bedroom apartment in Westlands', time: '14:22 PM' },
+      { dir: 'out', text: 'Great choice — Westlands is hot right now 🏘️ A few quick questions to find the right place:\n\n1️⃣ Budget range (KES/month or purchase)?\n2️⃣ Move-in / occupancy date?\n3️⃣ Any must-haves (parking, gym, balcony)?', time: '14:22 PM' }
+    ],
+    responses: {
+      bedroom: 'I have 4 properties matching your criteria in Westlands:\n\n🏘️ Westgate Apts — 2BR · KES 95k/mo\n🏘️ Riverside Sq — 2BR · KES 110k/mo\n🏘️ The Mirage — 2BR · KES 85k/mo\n🏘️ Le Mac Residences — 2BR · KES 125k/mo\n\nWant me to send brochures + viewing slots?',
+      viewing: 'Perfect! Available viewing slots this weekend:\n📅 Sat — 10am, 2pm\n📅 Sun — 11am, 3pm\n\nWhich works for you? I\'ll send the agent\'s details and Google Maps pin once confirmed.',
+      payment: 'We offer flexible payment plans:\n💳 12-month installments (10% deposit)\n💳 24-month installments (15% deposit, 4% premium)\n💳 Cash purchase — 8% discount\n🏦 KCB, NCBA, and Stanbic mortgages available\n\nWhich would you like to explore?',
+      default: 'I can help with: property search, viewings, payment plans, or connecting you to an agent. What are you looking for?'
+    }
+  },
+  {
+    slug: 'clinic-booking',
+    name: 'Clinic Booking Assistant',
+    icon: '🏥',
+    tone: 'teal',
+    vertical: 'Healthcare',
+    avatar: 'L',
+    business: 'Lifecare Clinic',
+    description: 'Patients book appointments, request prescription refills, and get reminders — with strict guardrails around medical advice and clear emergency escalation paths.',
+    shortDesc: 'Books appointments, sends reminders, never diagnoses, escalates emergencies.',
+    tags: ['Bookings', 'Multilingual'],
+    capabilities: [
+      { title: 'Book appointments', desc: 'GP, dental, optical, pediatric' },
+      { title: 'Prescription refills', desc: 'For repeat patients only' },
+      { title: 'Appointment reminders', desc: '24h before, with directions' },
+      { title: 'Emergency escalation', desc: 'Calls clinic immediately' },
+      { title: 'Never diagnoses', desc: 'Strict no-medical-advice policy' },
+      { title: 'Insurance check', desc: 'NHIF, AAR, Jubilee, etc.' }
+    ],
+    workflow: [
+      { type: 'trigger', icon: '📨', label: 'WA message' },
+      { type: 'ai', icon: '⚠️', label: 'Emergency?' },
+      { type: 'ai', icon: '🧠', label: 'Intent' },
+      { type: 'data', icon: '📅', label: 'Calendar' },
+      { type: 'ai', icon: '✨', label: 'Confirm' }
+    ],
+    suggestions: [
+      'Need to see a doctor tomorrow',
+      'I need a prescription refill',
+      'My child has fever'
+    ],
+    seedMessages: [
+      { dir: 'in', text: 'Need to see a doctor tomorrow morning', time: '16:08 PM' },
+      { dir: 'out', text: 'Of course 🏥 I can book you in. Quick check:\n\n1. Is this an emergency? (chest pain, severe bleeding, difficulty breathing)\n2. Which department — GP, dental, pediatric, optical?\n3. Do you have insurance (NHIF, AAR, Jubilee, etc.)?', time: '16:08 PM' }
+    ],
+    responses: {
+      emergency: '🚨 This sounds urgent. Please call our emergency line immediately: 0700-123-456. Or go to the nearest hospital ER. I\'m alerting our team now so they\'re ready when you arrive.',
+      book: 'I have these slots tomorrow with Dr. Mwangi (GP):\n📅 09:00, 10:30, 14:00, 16:00\n\nAll are 30-min slots. Walk-in fee is KES 1,500 or covered by NHIF/AAR. Which time works?',
+      refill: 'For prescription refills, I need to verify you\'re an existing patient. Please share your patient number (e.g. LC-12345) — never share details like your ID number.\n\nFor a new prescription, you\'ll need to see the doctor.',
+      child: 'I understand this is concerning. ⚠️ If your child has fever above 39°C, won\'t drink, is very sleepy, or has difficulty breathing — please go to ER immediately. For non-urgent, our pediatrician has slots at 9am, 11am, 3pm tomorrow.',
+      default: 'I can help with: booking appointments, prescription refills (existing patients), or directing emergencies. What do you need? In emergencies, call 0700-123-456.'
+    }
+  },
+  {
+    slug: 'restaurant-ordering',
+    name: 'Restaurant Ordering Assistant',
+    icon: '🍽️',
+    tone: 'rose',
+    vertical: 'Food & Beverage',
+    avatar: 'M',
+    business: 'Mama Oliech\'s',
+    description: 'Take orders directly on WhatsApp — menu, recommendations, dietary filters, M-Pesa payment, delivery coordination. Works for restaurants, dark kitchens, and bakeries.',
+    shortDesc: 'Takes orders on WhatsApp, calculates total, processes M-Pesa, coordinates delivery.',
+    tags: ['Bookings', 'M-Pesa'],
+    capabilities: [
+      { title: 'Show menu & specials', desc: 'With prices & photos' },
+      { title: 'Dietary filters', desc: 'Vegetarian, halal, gluten-free' },
+      { title: 'Recommend pairings', desc: 'AI suggests based on order' },
+      { title: 'M-Pesa payment', desc: 'STK push at checkout' },
+      { title: 'Delivery / pickup', desc: 'Bolt Food, Glovo, or own rider' },
+      { title: 'Order tracking', desc: 'Live ETA updates' }
+    ],
+    workflow: [
+      { type: 'trigger', icon: '📨', label: 'WA message' },
+      { type: 'ai', icon: '🧠', label: 'Build order' },
+      { type: 'data', icon: '🍽️', label: 'Menu KB' },
+      { type: 'payment', icon: '💰', label: 'M-Pesa' },
+      { type: 'data', icon: '🛵', label: 'Dispatch' }
+    ],
+    suggestions: [
+      'Two chapati and beef stew',
+      'What\'s today\'s special?',
+      'Do you have vegetarian options?'
+    ],
+    seedMessages: [
+      { dir: 'in', text: 'Two chapatis and beef stew please', time: '12:34 PM' },
+      { dir: 'out', text: 'Twende! Adding to your order 🍽️\n\n• 2 × Chapati — KES 60\n• 1 × Beef stew — KES 450\n\n*Subtotal: KES 510*\n\nAnything else? Tea, juice, dessert? Where are we delivering to today?', time: '12:34 PM' }
+    ],
+    responses: {
+      order: 'Order received! 🛵 Here\'s the breakdown:\n\n• 2 × Chapati — KES 60\n• 1 × Beef stew — KES 450\n• Delivery (Westlands) — KES 150\n\n*Total: KES 660*\n\nSending M-Pesa STK push now. ETA: 35 minutes after payment.',
+      special: 'Today\'s specials:\n\n🌟 Nyama choma platter — KES 1,200 (serves 2)\n🌟 Tilapia + ugali — KES 600\n🌟 Pilau ya nyama — KES 450\n🌟 Fresh dawa juice — KES 200\n\nDelivery is 30-45 min. What can I add to your order?',
+      vegetarian: 'Yes! Our vegetarian dishes:\n\n🌱 Veggie samosa (3 pcs) — KES 150\n🌱 Sukuma wiki & ugali — KES 280\n🌱 Maharage ya nazi — KES 320\n🌱 Veg pilau — KES 380\n🌱 Mango mtuzi — KES 350\n\nAll halal-friendly. What sounds good?',
+      default: 'Karibu Mama Oliech\'s! 🍽️ I can show you the menu, take your order, or update you on delivery. What\'s good with you today?'
+    }
+  }
+];
+
+// ---------- ROUTING ----------
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navItem = document.querySelector(`.nav-item[data-view="${name === 'detail' ? 'templates' : name}"]`);
+  if (navItem) navItem.classList.add('active');
+  document.querySelector('.main').scrollTop = 0;
+}
+
+document.querySelectorAll('[data-view]').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    const v = el.getAttribute('data-view');
+    showView(v);
+  });
+});
+
+// ---------- RENDER TEMPLATES ----------
+function renderTemplates() {
+  const grid = document.getElementById('templates-grid');
+  grid.innerHTML = TEMPLATES.map(t => `
+    <div class="template-card" data-slug="${t.slug}">
+      <div class="template-card-hero">
+        <div class="template-icon" data-tone="${t.tone}">${t.icon}</div>
+        <div class="template-meta">
+          <div class="template-name">${t.name}</div>
+          <div class="template-vertical">${t.vertical}</div>
+        </div>
+      </div>
+      <div class="template-card-body">
+        <div class="template-desc">${t.shortDesc}</div>
+      </div>
+      <div class="template-card-foot">
+        ${t.tags.map(tag => `<span class="capability-tag">${tag}</span>`).join('')}
+        <span class="deploy-time">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          5 min
+        </span>
+      </div>
+    </div>
+  `).join('');
+  document.querySelectorAll('.template-card').forEach(card => {
+    card.addEventListener('click', () => openDetail(card.dataset.slug));
+  });
+}
+
+// ---------- TEMPLATE DETAIL ----------
+let activeTemplate = null;
+function openDetail(slug) {
+  const t = TEMPLATES.find(x => x.slug === slug);
+  if (!t) return;
+  activeTemplate = t;
+
+  document.getElementById('detail-icon').textContent = t.icon;
+  document.getElementById('detail-icon').dataset.tone = t.tone;
+  document.getElementById('detail-vertical').textContent = t.vertical;
+  document.getElementById('detail-title').textContent = t.name;
+  document.getElementById('detail-desc').textContent = t.description;
+
+  // capabilities
+  document.getElementById('detail-capabilities').innerHTML = t.capabilities.map(c => `
+    <div class="capability-item">
+      <div class="capability-check">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="capability-text">${c.title}<small>${c.desc}</small></div>
+    </div>
+  `).join('');
+
+  // workflow
+  document.getElementById('detail-workflow').innerHTML = t.workflow.map((n, i) => `
+    <div class="wf-node" data-type="${n.type}">
+      <span class="wf-node-icon">${n.icon}</span>
+      ${n.label}
+    </div>
+    ${i < t.workflow.length - 1 ? '<span class="wf-arrow">→</span>' : ''}
+  `).join('');
+
+  // chat preview
+  document.getElementById('chat-avatar').textContent = t.avatar;
+  document.getElementById('chat-business').textContent = t.business;
+
+  const body = document.getElementById('chat-body');
+  body.innerHTML = '';
+  t.seedMessages.forEach(m => {
+    appendMessage(m.dir, m.text);
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta' + (m.dir === 'in' ? ' msg-meta-in' : '');
+    meta.textContent = m.time;
+    body.appendChild(meta);
+  });
+
+  // suggestions
+  document.getElementById('suggestions').innerHTML = t.suggestions.map(s => `
+    <button class="suggestion">${s}</button>
+  `).join('');
+  document.querySelectorAll('.suggestion').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('chat-input').value = btn.textContent;
+      sendChatMessage();
+    });
+  });
+
+  // reset trace
+  document.getElementById('chat-trace').innerHTML = `
+    <span class="chat-trace-label">Run trace:</span>
+    <span class="trace-step">idle</span>
+  `;
+
+  showView('detail');
+}
+
+// ---------- CHAT INTERACTION ----------
+function appendMessage(dir, text) {
+  const body = document.getElementById('chat-body');
+  const msg = document.createElement('div');
+  msg.className = 'msg msg-' + dir;
+  msg.innerHTML = text.replace(/\n/g, '<br>');
+  body.appendChild(msg);
+  body.scrollTop = body.scrollHeight;
+  return msg;
+}
+
+function showTyping() {
+  const body = document.getElementById('chat-body');
+  const t = document.createElement('div');
+  t.className = 'typing';
+  t.id = 'typing-indicator';
+  t.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  body.appendChild(t);
+  body.scrollTop = body.scrollHeight;
+}
+function hideTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+function pickResponse(input) {
+  const t = activeTemplate;
+  const low = input.toLowerCase();
+  // simple keyword routing
+  const r = t.responses;
+  if (t.slug === 'salon-booking') {
+    if (/book|braid|saturday|sunday|appointment|slot/i.test(low)) return r.booking;
+    if (/price|cost|how much|charge|menu/i.test(low)) return r.pricing;
+    if (/cancel|reschedule/i.test(low)) return r.cancel;
+  } else if (t.slug === 'sacco-support') {
+    if (/loan/i.test(low) && /balance|status/i.test(low)) return r.balance;
+    if (/loan|borrow/i.test(low)) return r.loan;
+    if (/rate|interest|price/i.test(low)) return r.pricing;
+    if (/officer|human|person|speak/i.test(low)) return r.human;
+  } else if (t.slug === 'church-followup') {
+    if (/visit|came|first|new/i.test(low)) return r.visit;
+    if (/pray|prayer/i.test(low)) return r.prayer;
+    if (/service|time|when|sunday/i.test(low)) return r.service;
+  } else if (t.slug === 'realestate-inquiry') {
+    if (/2\s*bed|2br|2 bedroom|3\s*bed|apartment|house/i.test(low)) return r.bedroom;
+    if (/view|visit|see/i.test(low)) return r.viewing;
+    if (/payment|mortgage|finance|deposit|installment/i.test(low)) return r.payment;
+  } else if (t.slug === 'clinic-booking') {
+    if (/emergency|chest pain|bleed|cant breathe|severe/i.test(low)) return r.emergency;
+    if (/child|fever|baby|kid/i.test(low)) return r.child;
+    if (/prescription|refill|medicine|drug/i.test(low)) return r.refill;
+    if (/book|doctor|appointment|tomorrow|see/i.test(low)) return r.book;
+  } else if (t.slug === 'restaurant-ordering') {
+    if (/chapati|stew|beef|ugali|order|deliver/i.test(low)) return r.order;
+    if (/special|today/i.test(low)) return r.special;
+    if (/veg|vegetar|halal|vegan/i.test(low)) return r.vegetarian;
+  }
+  return r.default;
+}
+
+function setTrace(stage) {
+  const traceEl = document.getElementById('chat-trace');
+  const steps = {
+    queue: ['<span class="trace-step success">whatsapp.trigger 12ms</span>'],
+    classify: ['<span class="trace-step success">whatsapp.trigger 12ms</span>', '<span class="trace-step">ai.classify running…</span>'],
+    retrieve: ['<span class="trace-step success">whatsapp.trigger 12ms</span>', '<span class="trace-step success">ai.classify 412ms</span>', '<span class="trace-step">kb.retrieve running…</span>'],
+    reply: ['<span class="trace-step success">whatsapp.trigger 12ms</span>', '<span class="trace-step success">ai.classify 412ms</span>', '<span class="trace-step success">kb.retrieve 89ms</span>', '<span class="trace-step">ai.respond running…</span>'],
+    done: ['<span class="trace-step success">whatsapp.trigger 12ms</span>', '<span class="trace-step success">ai.classify 412ms</span>', '<span class="trace-step success">kb.retrieve 89ms</span>', '<span class="trace-step success">ai.respond 894ms</span>', '<span class="trace-step success">whatsapp.send 167ms</span>']
+  };
+  traceEl.innerHTML = `<span class="chat-trace-label">Run trace:</span>` + (steps[stage] || []).join(' ');
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  appendMessage('in', text);
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta msg-meta-in';
+  meta.textContent = time;
+  document.getElementById('chat-body').appendChild(meta);
+
+  setTrace('queue');
+  await wait(200);
+  setTrace('classify');
+  showTyping();
+  await wait(450);
+  setTrace('retrieve');
+  await wait(150);
+  setTrace('reply');
+  await wait(700);
+  hideTyping();
+  const reply = pickResponse(text);
+  appendMessage('out', reply);
+  const meta2 = document.createElement('div');
+  meta2.className = 'msg-meta';
+  meta2.textContent = time;
+  document.getElementById('chat-body').appendChild(meta2);
+  setTrace('done');
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+document.getElementById('chat-send').addEventListener('click', sendChatMessage);
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendChatMessage();
+});
+
+// ---------- INIT ----------
+renderTemplates();
+</script>
+</body>
+</html>

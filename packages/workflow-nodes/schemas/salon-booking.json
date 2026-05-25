@@ -1,0 +1,87 @@
+{
+  "id": "tpl_salon_booking",
+  "slug": "salon-booking",
+  "name": "Salon Booking Assistant",
+  "version": 1,
+  "entry": "trigger",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "channel.whatsapp_message",
+      "config": {},
+      "next": "classify"
+    },
+    {
+      "id": "classify",
+      "type": "ai.classify",
+      "config": {
+        "intents": ["book", "pricing", "cancel", "reschedule", "general"],
+        "model": "claude-opus-4-7"
+      },
+      "next_map": {
+        "book": "retrieve_services",
+        "pricing": "retrieve_services",
+        "cancel": "lookup_booking",
+        "reschedule": "lookup_booking",
+        "general": "respond_general"
+      }
+    },
+    {
+      "id": "retrieve_services",
+      "type": "kb.retrieve",
+      "config": {
+        "kb_id": "services",
+        "k": 5
+      },
+      "next": "respond_book"
+    },
+    {
+      "id": "respond_book",
+      "type": "ai.respond",
+      "config": {
+        "system": "You are Asha Salon's booking assistant. Be warm, offer slots, ask for deposit.",
+        "model": "claude-opus-4-7"
+      },
+      "next": "wait_for_slot"
+    },
+    {
+      "id": "wait_for_slot",
+      "type": "user.input",
+      "config": {
+        "timeout_seconds": 600
+      },
+      "next": "mpesa_deposit"
+    },
+    {
+      "id": "mpesa_deposit",
+      "type": "payment.mpesa_stk",
+      "config": {
+        "amount": 500,
+        "phone": "{{contact.phone}}",
+        "reference": "Booking deposit"
+      },
+      "next": "confirm"
+    },
+    {
+      "id": "confirm",
+      "type": "ai.respond",
+      "config": {
+        "system": "Confirm the booking warmly in the customer's language.",
+        "model": "claude-opus-4-7"
+      },
+      "next": null
+    },
+    {
+      "id": "lookup_booking",
+      "type": "data.crm_lookup",
+      "config": { "entity": "booking" },
+      "next": "respond_book"
+    },
+    {
+      "id": "respond_general",
+      "type": "ai.respond",
+      "config": { "model": "claude-opus-4-7" },
+      "next": null
+    }
+  ]
+}
