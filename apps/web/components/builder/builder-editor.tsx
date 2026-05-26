@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getTemplate } from '@/lib/templates';
 import { EditorTopbar } from './editor-topbar';
 import { EditorSidebar } from './editor-sidebar';
@@ -57,10 +57,16 @@ function buildInitialState(slug: string | null): { nodes: CanvasNode[]; edges: C
 export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const template = templateSlug ? getTemplate(templateSlug) : null;
   const init = buildInitialState(templateSlug);
+  const DEFAULT_PANEL_WIDTH = 460;
 
   const [nodes, setNodes] = useState<CanvasNode[]>(init.nodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(init.edges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(DEFAULT_PANEL_WIDTH);
 
   const addNode = useCallback((kind: NodeKind, x: number, y: number) => {
     const def = getNodeDef(kind);
@@ -85,6 +91,42 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   }, []);
 
   const selectNode = useCallback((id: string) => setSelectedNodeId(id), []);
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = panelWidth;
+    setIsDragging(true);
+  }, [panelWidth]);
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isDraggingRef.current) return;
+      const delta = dragStartXRef.current - e.clientX;
+      setPanelWidth(Math.min(900, Math.max(DEFAULT_PANEL_WIDTH, dragStartWidthRef.current + delta)));
+    }
+    function onMouseUp() {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.style.cursor = isDragging ? 'col-resize' : '';
+    document.body.style.userSelect = isDragging ? 'none' : '';
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging]);
 
   // Keep panel content alive during the slide-out animation.
   // panelNodeId only updates when a node IS selected, never on deselect,
@@ -130,10 +172,13 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
         />
         <div
           className={cn(
-            'absolute right-3 top-3 bottom-3 w-72 z-10 transition-all duration-300 ease-in-out',
-            isPanelOpen ? 'translate-x-0 opacity-100' : 'translate-x-[calc(100%+12px)] opacity-0',
+            'absolute right-3 top-3 bottom-3 z-10',
+            !isDragging && 'transition-[transform,opacity] duration-300 ease-in-out',
+            isPanelOpen
+              ? 'translate-x-0 opacity-100'
+              : 'translate-x-[calc(100%+12px)] opacity-0',
           )}
-          style={{ pointerEvents: isPanelOpen ? 'auto' : 'none' }}
+          style={{ width: panelWidth, pointerEvents: isPanelOpen ? 'auto' : 'none' }}
         >
           {panelNode && (
             <NodeDetailPanel
@@ -141,6 +186,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
               nodes={nodes}
               onClose={() => setSelectedNodeId(null)}
               onUpdateValue={updateValue}
+              onResizeMouseDown={handleResizeMouseDown}
             />
           )}
         </div>
