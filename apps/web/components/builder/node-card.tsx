@@ -1,13 +1,17 @@
 "use client";
 
-import { ChevronDown, MoreHorizontal, X, Plus, Play } from "lucide-react";
+import { ChevronDown, MoreHorizontal, X, Plus, Play, Layers, Database, Link2, Check, FileSearch2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getNodeDef, type CanvasNode, type NodeDef } from "@/lib/editor-nodes";
+import { getNodeDef, getModelProvider, type CanvasNode, type NodeDef } from "@/lib/editor-nodes";
 import { renderIntegrationIcon } from "@/components/templates/integration-logo";
 
 export const NODE_WIDTH = 260;
 export const HANDLE_Y_OFFSET = 24;
 export const HANDLE_SIDE_OFFSET = 16;
+
+function getLLMIcon(model: string, size: number): React.ReactNode {
+  return renderIntegrationIcon(getModelProvider(model), size);
+}
 
 function NodeContent({
   node,
@@ -39,53 +43,70 @@ function NodeContent({
     );
   }
 
-  if (def.kind === "ai-agent" || def.kind === "prune-ai") {
+  if (def.kind === "url") {
     return (
-      <div className="px-3 pb-3 space-y-2">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
-            Prompt
-          </div>
-          <textarea
-            className={textareaClass}
-            rows={3}
-            placeholder="You are a helpful assistant that…"
-            value={node.inputValue ?? ""}
-            onChange={(e) => onUpdateValue(node.id, e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
-          />
+      <div className="px-3 pb-3 space-y-2.5">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border text-xs text-muted-foreground"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Link2 className="h-3 w-3 shrink-0" />
+          <span className="truncate">{node.inputValue || "Add a URL…"}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 border text-[10px] text-muted-foreground">
-          <span className="h-3 w-3 rounded-sm bg-primary/20 flex items-center justify-center">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          </span>
-          claude-sonnet-4-6
+        <div>
+          <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5">Settings</div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
+              <Check className="h-3 w-3 text-foreground shrink-0" />
+              <span>Scrape subpages on</span>
+            </div>
+            <div className="px-3 py-1.5 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
+              Website URL
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (def.kind === "openai-app") {
+  if (def.kind === "ai-agent" || def.kind === "prune-ai" || def.kind === "openai-app") {
+    const model = node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6");
     return (
-      <div className="px-3 pb-3 space-y-2">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
-            Prompt
-          </div>
-          <textarea
-            className={textareaClass}
-            rows={3}
-            placeholder="Enter your prompt…"
-            value={node.inputValue ?? ""}
-            onChange={(e) => onUpdateValue(node.id, e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
-          />
+      <div className="px-3 pb-3 space-y-3">
+        {/* Model selector */}
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-200 bg-opacity-45 text-xs text-foreground cursor-pointer hover:bg-muted/60 transition-colors"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="flex-1 font-medium">{model}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 border text-[10px] text-muted-foreground">
-          <span className="h-3 w-3 rounded-sm bg-muted-foreground/20 flex items-center justify-center">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-          </span>
-          gpt-4o
+        {/* Knowledge Sources */}
+        <div>
+          <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5">
+            Knowledge Sources
+          </div>
+          <button
+            className="w-full flex items-center justify-center shadow-xs gap-2 px-3 py-1 rounded-lg border text-[11px] text-foreground hover:bg-muted/30 transition-colors font-normal"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <Database className="h-3.5 w-3.5" />
+            Add Knowledge Sources
+          </button>
+        </div>
+        {/* Tools */}
+        <div>
+          <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5">Tools</div>
+          <div className="flex items-center">
+            <button
+              className="h-6 w-6 rounded-full border bg-background flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors z-10"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+            <div className="-ml-1.5 h-6 w-6 rounded-full border bg-muted/30 flex items-center justify-center text-muted-foreground">
+              <FileSearch2 className="h-3 w-3 text-gray-800" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -191,6 +212,7 @@ export function NodeCard({
 
   const Icon = def.icon;
   const isSource = connectingSourceId === node.id;
+  const isLLMNode = def.kind === "ai-agent" || def.kind === "prune-ai" || def.kind === "openai-app";
 
   return (
     <div
@@ -207,7 +229,7 @@ export function NodeCard({
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
     >
-      {/* Run button — appears on node hover, wrapper always pointer-events-none to avoid blocking handles */}
+      {/* Run button */}
       <div className="absolute -top-8 left-0 right-0 pb-1 flex justify-start pointer-events-none opacity-0 group-hover/node:opacity-100 transition-opacity z-30">
         <button
           onMouseDown={(e) => e.stopPropagation()}
@@ -220,7 +242,7 @@ export function NodeCard({
         </button>
       </div>
 
-      {/* INPUT handle — left edge, hidden for trigger nodes (no incoming connections) */}
+      {/* INPUT handle — hidden for trigger nodes */}
       {node.kind !== "trigger" && (
         <button
           style={{ top: HANDLE_Y_OFFSET - 10, left: -22 }}
@@ -239,21 +261,12 @@ export function NodeCard({
           )}
         >
           {!isConnecting && (
-            <Plus
-              className="
-            h-3 w-3
-            text-black
-            opacity-0
-            transition-all duration-200
-            group-hover/node:opacity-100
-            hover:text-white
-          "
-            />
+            <Plus className="h-3 w-3 text-black opacity-0 transition-all duration-200 group-hover/node:opacity-100 hover:text-white" />
           )}
         </button>
       )}
 
-      {/* OUTPUT handle — right edge, box style, spaced from card */}
+      {/* OUTPUT handle */}
       <button
         style={{ top: HANDLE_Y_OFFSET - 10, right: -22 }}
         onMouseDown={(e) => {
@@ -262,7 +275,7 @@ export function NodeCard({
         }}
         onMouseUp={(e) => {
           e.stopPropagation();
-          if (isConnecting) onCompleteConnect(node.id); // releasing on source cancels; on other node completes
+          if (isConnecting) onCompleteConnect(node.id);
         }}
         className={cn(
           "absolute w-4 h-4 rounded-md border z-20 flex items-center justify-center transition-all duration-200 ease-out",
@@ -278,20 +291,11 @@ export function NodeCard({
         {isSource ? (
           <Plus className="h-3 w-3 text-white" />
         ) : !isConnecting ? (
-          <Plus
-            className="
-              h-3 w-3
-              text-black
-              opacity-0
-              transition-all duration-200
-              group-hover/node:opacity-100
-              hover:text-white
-            "
-          />
+          <Plus className="h-3 w-3 text-black opacity-0 transition-all duration-200 group-hover/node:opacity-100 hover:text-white" />
         ) : null}
       </button>
 
-      {/* Header — drag handle with X button */}
+      {/* Header */}
       <div className="mb-2.5">
         <div
           className="px-3 pt-2.5 pb-1 flex items-center gap-2 cursor-grab active:cursor-grabbing"
@@ -301,16 +305,16 @@ export function NodeCard({
           }}
         >
           <div className="h-7 w-7 rounded-md bg-muted/50 border flex items-center justify-center shrink-0">
-            {def.integrationId ? (
+            {isLLMNode ? (
+              getLLMIcon(node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6"), 14)
+            ) : def.integrationId ? (
               renderIntegrationIcon(def.integrationId, 14)
             ) : (
               <Icon className={cn("h-3.5 w-3.5", def.iconClass)} />
             )}
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
-            <div className="text-sm font-medium leading-tight">
-              {node.label}
-            </div>
+            <div className="text-sm font-medium leading-tight">{node.label}</div>
           </div>
           <button
             onClick={(e) => {
@@ -331,14 +335,14 @@ export function NodeCard({
       {/* Content */}
       <NodeContent node={node} def={def} onUpdateValue={onUpdateValue} />
 
-      {/* Footer — grayed background */}
+      {/* Footer */}
       <div className="px-3 py-2 border-t flex items-center gap-2 text-[10px] text-muted-foreground bg-gray-100 rounded-b-xl">
         <button
           className="flex items-center gap-0.5 hover:text-foreground transition-colors"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <ChevronDown className="h-3 w-3" />
-          view results
+          View Results
         </button>
         <span className="ml-auto">0 tokens</span>
         <span className="flex items-center gap-0.5">

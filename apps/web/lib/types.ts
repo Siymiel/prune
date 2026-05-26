@@ -25,6 +25,7 @@ export type IntegrationId =
   | 'whatsapp'
   | 'mpesa'
   | 'openai'
+  | 'anthropic'
   | 'google-calendar'
   | 'google-drive'
   | 'gmail'

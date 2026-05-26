@@ -1,6 +1,7 @@
 import {
   SiWhatsapp,
   SiOpenai,
+  SiAnthropic,
   SiGooglecalendar,
   SiGoogledrive,
   SiGmail,
@@ -41,6 +42,11 @@ const INTEGRATIONS: Record<IntegrationId, IntegrationMeta> = {
     label: 'OpenAI',
     color: '#000000',
     render: (s) => <SiOpenai size={s} color="#000000" />,
+  },
+  anthropic: {
+    label: 'Anthropic',
+    color: '#C96442',
+    render: (s) => <SiAnthropic size={s} color="#C96442" />,
   },
   'google-calendar': {
     label: 'Google Calendar',

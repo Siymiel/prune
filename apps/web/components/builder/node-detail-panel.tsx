@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X, ChevronDown, ChevronUp, Link2, Settings2, Cpu, Database, Zap, AlignLeft } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Link2, Settings2, Cpu, Database, Zap, AlignLeft, Wrench, Plus, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getNodeDef, type CanvasNode, type NodeDef } from '@/lib/editor-nodes';
+import { getNodeDef, getModelProvider, type CanvasNode, type NodeDef } from '@/lib/editor-nodes';
 import { renderIntegrationIcon } from '@/components/templates/integration-logo';
 
 const KIND_PREFIX: Record<string, string> = {
@@ -142,7 +142,8 @@ function PanelSections({
     );
   }
 
-  if (def.kind === 'ai-agent' || def.kind === 'prune-ai') {
+  if (def.kind === 'ai-agent' || def.kind === 'prune-ai' || def.kind === 'openai-app') {
+    const model = node.model ?? (def.kind === 'openai-app' ? 'gpt-4o' : 'claude-sonnet-4-6');
     return (
       <>
         <Section title="Prompt" icon={<Cpu className="h-3.5 w-3.5" />} defaultOpen>
@@ -155,16 +156,25 @@ function PanelSections({
             onChange={e => onUpdateValue(node.id, e.target.value)}
           />
         </Section>
-        <Section title="Model" icon={<Cpu className="h-3.5 w-3.5" />}>
+        <Section title="Model" icon={<Layers className="h-3.5 w-3.5" />}>
           <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border text-xs text-muted-foreground">
-            <span className="h-3 w-3 rounded-sm bg-primary/20 flex items-center justify-center">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="flex items-center justify-center shrink-0">
+              {renderIntegrationIcon(getModelProvider(model), 12)}
             </span>
-            claude-sonnet-4-6
+            {model}
           </div>
         </Section>
-        <Section title="Options" icon={<Settings2 className="h-3.5 w-3.5" />}>
-          <p className="text-xs text-muted-foreground">No options configured.</p>
+        <Section title="Knowledge Sources" icon={<Database className="h-3.5 w-3.5" />}>
+          <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
+            <Plus className="h-3.5 w-3.5" />
+            Add Knowledge Sources
+          </button>
+        </Section>
+        <Section title="Tools" icon={<Wrench className="h-3.5 w-3.5" />}>
+          <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
+            <Plus className="h-3.5 w-3.5" />
+            Add tools
+          </button>
         </Section>
       </>
     );
@@ -254,9 +264,11 @@ export function NodeDetailPanel({ node, nodes, onClose, onUpdateValue }: NodeDet
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
         <div className="h-7 w-7 rounded-md bg-muted/50 border flex items-center justify-center shrink-0">
-          {def.integrationId
-            ? renderIntegrationIcon(def.integrationId, 14)
-            : <Icon className={cn('h-3.5 w-3.5', def.iconClass)} />}
+          {(def.kind === 'ai-agent' || def.kind === 'prune-ai' || def.kind === 'openai-app')
+            ? renderIntegrationIcon(getModelProvider(node.model ?? (def.kind === 'openai-app' ? 'gpt-4o' : 'claude-sonnet-4-6')), 14)
+            : def.integrationId
+              ? renderIntegrationIcon(def.integrationId, 14)
+              : <Icon className={cn('h-3.5 w-3.5', def.iconClass)} />}
         </div>
         <span className="text-sm font-semibold flex-1 truncate">{node.label}</span>
         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/60 border text-muted-foreground shrink-0">

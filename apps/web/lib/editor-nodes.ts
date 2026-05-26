@@ -103,6 +103,23 @@ export interface CanvasNode {
   x: number;
   y: number;
   inputValue?: string;
+  model?: string;
+}
+
+export const LLM_MODELS = [
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic' as const },
+  { id: 'claude-opus-4',     label: 'Claude Opus 4',     provider: 'anthropic' as const },
+  { id: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',  provider: 'anthropic' as const },
+  { id: 'gpt-4o',            label: 'GPT-4o',            provider: 'openai'    as const },
+  { id: 'gpt-4o-mini',       label: 'GPT-4o mini',       provider: 'openai'    as const },
+  { id: 'gpt-5',             label: 'GPT-5',             provider: 'openai'    as const },
+  { id: 'o3',                label: 'o3',                provider: 'openai'    as const },
+];
+
+export function getModelProvider(modelId: string): 'anthropic' | 'openai' {
+  const m = modelId.toLowerCase();
+  if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai';
+  return 'anthropic';
 }
 
 export interface CanvasEdge {
