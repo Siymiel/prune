@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
 type Variant = 'default' | 'secondary' | 'ghost' | 'outline' | 'destructive' | 'link' | 'primary';
@@ -9,6 +10,7 @@ type Size = 'sm' | 'default' | 'lg' | 'icon';
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  asChild?: boolean;
 }
 
 const variants: Record<Variant, string> = {
@@ -37,12 +39,13 @@ const sizes: Record<Size, string> = {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(
-    { variant = 'default', size = 'default', className, ...props },
+    { variant = 'default', size = 'default', asChild = false, className, ...props },
     ref,
   ) {
+    const Comp = asChild ? Slot : 'button';
     return (
-      <button
-        ref={ref}
+      <Comp
+        ref={ref as never}
         className={cn(
           'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',

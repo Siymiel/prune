@@ -64,8 +64,8 @@
   }
 
   .grid-dots {
-    background-image: radial-gradient(circle at 1px 1px, hsl(0 0% 0% / 0.06) 1px, transparent 0);
-    background-size: 16px 16px;
+    background-image: radial-gradient(circle at 1px 1px, hsl(0 0% 0% / 0.1) 1px, transparent 0);
+    background-size: 8px 8px;
   }
 
   .chat-bg {

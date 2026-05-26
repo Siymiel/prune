@@ -69,6 +69,12 @@ const INTEGRATIONS: Record<IntegrationId, IntegrationMeta> = {
   },
 };
 
+/** Render just the brand icon at a given pixel size */
+export function renderIntegrationIcon(id: IntegrationId, size: number): React.ReactNode {
+  return INTEGRATIONS[id]?.render(size) ?? null;
+}
+
+/** Small icon-only badge — used on template cards */
 export function IntegrationLogo({ id }: { id: IntegrationId }) {
   const meta = INTEGRATIONS[id];
   return (
@@ -76,7 +82,18 @@ export function IntegrationLogo({ id }: { id: IntegrationId }) {
       title={meta.label}
       className="inline-flex items-center justify-center h-6 w-6 rounded bg-background"
     >
-      {meta.render(16)}
+      {meta.render(18)}
     </span>
+  );
+}
+
+/** Logo + label pill — used in the template detail page */
+export function IntegrationBadge({ id }: { id: IntegrationId }) {
+  const meta = INTEGRATIONS[id];
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border text-sm">
+      {meta.render(15)}
+      <span>{meta.label}</span>
+    </div>
   );
 }

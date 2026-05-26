@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Check, Play } from 'lucide-react';
+import { ArrowLeft, Check, Play, Workflow } from 'lucide-react';
 import { TEMPLATES, getTemplate } from '@/lib/templates';
 import { TONE_CLASSES } from '@/lib/tones';
 import { Button } from '@/components/ui/button';
 import { ChatPreview } from '@/components/templates/chat-preview';
+import { IntegrationBadge } from '@/components/templates/integration-logo';
 import { cn } from '@/lib/utils';
 
 interface PageProps {
@@ -62,7 +63,13 @@ export default async function TemplateDetailPage({ params }: PageProps) {
               <Play className="h-3 w-3" fill="currentColor" />
               Deploy this template
             </Button>
-            <Button variant="outline">Open in builder</Button>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <Button variant="outline" asChild>
+              <Link href={`/builder?template=${template.slug}` as any}>
+                <Workflow className="h-3.5 w-3.5" />
+                Open in builder
+              </Link>
+            </Button>
             <Button variant="outline">Duplicate</Button>
           </div>
 
@@ -123,9 +130,9 @@ export default async function TemplateDetailPage({ params }: PageProps) {
           <section className="mt-7">
             <SectionTitle>Required integrations</SectionTitle>
             <div className="flex gap-2 flex-wrap">
-              <Integration label="WhatsApp Business" color="bg-emerald-500" />
-              <Integration label="M-Pesa Daraja" color="bg-primary" />
-              <Integration label="Google Calendar" color="bg-sky-500" />
+              {template.integrations.map((id) => (
+                <IntegrationBadge key={id} id={id} />
+              ))}
             </div>
           </section>
 
@@ -160,14 +167,6 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Integration({ label, color }: { label: string; color: string }) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border text-sm">
-      <span className={cn('h-1.5 w-1.5 rounded-full', color)} />
-      {label}
-    </div>
-  );
-}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (

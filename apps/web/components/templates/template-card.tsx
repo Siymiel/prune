@@ -13,7 +13,7 @@ export function TemplateCard({ template }: { template: Template }) {
       href={`/templates/${template.slug}` as any}
       className={cn(
         'group relative flex flex-col rounded-lg overflow-hidden',
-        'bg-card border hover:border-foreground/20 hover:shadow-sm',
+        'bg-card border hover:border-foreground/20 hover:shadow-md',
         'transition-all hover:-translate-y-0.5',
       )}
     >
@@ -42,7 +42,7 @@ export function TemplateCard({ template }: { template: Template }) {
         </p>
       </div>
 
-      <div className="px-5 py-3 border-t flex items-center gap-1">
+      <div className="px-5 py-3 border-t flex items-center gap-1.5">
         {template.integrations.map((id) => (
           <IntegrationLogo key={id} id={id} />
         ))}
