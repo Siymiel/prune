@@ -14,6 +14,7 @@ import {
   Receipt,
   Settings2,
   ChevronsUpDown,
+  Hop,
 } from "lucide-react"
 
 import {
@@ -60,8 +61,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-2 py-1.5">
-          <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-[13px] font-bold text-primary-foreground">
-            P
+          <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+            <Hop className="h-4 w-4" />
           </div>
           <div className="text-lg font-medium tracking-tight truncate">
             PruneAI

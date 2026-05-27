@@ -26,6 +26,8 @@ import {
   Underline,
   List,
   ListOrdered,
+  Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -33,6 +35,7 @@ import {
   getModelProvider,
   type CanvasNode,
   type NodeDef,
+  type NodeRunStatus,
 } from "@/lib/editor-nodes";
 import { renderIntegrationIcon } from "@/components/templates/integration-logo";
 
@@ -550,6 +553,7 @@ interface NodeCardProps {
   onToggleStickyNote?: (id: string) => void;
   onUpdateStickyNote?: (id: string, text: string) => void;
   onUpdateStickyNoteColor?: (id: string, color: string) => void;
+  runStatus?: NodeRunStatus;
 }
 
 export function NodeCard({
@@ -570,6 +574,7 @@ export function NodeCard({
   onToggleStickyNote,
   onUpdateStickyNote,
   onUpdateStickyNoteColor,
+  runStatus,
 }: NodeCardProps) {
   const def = getNodeDef(node.kind);
   if (!def) return null;
@@ -603,8 +608,12 @@ export function NodeCard({
     <div
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       className={cn(
-        "absolute group/node bg-card rounded-xl shadow-sm select-none border transition-colors",
-        isSelected ? "border-gray-400" : "border-border",
+        "absolute group/node bg-card rounded-xl shadow-sm select-none border transition-all duration-300",
+        runStatus === 'running' ? "border-blue-400 shadow-blue-100/60 shadow-md"
+          : runStatus === 'done'    ? "border-green-400"
+          : runStatus === 'error'   ? "border-red-400"
+          : runStatus === 'pending' ? "opacity-50"
+          : isSelected ? "border-gray-400" : "border-border",
       )}
       onClick={(e) => {
         e.stopPropagation();
@@ -614,6 +623,20 @@ export function NodeCard({
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
     >
+      {/* Run status badge */}
+      {runStatus && runStatus !== 'pending' && (
+        <div className={cn(
+          "absolute -top-2 -right-2 h-5 w-5 rounded-full flex items-center justify-center z-30 border-2 border-background",
+          runStatus === 'running' && "bg-blue-500",
+          runStatus === 'done'    && "bg-green-500",
+          runStatus === 'error'   && "bg-red-500",
+        )}>
+          {runStatus === 'running' && <Loader2 className="h-3 w-3 text-white animate-spin" />}
+          {runStatus === 'done'    && <Check className="h-3 w-3 text-white" />}
+          {runStatus === 'error'   && <X className="h-3 w-3 text-white" />}
+        </div>
+      )}
+
       {/* Sticky Note */}
       {node.stickyNote?.visible && (
         <div

@@ -118,7 +118,7 @@ export default async function TemplateDetailPage({ params }: PageProps) {
                       {n.label}
                     </span>
                     {i < template.workflow.length - 1 && (
-                      <span className="text-muted-foreground text-xs">→</span>
+                      <span className="text-foreground text-xs font-semibold">→</span>
                     )}
                   </span>
                   );

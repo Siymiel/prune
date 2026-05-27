@@ -6,7 +6,7 @@ import { EditorTopbar } from './editor-topbar';
 import { EditorSidebar } from './editor-sidebar';
 import { EditorCanvas } from './editor-canvas';
 import { NodeDetailPanel } from './node-detail-panel';
-import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind } from '@/lib/editor-nodes';
+import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind, type NodeRunStatus, type RunPhase } from '@/lib/editor-nodes';
 import { cn } from '@/lib/utils';
 import type { NodeType } from '@/lib/types';
 
@@ -66,19 +66,138 @@ function buildInitialState(slug: string | null): { nodes: CanvasNode[]; edges: C
   return { nodes, edges };
 }
 
+interface RunState {
+  phase: RunPhase;
+  nodeStatuses: Record<string, NodeRunStatus>;
+  startedAt: number;
+  currentNodeLabel?: string;
+}
+
+function topoSort(nodes: CanvasNode[], edges: CanvasEdge[]): string[] {
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const outEdges: Record<string, string[]> = {};
+  const indegree: Record<string, number> = {};
+  nodes.forEach(n => { outEdges[n.id] = []; indegree[n.id] = 0; });
+  edges.forEach(e => {
+    if (nodeIds.has(e.sourceId) && nodeIds.has(e.targetId)) {
+      outEdges[e.sourceId].push(e.targetId);
+      indegree[e.targetId]++;
+    }
+  });
+  const queue = nodes.filter(n => indegree[n.id] === 0).map(n => n.id);
+  const result: string[] = [];
+  while (queue.length) {
+    const id = queue.shift()!;
+    result.push(id);
+    for (const t of outEdges[id]) { if (--indegree[t] === 0) queue.push(t); }
+  }
+  nodes.forEach(n => { if (!result.includes(n.id)) result.push(n.id); });
+  return result;
+}
+
+function getDefaultPanelWidth() {
+  if (typeof window === 'undefined') return 460;
+  const vw = window.innerWidth;
+  if (vw < 1024) return Math.max(280, Math.floor(vw * 0.36));
+  if (vw < 1280) return Math.max(360, Math.floor(vw * 0.32));
+  return 460;
+}
+
+function getMinPanelWidth() {
+  if (typeof window === 'undefined') return 360;
+  return Math.max(260, Math.floor(window.innerWidth * 0.22));
+}
+
 export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const template = templateSlug ? getTemplate(templateSlug) : null;
   const init = buildInitialState(templateSlug);
-  const DEFAULT_PANEL_WIDTH = 460;
 
   const [nodes, setNodes] = useState<CanvasNode[]>(init.nodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(init.edges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const [panelWidth, setPanelWidth] = useState(460);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef(0);
-  const dragStartWidthRef = useRef(DEFAULT_PANEL_WIDTH);
+  const dragStartWidthRef = useRef(460);
+
+  // Set panel width once on mount to match the actual viewport
+  useEffect(() => {
+    const w = getDefaultPanelWidth();
+    setPanelWidth(w);
+    dragStartWidthRef.current = w;
+  }, []);
+
+  // ── Autosave to localStorage ──────────────────────────────────────────────
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (nodes.length === 0 && edges.length === 0) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        const key = `prune-draft-${templateSlug ?? 'untitled'}`;
+        localStorage.setItem(key, JSON.stringify({ nodes, edges }));
+        setLastSavedAt(Date.now());
+      } catch {}
+    }, 1500);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [nodes, edges, templateSlug]);
+
+  // Hide the autosave pill 20 s after the last save
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const id = setTimeout(() => setLastSavedAt(null), 60_000);
+    return () => clearTimeout(id);
+  }, [lastSavedAt]);
+
+  // ── Run workflow ──────────────────────────────────────────────────────────
+  const [runState, setRunState] = useState<RunState>({ phase: 'idle', nodeStatuses: {}, startedAt: 0 });
+  const runIdRef = useRef(0);
+
+  const runWorkflow = useCallback(() => {
+    if (runState.phase === 'running' || nodes.length === 0) return;
+    const runId = ++runIdRef.current;
+    const order = topoSort(nodes, edges);
+
+    setRunState({
+      phase: 'running',
+      nodeStatuses: Object.fromEntries(nodes.map(n => [n.id, 'pending' as NodeRunStatus])),
+      startedAt: Date.now(),
+      currentNodeLabel: nodes.find(n => n.id === order[0])?.label,
+    });
+
+    let t = 0;
+    const timings = order.map(() => {
+      const runAt = t;
+      const doneAt = t + 600 + Math.floor(Math.random() * 500);
+      t = doneAt + 80;
+      return { runAt, doneAt };
+    });
+
+    order.forEach((nodeId, i) => {
+      const { runAt, doneAt } = timings[i];
+      const label = nodes.find(n => n.id === nodeId)?.label;
+      setTimeout(() => {
+        if (runIdRef.current !== runId) return;
+        setRunState(prev => ({ ...prev, nodeStatuses: { ...prev.nodeStatuses, [nodeId]: 'running' }, currentNodeLabel: label }));
+      }, runAt);
+      setTimeout(() => {
+        if (runIdRef.current !== runId) return;
+        setRunState(prev => ({ ...prev, nodeStatuses: { ...prev.nodeStatuses, [nodeId]: 'done' } }));
+      }, doneAt);
+    });
+
+    setTimeout(() => {
+      if (runIdRef.current !== runId) return;
+      setRunState(prev => ({ ...prev, phase: 'done', currentNodeLabel: undefined }));
+      setTimeout(() => {
+        if (runIdRef.current !== runId) return;
+        setRunState({ phase: 'idle', nodeStatuses: {}, startedAt: 0 });
+      }, 3000);
+    }, t);
+  }, [nodes, edges, runState.phase]);
 
   // ── History (undo / redo) ─────────────────────────────────────────────────
   const [history, setHistory] = useState<{ past: Snapshot[]; future: Snapshot[] }>({ past: [], future: [] });
@@ -225,7 +344,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
     function onMouseMove(e: MouseEvent) {
       if (!isDraggingRef.current) return;
       const delta = dragStartXRef.current - e.clientX;
-      setPanelWidth(Math.min(900, Math.max(DEFAULT_PANEL_WIDTH, dragStartWidthRef.current + delta)));
+      setPanelWidth(Math.min(900, Math.max(getMinPanelWidth(), dragStartWidthRef.current + delta)));
     }
     function onMouseUp() {
       if (!isDraggingRef.current) return;
@@ -262,6 +381,8 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
       <EditorTopbar
         templateName={template?.name ?? null}
         templateSlug={templateSlug}
+        onRun={runWorkflow}
+        runPhase={runState.phase}
       />
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar />
@@ -287,6 +408,10 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           onUpdateStickyNote={updateStickyNote}
           onUpdateStickyNoteColor={updateStickyNoteColor}
           onToggleAllStickyNotes={toggleAllStickyNotes}
+          nodeRunStatuses={runState.nodeStatuses}
+          runPhase={runState.phase}
+          runCurrentNodeLabel={runState.currentNodeLabel}
+          lastSavedAt={lastSavedAt}
         />
         <div
           className={cn(

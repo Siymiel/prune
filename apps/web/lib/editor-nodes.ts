@@ -121,6 +121,9 @@ export const LLM_MODELS = [
   { id: 'o3',                label: 'o3',                provider: 'openai'    as const },
 ];
 
+export type NodeRunStatus = 'pending' | 'running' | 'done' | 'error';
+export type RunPhase = 'idle' | 'running' | 'done' | 'error';
+
 export function getModelProvider(modelId: string): 'anthropic' | 'openai' {
   const m = modelId.toLowerCase();
   if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai';

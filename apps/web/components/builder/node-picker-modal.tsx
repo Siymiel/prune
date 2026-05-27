@@ -25,11 +25,12 @@ interface SidebarItem { key: CategoryKey; label: string; icon: React.ElementType
 interface NodePickerModalProps {
   screenX: number;
   screenY: number;
+  popupWidth?: number;
   onSelect: (kind: NodeKind) => void;
   onClose: () => void;
 }
 
-export function NodePickerModal({ screenX, screenY, onSelect, onClose }: NodePickerModalProps) {
+export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClose }: NodePickerModalProps) {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('home');
   const ref = useRef<HTMLDivElement>(null);
@@ -46,11 +47,17 @@ export function NodePickerModal({ screenX, screenY, onSelect, onClose }: NodePic
     return () => el.removeEventListener('wheel', stop);
   }, []);
 
-  const POPUP_W = 420;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-  const left = Math.max(16, Math.min(screenX + 16, vw - POPUP_W - 16));
-  const top  = Math.max(16, Math.min(screenY - 20, vh - 480));
+  // When opened from the toolbar Add button, match the toolbar's exact width and align to its left edge.
+  // Otherwise use the default adaptive width and offset to the right of the anchor point.
+  const POPUP_W = popupWidth ?? Math.min(420, vw - 32);
+  const POPUP_H = Math.min(460, vh - 48);
+  const left = popupWidth != null
+    ? Math.max(16, Math.min(screenX, vw - POPUP_W - 16))
+    : Math.max(16, Math.min(screenX + 16, vw - POPUP_W - 16));
+  // 56 = toolbar height (~36px) + bottom-4 offset (16px) + 4px gap
+  const top  = Math.max(16, Math.min(screenY - 20, vh - POPUP_H - 26));
 
   const popularNodes = POPULAR_NODES.map(k => NODE_DEFS.find(d => d.kind === k)).filter(Boolean) as NodeDef[];
   const popularApps  = POPULAR_APPS.map(k => NODE_DEFS.find(d => d.kind === k)).filter(Boolean) as NodeDef[];
@@ -100,7 +107,7 @@ export function NodePickerModal({ screenX, screenY, onSelect, onClose }: NodePic
       <div
         ref={panelRef}
         className="flex bg-background border rounded-2xl shadow-xl overflow-hidden w-full"
-        style={{ maxHeight: 460 }}
+        style={{ maxHeight: POPUP_H }}
       >
         {/* Icon sidebar */}
         <div className="w-12 border-r bg-muted flex flex-col items-center py-3 gap-2 shrink-0">
