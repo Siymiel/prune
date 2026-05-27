@@ -124,7 +124,7 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
                 'h-8 w-8 rounded-lg flex items-center justify-center transition-colors',
                 activeCategory === key && !query
                   ? 'bg-background border shadow-sm text-foreground'
-                  : 'text-gray-500 hover:bg-background/60 hover:text-foreground',
+                  : 'text-prune-darkGray hover:bg-background/60 hover:text-foreground',
               )}
             >
               <Icon className="h-[18px] w-[18px]" />
@@ -225,7 +225,7 @@ function PickerRow({ def, onSelect }: { def: NodeDef; onSelect: (kind: NodeKind)
   return (
     <button
       onClick={() => onSelect(def.kind)}
-      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white border border-border/40 hover:border-border hover:bg-gray-100 transition-colors text-left mb-1"
+      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white border border-border/40 hover:border-border hover:bg-prune-lightGray transition-colors text-left mb-1"
     >
       <div className="h-7 w-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
         {def.integrationId

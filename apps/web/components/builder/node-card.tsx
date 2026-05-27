@@ -28,6 +28,7 @@ import {
   ListOrdered,
   Loader2,
   X,
+  SendHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -74,7 +75,7 @@ function MenuItem({
         "flex items-center gap-3 px-2 py-1.5 text-[13px] font-medium cursor-pointer transition-colors select-none",
         danger
           ? "text-red-500 hover:bg-red-100 rounded-md"
-          : "text-foreground hover:bg-gray-100 rounded-md",
+          : "text-foreground hover:bg-prune-lightGray rounded-md",
       )}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => {
@@ -123,7 +124,7 @@ function FmtBtn({
         "h-5 w-5 flex items-center justify-center rounded transition-colors",
         isActive
           ? "bg-gray-800 text-white hover:bg-gray-700"
-          : "text-gray-600 hover:bg-black/10",
+          : "text-prune-darkGray hover:bg-black/10",
       )}
       onMouseDown={(e) => {
         e.preventDefault();
@@ -253,7 +254,7 @@ function StickyNoteEditor({
                     key={c}
                     className={cn(
                       "w-4 h-4 rounded-full border border-black/10 hover:scale-125 transition-transform",
-                      c === color && "ring-2 ring-offset-1 ring-gray-400",
+                      c === color && "ring-2 ring-offset-1 ring-prune-midGray",
                     )}
                     style={{ backgroundColor: c }}
                     onMouseDown={(e) => {
@@ -271,7 +272,7 @@ function StickyNoteEditor({
             )}
           </div>
 
-          <div className="w-px h-3 bg-gray-200 mx-0.5 shrink-0" />
+          <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
           <FmtBtn title="Bold" isActive={fmt.bold} onExecute={() => exec("bold")}>
             <Bold className="h-3.5 w-3.5" />
           </FmtBtn>
@@ -281,7 +282,7 @@ function StickyNoteEditor({
           <FmtBtn title="Underline" isActive={fmt.underline} onExecute={() => exec("underline")}>
             <Underline className="h-3.5 w-3.5" />
           </FmtBtn>
-          <div className="w-px h-3 bg-gray-200 mx-0.5 shrink-0" />
+          <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
           <FmtBtn
             title="Bullet list"
             isActive={fmt.block === 'ul' || document.queryCommandState('insertUnorderedList')}
@@ -296,7 +297,7 @@ function StickyNoteEditor({
           >
             <ListOrdered className="h-3.5 w-3.5" />
           </FmtBtn>
-          <div className="w-px h-3 bg-gray-200 mx-0.5 shrink-0" />
+          <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
           <FmtBtn title="Heading 1" isActive={fmt.block === 'h1'} onExecute={() => exec("formatBlock", "h1")}>
             <span className="text-[12px] font-semibold leading-none">
               H<sub className="text-[9px] relative bottom-[-1px]">1</sub>
@@ -354,6 +355,60 @@ function StickyNoteEditor({
   );
 }
 
+// ── Editable label ────────────────────────────────────────────────────────────
+
+function EditableLabel({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(value);
+      requestAnimationFrame(() => { inputRef.current?.select(); });
+    }
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const commit = () => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onCommit(trimmed);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); commit(); }
+          if (e.key === 'Escape') setEditing(false);
+          e.stopPropagation();
+        }}
+        onMouseDown={e => e.stopPropagation()}
+        className="text-sm font-medium leading-tight bg-muted/60 rounded px-1 py-1 -mx-1 w-full outline-none focus:ring-1 focus:ring-prune-midGray"
+      />
+    );
+  }
+
+  return (
+    <div
+      className="text-sm font-medium leading-tight rounded px-1 py-1 -mx-1 hover:bg-prune-lightGray cursor-grab transition-colors"
+      onDoubleClick={e => { e.stopPropagation(); setEditing(true); }}
+    >
+      {value}
+    </div>
+  );
+}
+
 function NodeContent({
   node,
   def,
@@ -364,7 +419,7 @@ function NodeContent({
   onUpdateValue: (id: string, value: string) => void;
 }) {
   const textareaClass =
-    "w-full px-2 py-1.5 text-xs bg-gray-100 border rounded text-foreground placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-ring font-mono";
+    "w-full px-2 py-1.5 text-xs bg-prune-lightGray rounded text-foreground placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-prune-midGray";
 
   if (def.kind === "text-input") {
     return (
@@ -424,7 +479,7 @@ function NodeContent({
       <div className="px-3 pb-3 space-y-3">
         {/* Model selector */}
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-200 bg-opacity-45 text-xs text-foreground cursor-pointer hover:bg-muted/60 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-prune-lightGray/50 text-xs text-foreground cursor-pointer hover:bg-muted/60 transition-colors"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -482,12 +537,28 @@ function NodeContent({
 
   if (def.kind === "trigger") {
     return (
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 space-y-2.5">
         <div className="px-2 py-2 bg-muted/30 border rounded text-[10px] text-muted-foreground">
           Event:{" "}
           <span className="text-foreground font-medium">
             WhatsApp message received
           </span>
+        </div>
+        <div>
+          <div className="relative">
+            <textarea
+              className={cn(textareaClass, "pr-7 text-[12px]")}
+              rows={4}
+              placeholder="Simulate a WhatsApp message…"
+              value={node.inputValue ?? ""}
+              onChange={e => onUpdateValue(node.id, e.target.value)}
+              onMouseDown={e => e.stopPropagation()}
+              onKeyDown={e => {
+                e.stopPropagation();
+                if (e.key === "Enter" && !e.shiftKey) e.preventDefault();
+              }}
+            />
+          </div>
         </div>
       </div>
     );
@@ -553,6 +624,7 @@ interface NodeCardProps {
   onToggleStickyNote?: (id: string) => void;
   onUpdateStickyNote?: (id: string, text: string) => void;
   onUpdateStickyNoteColor?: (id: string, color: string) => void;
+  onUpdateLabel?: (id: string, label: string) => void;
   runStatus?: NodeRunStatus;
 }
 
@@ -574,6 +646,7 @@ export function NodeCard({
   onToggleStickyNote,
   onUpdateStickyNote,
   onUpdateStickyNoteColor,
+  onUpdateLabel,
   runStatus,
 }: NodeCardProps) {
   const def = getNodeDef(node.kind);
@@ -613,7 +686,7 @@ export function NodeCard({
           : runStatus === 'done'    ? "border-green-400"
           : runStatus === 'error'   ? "border-red-400"
           : runStatus === 'pending' ? "opacity-50"
-          : isSelected ? "border-gray-400" : "border-border",
+          : isSelected ? "border-prune-midGray" : "border-border",
       )}
       onClick={(e) => {
         e.stopPropagation();
@@ -795,9 +868,10 @@ export function NodeCard({
             )}
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
-            <div className="text-sm font-medium leading-tight">
-              {node.label}
-            </div>
+            <EditableLabel
+              value={node.label}
+              onCommit={label => onUpdateLabel?.(node.id, label)}
+            />
           </div>
 
           {/* Context menu trigger */}
@@ -814,7 +888,7 @@ export function NodeCard({
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 bottom-full mb-1 z-50 w-52 bg-white rounded-xl shadow-lg border border-gray-100 px-1 py-1.5 overflow-hidden">
+              <div className="absolute right-0 bottom-full mb-1 z-50 w-52 bg-white rounded-xl shadow-lg border border-prune-lightGray px-1 py-1.5 overflow-hidden">
                 <MenuItem
                   icon={CopyPlus}
                   label="Duplicate"
@@ -861,7 +935,7 @@ export function NodeCard({
                   rightIcon={ExternalLink}
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="h-px bg-gray-100 mx-3 my-1" />
+                <div className="h-px bg-prune-lightGray mx-3 my-1" />
                 <MenuItem
                   icon={Trash2}
                   label="Delete"
@@ -884,7 +958,7 @@ export function NodeCard({
       <NodeContent node={node} def={def} onUpdateValue={onUpdateValue} />
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t flex items-center gap-2 text-[10px] text-muted-foreground bg-gray-100 rounded-b-xl">
+      <div className="px-3 py-2 border-t flex items-center gap-2 text-[10px] text-muted-foreground bg-prune-lightGray rounded-b-xl">
         <button
           className="flex items-center gap-0.5 hover:text-foreground transition-colors"
           onMouseDown={(e) => e.stopPropagation()}

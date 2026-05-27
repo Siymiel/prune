@@ -165,10 +165,12 @@ interface EditorCanvasProps {
   onUpdateStickyNote?: (id: string, text: string) => void;
   onUpdateStickyNoteColor?: (id: string, color: string) => void;
   onToggleAllStickyNotes?: () => void;
+  onUpdateLabel?: (id: string, label: string) => void;
   nodeRunStatuses?: Record<string, NodeRunStatus>;
   runPhase?: RunPhase;
   runCurrentNodeLabel?: string;
   lastSavedAt?: number | null;
+  focusRequest?: { id: string; at: number } | null;
 }
 
 function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
@@ -198,10 +200,12 @@ export function EditorCanvas({
   onUpdateStickyNote,
   onUpdateStickyNoteColor,
   onToggleAllStickyNotes,
+  onUpdateLabel,
   nodeRunStatuses,
   runPhase,
   runCurrentNodeLabel,
   lastSavedAt,
+  focusRequest,
 }: EditorCanvasProps) {
   const outerRef = useRef<HTMLDivElement>(null);
 
@@ -239,6 +243,7 @@ export function EditorCanvas({
   >({});
   const [showMinimap, setShowMinimap] = useState(false);
   const [containerSize, setContainerSize] = useState({ w: 1200, h: 700 });
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const el = outerRef.current;
@@ -264,6 +269,7 @@ export function EditorCanvas({
       const cy = e.clientY - rect.top;
       const factor = e.deltaY < 0 ? 1.03 : 0.97;
       const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor));
+      setIsAnimating(false);
       setPan({ x: cx - (cx - p.x) * (nz / z), y: cy - (cy - p.y) * (nz / z) });
       setZoom(nz);
     };
@@ -305,6 +311,7 @@ export function EditorCanvas({
   function handleOuterMouseDown(e: React.MouseEvent) {
     if (connecting) return; // don't start panning while drawing a connection
     if (dragging) return;
+    setIsAnimating(false);
     setPanning({
       startMX: e.clientX,
       startMY: e.clientY,
@@ -466,6 +473,23 @@ export function EditorCanvas({
     });
   }, [nodes]);
 
+  // Center viewport on a specific node when focusRequest changes.
+  useEffect(() => {
+    if (!focusRequest) return;
+    const node = nodes.find((n) => n.id === focusRequest.id);
+    if (!node) return;
+    const rect = outerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const z = 1.5;
+    setIsAnimating(true);
+    setZoom(z);
+    setPan({
+      x: rect.width  / 2 - (node.x + NODE_WIDTH / 2) * z,
+      y: rect.height / 2 - (node.y + NODE_H   / 2) * z,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest]);
+
   // Auto-fit to content on first render that has nodes.
   // Double-RAF ensures flex layout has fully settled before measuring.
   const hasAutoFit = useRef(false);
@@ -544,7 +568,9 @@ export function EditorCanvas({
           position: "absolute",
           top: 0,
           left: 0,
+          transition: isAnimating ? 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
         }}
+        onTransitionEnd={() => setIsAnimating(false)}
       >
         {/* SVG node connection line */}
         <svg
@@ -573,8 +599,8 @@ export function EditorCanvas({
                 fill="none"
                 stroke={
                   hoveredEdgeId === e.id || e.isConnectedToHoveredNode
-                    ? "#4b5563"
-                    : "#9ca3af"
+                    ? "#71717A"
+                    : "#A3A3A3"
                 }
                 strokeWidth={
                   hoveredEdgeId === e.id || e.isConnectedToHoveredNode ? 2 : 1.5
@@ -682,6 +708,7 @@ export function EditorCanvas({
             onToggleStickyNote={onToggleStickyNote}
             onUpdateStickyNote={onUpdateStickyNote}
             onUpdateStickyNoteColor={onUpdateStickyNoteColor}
+            onUpdateLabel={onUpdateLabel}
             runStatus={nodeRunStatuses?.[node.id]}
           />
         ))}
@@ -880,7 +907,7 @@ export function EditorCanvas({
 }
 
 function Sep() {
-  return <div className="w-px h-5 bg-gray-300 mx-0.5 shrink-0" />;
+  return <div className="w-px h-5 bg-prune-midGray mx-0.5 shrink-0" />;
 }
 
 function ToolBtn({
@@ -916,15 +943,15 @@ function ToolBtn({
         className={cn(
           "h-7 w-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
           active
-            ? "bg-gray-200 text-foreground"
-            : "text-muted-foreground hover:text-foreground hover:bg-gray-100",
+            ? "bg-prune-lightGray text-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-prune-lightGray",
         )}
       >
         {children}
       </button>
       {hovered && tooltip && (
         <div
-          className="fixed px-2 py-1 bg-white border border-gray-100 text-gray-600 text-[12px] font-medium rounded-md whitespace-nowrap pointer-events-none z-[200] shadow-sm"
+          className="fixed px-2 py-1 bg-white border border-prune-lightGray text-prune-darkGray text-[12px] font-medium rounded-md whitespace-nowrap pointer-events-none z-[200] shadow-sm"
           style={{
             left: tipPos.x,
             top: tipPos.y,
@@ -1034,7 +1061,7 @@ function Minimap({
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onClose}
-          className="h-4 w-4 flex items-center justify-center rounded hover:bg-gray-200 text-muted-foreground hover:text-foreground transition-colors"
+          className="h-4 w-4 flex items-center justify-center rounded hover:bg-prune-lightGray text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="h-2.5 w-2.5" />
         </button>
@@ -1069,7 +1096,7 @@ function Minimap({
               key={edge.id}
               d={`M ${sx} ${sy} C ${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`}
               fill="none"
-              stroke="#6b7280"
+              stroke="#A3A3A3"
               strokeWidth={1}
             />
           );
@@ -1206,7 +1233,7 @@ function AutosavePill({ savedAt }: { savedAt: number }) {
   return (
     <div className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 text-[15px] text-muted-foreground whitespace-nowrap select-none font-medium">
       <span className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-black shrink-0" />
-      Auto-saved draft <span className="text-gray-700">{label}</span>
+      Auto-saved draft <span className="text-prune-darkGray">{label}</span>
     </div>
   );
 }

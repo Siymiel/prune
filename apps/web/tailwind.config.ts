@@ -38,6 +38,12 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        prune: {
+          darkGray:  '#71717A',
+          midGray:   '#A3A3A3',
+          lightGray: '#F4F4F5',
+          spaceGray: '#EFF0F0'
+        },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',

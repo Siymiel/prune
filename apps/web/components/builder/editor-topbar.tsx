@@ -44,7 +44,7 @@ export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'id
       <div className="w-px h-5 bg-border shrink-0" />
 
       {/* Tabs — scrollable on narrow viewports */}
-      <nav className="flex items-center bg-gray-100 gap-0.5 sm:gap-1 p-1 rounded-lg overflow-x-auto [&::-webkit-scrollbar]:hidden shrink-0">
+      <nav className="flex items-center bg-prune-lightGray gap-0.5 sm:gap-1 p-1 rounded-lg overflow-x-auto [&::-webkit-scrollbar]:hidden shrink-0">
         {(['workflow', 'export', 'analytics', 'manager'] as Tab[]).map((tab) => (
           <button
             key={tab}
@@ -53,7 +53,7 @@ export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'id
               'px-1.5 sm:px-2 py-1 text-[11px] sm:text-[13px] rounded-md font-medium capitalize transition-colors whitespace-nowrap',
               activeTab === tab
                 ? 'bg-white text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-gray-200',
+                : 'text-muted-foreground hover:text-foreground hover:bg-prune-lightGray',
             )}
           >
             {tab}

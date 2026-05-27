@@ -115,6 +115,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const [nodes, setNodes] = useState<CanvasNode[]>(init.nodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(init.edges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ id: string; at: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState(460);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -131,6 +132,8 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   // ── Autosave to localStorage ──────────────────────────────────────────────
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True only when a real content edit happened (not just a position drag).
+  const hasContentChangeRef = useRef(false);
 
   useEffect(() => {
     if (nodes.length === 0 && edges.length === 0) return;
@@ -139,7 +142,10 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
       try {
         const key = `prune-draft-${templateSlug ?? 'untitled'}`;
         localStorage.setItem(key, JSON.stringify({ nodes, edges }));
-        setLastSavedAt(Date.now());
+        if (hasContentChangeRef.current) {
+          setLastSavedAt(Date.now());
+          hasContentChangeRef.current = false;
+        }
       } catch {}
     }, 1500);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
@@ -241,6 +247,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
 
   // ── Node / edge mutations (each saves a snapshot first) ───────────────────
   const addNode = useCallback((kind: NodeKind, x: number, y: number) => {
+    hasContentChangeRef.current = true;
     saveSnapshot();
     const def = getNodeDef(kind);
     setNodes(prev => [
@@ -255,10 +262,18 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   }, [saveSnapshot]);
 
   const updateValue = useCallback((id: string, value: string) => {
+    hasContentChangeRef.current = true;
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, inputValue: value } : n)));
   }, []);
 
+  const updateLabel = useCallback((id: string, label: string) => {
+    hasContentChangeRef.current = true;
+    saveSnapshot();
+    setNodes(prev => prev.map(n => (n.id === id ? { ...n, label } : n)));
+  }, [saveSnapshot]);
+
   const removeNode = useCallback((id: string) => {
+    hasContentChangeRef.current = true;
     saveSnapshot();
     setNodes(prev => prev.filter(n => n.id !== id));
     setEdges(prev => prev.filter(e => e.sourceId !== id && e.targetId !== id));
@@ -268,6 +283,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const selectNode = useCallback((id: string) => setSelectedNodeId(id), []);
 
   const addConnectedNode = useCallback((kind: NodeKind, x: number, y: number, anchorId: string, side: 'input' | 'output') => {
+    hasContentChangeRef.current = true;
     saveSnapshot();
     const def = getNodeDef(kind);
     const newId = `n-${Date.now()}`;
@@ -280,6 +296,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   }, [saveSnapshot]);
 
   const addEdge = useCallback((sourceId: string, targetId: string) => {
+    hasContentChangeRef.current = true;
     saveSnapshot();
     setEdges(prev => {
       if (prev.some(e => e.sourceId === sourceId && e.targetId === targetId)) return prev;
@@ -288,6 +305,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   }, [saveSnapshot]);
 
   const removeEdge = useCallback((id: string) => {
+    hasContentChangeRef.current = true;
     saveSnapshot();
     setEdges(prev => prev.filter(e => e.id !== id));
   }, [saveSnapshot]);
@@ -309,6 +327,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   }, []);
 
   const updateStickyNote = useCallback((id: string, text: string) => {
+    hasContentChangeRef.current = true;
     setNodes(prev => prev.map(n =>
       n.id === id && n.stickyNote ? { ...n, stickyNote: { ...n.stickyNote, text } } : n
     ));
@@ -399,6 +418,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           onSelectNode={selectNode}
           onDeselect={() => setSelectedNodeId(null)}
           onAddConnectedNode={addConnectedNode}
+          onUpdateLabel={updateLabel}
           onArrangeNodes={arrangeNodes}
           onUndo={undo}
           onRedo={redo}
@@ -412,6 +432,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           runPhase={runState.phase}
           runCurrentNodeLabel={runState.currentNodeLabel}
           lastSavedAt={lastSavedAt}
+          focusRequest={focusRequest}
         />
         <div
           className={cn(
@@ -429,6 +450,9 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
               nodes={nodes}
               onClose={() => setSelectedNodeId(null)}
               onUpdateValue={updateValue}
+              onUpdateLabel={updateLabel}
+              onRemoveNode={removeNode}
+              onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
               onResizeMouseDown={handleResizeMouseDown}
             />
           )}
