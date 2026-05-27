@@ -19,6 +19,13 @@ export function EditorTopbar({ templateName, templateSlug }: EditorTopbarProps) 
 
   return (
     <header className="h-12 border-b bg-background flex items-center gap-3 px-4 shrink-0 z-20">
+      {/* Logo */}
+      <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-[13px] font-bold text-primary-foreground">
+        P
+      </div>
+
+      <div className="w-px h-5 bg-border shrink-0" />
+
       {/* Back */}
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <Link
@@ -32,16 +39,16 @@ export function EditorTopbar({ templateName, templateSlug }: EditorTopbarProps) 
       <div className="w-px h-5 bg-border shrink-0" />
 
       {/* Tabs */}
-      <nav className="flex items-center gap-0.5">
+      <nav className="flex items-center bg-gray-100 gap-1 p-1 rounded-lg">
         {(['workflow', 'export', 'analytics', 'manager'] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              'px-3 py-1.5 text-sm rounded-md capitalize transition-colors',
+              'px-2 py-1 text-[13px] rounded-md font-medium capitalize transition-colors',
               activeTab === tab
-                ? 'bg-muted font-medium text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                ? 'bg-white text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-gray-200',
             )}
           >
             {tab}

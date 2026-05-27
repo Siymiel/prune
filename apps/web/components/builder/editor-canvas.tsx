@@ -2,16 +2,95 @@
 
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import {
-  ZoomIn, ZoomOut, Maximize2, Undo2, Redo2,
+  ZoomIn, ZoomOut, Undo2, Redo2,
+  Sparkles, Plus, MousePointer2, Scan, LayoutGrid, Map as MapIcon, Camera,
+  Fullscreen,
+  SquareArrowOutUpRightIcon,
 } from 'lucide-react';
 import { type CanvasNode, type CanvasEdge, type NodeKind, getNodeDef } from '@/lib/editor-nodes';
 import { NodeCard, NODE_WIDTH, HANDLE_Y_OFFSET, HANDLE_SIDE_OFFSET } from './node-card';
+import { NodePickerModal } from './node-picker-modal';
 import { cn } from '@/lib/utils';
 
 const CANVAS_W = 4000;
 const CANVAS_H = 3000;
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2.5;
+
+// ── Auto-arrange: hierarchical left-to-right layout ──────────────────────────
+const NODE_H = 170;  // approximate card height for spacing
+const H_STEP = NODE_WIDTH + 140;
+const V_STEP = NODE_H + 70;
+
+function autoArrange(nodes: CanvasNode[], edges: CanvasEdge[]): { id: string; x: number; y: number }[] {
+  if (nodes.length === 0) return [];
+
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const out: Record<string, string[]> = {};
+  const inc: Record<string, string[]> = {};
+  nodes.forEach(n => { out[n.id] = []; inc[n.id] = []; });
+  edges.forEach(e => {
+    if (nodeIds.has(e.sourceId) && nodeIds.has(e.targetId)) {
+      out[e.sourceId].push(e.targetId);
+      inc[e.targetId].push(e.sourceId);
+    }
+  });
+
+  // Assign layers: longest path from sources (Kahn + relaxation)
+  const layer: Record<string, number> = {};
+  nodes.forEach(n => { layer[n.id] = 0; });
+  const indegree = new Map(nodes.map(n => [n.id, inc[n.id].length] as [string, number]));
+  const queue = nodes.filter(n => inc[n.id].length === 0).map(n => n.id);
+
+  while (queue.length) {
+    const id = queue.shift()!;
+    for (const t of out[id]) {
+      layer[t] = Math.max(layer[t], layer[id] + 1);
+      indegree.set(t, indegree.get(t)! - 1);
+      if (indegree.get(t) === 0) queue.push(t);
+    }
+  }
+  // nodes stuck in cycles get their own column
+  const maxL = Math.max(0, ...Object.values(layer));
+  indegree.forEach((deg, id) => { if (deg > 0) layer[id] = maxL + 1; });
+
+  // Group into columns
+  const numCols = Math.max(...Object.values(layer)) + 1;
+  const cols: string[][] = Array.from({ length: numCols }, () => []);
+  nodes.forEach(n => cols[layer[n.id]].push(n.id));
+
+  // Barycenter heuristic: order first column by original y, then each
+  // subsequent column by average rank of predecessors
+  const rank: Record<string, number> = {};
+  cols[0].sort((a, b) => {
+    const na = nodes.find(n => n.id === a)!;
+    const nb = nodes.find(n => n.id === b)!;
+    return na.y - nb.y;
+  });
+  cols[0].forEach((id, i) => { rank[id] = i; });
+
+  for (let l = 1; l < numCols; l++) {
+    cols[l].sort((a, b) => {
+      const ra = inc[a].length ? inc[a].reduce((s, p) => s + (rank[p] ?? 0), 0) / inc[a].length : 0;
+      const rb = inc[b].length ? inc[b].reduce((s, p) => s + (rank[p] ?? 0), 0) / inc[b].length : 0;
+      return ra - rb;
+    });
+    cols[l].forEach((id, i) => { rank[id] = i; });
+  }
+
+  // Center all columns around the same vertical midline
+  const maxRows = Math.max(...cols.map(c => c.length));
+  const midY = 80 + ((maxRows - 1) * V_STEP) / 2;
+
+  const result: { id: string; x: number; y: number }[] = [];
+  cols.forEach((col, l) => {
+    const x = 80 + l * H_STEP;
+    const colH = (col.length - 1) * V_STEP;
+    const startY = midY - colH / 2;
+    col.forEach((id, i) => result.push({ id, x, y: startY + i * V_STEP }));
+  });
+  return result;
+}
 
 interface EditorCanvasProps {
   nodes: CanvasNode[];
@@ -25,6 +104,16 @@ interface EditorCanvasProps {
   onRemoveEdge?: (id: string) => void;
   onSelectNode?: (id: string) => void;
   onDeselect?: () => void;
+  onAddConnectedNode: (kind: NodeKind, x: number, y: number, anchorId: string, side: 'input' | 'output') => void;
+  onArrangeNodes?: (positions: { id: string; x: number; y: number }[]) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onToggleStickyNote?: (id: string) => void;
+  onUpdateStickyNote?: (id: string, text: string) => void;
+  onUpdateStickyNoteColor?: (id: string, color: string) => void;
+  onToggleAllStickyNotes?: () => void;
 }
 
 function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
@@ -44,6 +133,16 @@ export function EditorCanvas({
   onRemoveEdge,
   onSelectNode,
   onDeselect,
+  onAddConnectedNode,
+  onArrangeNodes,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
+  onToggleStickyNote,
+  onUpdateStickyNote,
+  onUpdateStickyNoteColor,
+  onToggleAllStickyNotes,
 }: EditorCanvasProps) {
   const outerRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +191,18 @@ export function EditorCanvas({
     };
   }
 
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); onUndo?.(); }
+      if (e.key === 'z' && e.shiftKey)  { e.preventDefault(); onRedo?.(); }
+      if (e.key === 'y')                 { e.preventDefault(); onRedo?.(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onUndo, onRedo]);
+
   // ── Outer mouse events ────────────────────────────────────────────────────
   function handleOuterMouseDown(e: React.MouseEvent) {
     if (connecting) return; // don't start panning while drawing a connection
@@ -104,8 +215,8 @@ export function EditorCanvas({
     setMousePos(c);
 
     if (dragging) {
-      const x = Math.max(0, c.x - dragging.offsetX);
-      const y = Math.max(0, c.y - dragging.offsetY);
+      const x = c.x - dragging.offsetX;
+      const y = c.y - dragging.offsetY;
       setLocalPositions(prev => ({ ...prev, [dragging.id]: { x, y } }));
       return;
     }
@@ -148,6 +259,31 @@ export function EditorCanvas({
     onAddEdge(connecting.sourceId, targetId);
     setConnecting(null);
   }, [connecting, onAddEdge]);
+
+  // ── Node picker (click output handle) ────────────────────────────────────
+  const [picker, setPicker] = useState<{ anchorId: string; screenX: number; screenY: number; side: 'input' | 'output' } | null>(null);
+
+  const openPicker = useCallback((anchorId: string, screenX: number, screenY: number, side: 'input' | 'output') => {
+    setPicker({ anchorId, screenX, screenY, side });
+  }, []);
+
+  const handlePickerSelect = useCallback((kind: NodeKind) => {
+    if (!picker) return;
+    if (!picker.anchorId) {
+      const rect = outerRef.current?.getBoundingClientRect();
+      const cx = rect ? (rect.width / 2 - panRef.current.x) / zoomRef.current : 300;
+      const cy = rect ? (rect.height / 2 - panRef.current.y) / zoomRef.current : 200;
+      onAddNode(kind, Math.max(0, cx - NODE_WIDTH / 2), Math.max(0, cy - 40));
+    } else {
+      const anchor = nodes.find(n => n.id === picker.anchorId);
+      const newX = picker.side === 'output'
+        ? (anchor?.x ?? 200) + NODE_WIDTH + 120
+        : (anchor?.x ?? 200) - NODE_WIDTH - 120;
+      const newY = anchor?.y ?? 200;
+      onAddConnectedNode(kind, newX, newY, picker.anchorId, picker.side);
+    }
+    setPicker(null);
+  }, [picker, nodes, onAddConnectedNode, onAddNode]);
 
   // ── Sidebar drag-and-drop ─────────────────────────────────────────────────
   function handleDragOver(e: React.DragEvent) {
@@ -341,9 +477,23 @@ export function EditorCanvas({
             onSelect={onSelectNode}
             onHoverStart={() => setHoveredNodeId(node.id)}
             onHoverEnd={() => setHoveredNodeId(null)}
+            onOpenPicker={openPicker}
+            onToggleStickyNote={onToggleStickyNote}
+            onUpdateStickyNote={onUpdateStickyNote}
+            onUpdateStickyNoteColor={onUpdateStickyNoteColor}
           />
         ))}
       </div>
+
+      {/* Node picker modal — outside transform so it uses raw screen coords */}
+      {picker && (
+        <NodePickerModal
+          screenX={picker.screenX}
+          screenY={picker.screenY}
+          onSelect={handlePickerSelect}
+          onClose={() => setPicker(null)}
+        />
+      )}
 
       {/* Empty state — outside transform so it's always viewport-centered */}
       {nodes.length === 0 && (
@@ -358,54 +508,95 @@ export function EditorCanvas({
       )}
 
       {/* ── Bottom toolbar ─────────────────────────────────────────────────── */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-background border rounded-lg shadow-lg px-2 py-1.5 z-20 pointer-events-auto">
-        <ToolBtn title="Undo" disabled><Undo2 className="h-3.5 w-3.5" /></ToolBtn>
-        <ToolBtn title="Redo" disabled><Redo2 className="h-3.5 w-3.5" /></ToolBtn>
-
-        <div className="w-px h-5 bg-border mx-1" />
-
-        <ToolBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - 0.1))}>
-          <ZoomOut className="h-3.5 w-3.5" />
-        </ToolBtn>
-        <button
-          onClick={fitView}
-          className="px-2 py-1 text-[11px] font-mono text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors min-w-[46px] text-center"
-        >
-          {Math.round(zoom * 100)}%
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background border rounded-md shadow-lg px-1 py-1 z-20 pointer-events-auto">
+        {/* Ask AI */}
+        <button className="flex items-center gap-1 px-3 py-1 rounded-md border border-violet-300 text-violet-600 text-[14px] font-medium hover:bg-violet-50 transition-colors whitespace-nowrap">
+          <Sparkles className="h-4 w-4" />
+          Ask AI
         </button>
-        <ToolBtn title="Zoom in" onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + 0.1))}>
-          <ZoomIn className="h-3.5 w-3.5" />
+
+        {/* Add */}
+       <button
+        onClick={() => {
+          const rect = outerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          setPicker({ anchorId: '', screenX: rect.left + rect.width / 2, screenY: rect.top + rect.height / 2, side: 'output' });
+        }}
+        className="group flex items-center gap-1 px-3 py-1 rounded-md bg-foreground text-background text-[14px] font-medium hover:bg-foreground/90 transition-colors whitespace-nowrap"
+      >
+        <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
+        Add
+      </button>
+
+        <Sep />
+
+        <ToolBtn tooltip="Undo" disabled={!canUndo} onClick={onUndo}><Undo2 className="h-4 w-4" /></ToolBtn>
+        <ToolBtn tooltip="Redo" disabled={!canRedo} onClick={onRedo}><Redo2 className="h-4 w-4" /></ToolBtn>
+
+        <Sep />
+
+        <ToolBtn tooltip="Zoom in" onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + 0.1))}>
+          <ZoomIn className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn tooltip="Zoom out" onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - 0.1))}>
+          <ZoomOut className="h-4 w-4" />
         </ToolBtn>
 
-        <div className="w-px h-5 bg-border mx-1" />
+        <Sep />
 
-        <ToolBtn title="Fit view" onClick={fitView}>
-          <Maximize2 className="h-3.5 w-3.5" />
+        <ToolBtn tooltip="Fit view to screen" onClick={fitView}>
+          <Fullscreen className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn tooltip="Show node notes" onClick={onToggleAllStickyNotes}>
+          <SquareArrowOutUpRightIcon className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn tooltip="Auto arrange nodes" onClick={() => {
+          const positions = autoArrange(nodes, edges);
+          onArrangeNodes?.(positions);
+          requestAnimationFrame(fitView);
+        }}>
+          <LayoutGrid className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn tooltip="Toggle minimap">
+          <MapIcon className="h-4 w-4" />
+        </ToolBtn>
+        <ToolBtn tooltip="Toggle screenshot mode">
+          <Camera className="h-4 w-4" />
         </ToolBtn>
       </div>
     </div>
   );
 }
 
+function Sep() {
+  return <div className="w-px h-5 bg-border mx-0.5 shrink-0" />;
+}
+
 function ToolBtn({
   children,
-  title,
+  tooltip,
   onClick,
   disabled,
 }: {
   children: React.ReactNode;
-  title?: string;
+  tooltip?: string;
   onClick?: () => void;
   disabled?: boolean;
 }) {
   return (
-    <button
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-      className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-    >
-      {children}
-    </button>
+    <div className="relative group/btn">
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        {children}
+      </button>
+      {tooltip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-white text-gray-600 text-[12px] font-medium rounded-md whitespace-nowrap pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-opacity z-50">
+          {tooltip}
+        </div>
+      )}
+    </div>
   );
 }

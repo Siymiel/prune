@@ -163,7 +163,7 @@ export function EditorSidebar() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{ width: sidebarWidthPx }}
-        className="shrink-0 border-r bg-background flex flex-col h-full overflow-hidden transition-[width] duration-200 ease-in-out z-30"
+        className="absolute left-0 top-0 bottom-0 border-r bg-background flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out z-30"
       >
         {expanded ? (
           <>

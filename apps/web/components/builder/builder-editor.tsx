@@ -10,9 +10,21 @@ import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind } from '@/l
 import { cn } from '@/lib/utils';
 import type { NodeType } from '@/lib/types';
 
+const MAX_HISTORY = 50;
+
+const STICKY_COLORS = [
+  '#FEF9C3', '#FCE7F3', '#DBEAFE', '#D1FAE5',
+  '#EDE9FE', '#FFEDD5', '#E0F2FE', '#FEE2E2',
+];
+function randomStickyColor() {
+  return STICKY_COLORS[Math.floor(Math.random() * STICKY_COLORS.length)];
+}
+
 interface BuilderEditorProps {
   templateSlug: string | null;
 }
+
+type Snapshot = { nodes: CanvasNode[]; edges: CanvasEdge[] };
 
 function workflowTypeToKind(type: NodeType, label: string): NodeKind {
   const lo = label.toLowerCase();
@@ -68,30 +80,139 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const dragStartXRef = useRef(0);
   const dragStartWidthRef = useRef(DEFAULT_PANEL_WIDTH);
 
+  // ── History (undo / redo) ─────────────────────────────────────────────────
+  const [history, setHistory] = useState<{ past: Snapshot[]; future: Snapshot[] }>({ past: [], future: [] });
+
+  // Always-current ref so snapshot closures don't go stale
+  const liveRef = useRef<Snapshot>({ nodes, edges });
+  useEffect(() => { liveRef.current = { nodes, edges }; }, [nodes, edges]);
+
+  const saveSnapshot = useCallback(() => {
+    setHistory(h => ({
+      past: [...h.past.slice(-(MAX_HISTORY - 1)), { ...liveRef.current }],
+      future: [],
+    }));
+  }, []);
+
+  const undo = useCallback(() => {
+    setHistory(h => {
+      if (h.past.length === 0) return h;
+      const snap = h.past[h.past.length - 1];
+      setNodes(snap.nodes);
+      setEdges(snap.edges);
+      return {
+        past: h.past.slice(0, -1),
+        future: [{ ...liveRef.current }, ...h.future.slice(0, MAX_HISTORY - 1)],
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setHistory(h => {
+      if (h.future.length === 0) return h;
+      const snap = h.future[0];
+      setNodes(snap.nodes);
+      setEdges(snap.edges);
+      return {
+        past: [...h.past.slice(-(MAX_HISTORY - 1)), { ...liveRef.current }],
+        future: h.future.slice(1),
+      };
+    });
+  }, []);
+
+  // ── Node / edge mutations (each saves a snapshot first) ───────────────────
   const addNode = useCallback((kind: NodeKind, x: number, y: number) => {
+    saveSnapshot();
     const def = getNodeDef(kind);
     setNodes(prev => [
       ...prev,
       { id: `n-${Date.now()}`, kind, label: def?.label ?? kind, x, y },
     ]);
-  }, []);
+  }, [saveSnapshot]);
 
   const moveNode = useCallback((id: string, x: number, y: number) => {
+    saveSnapshot();
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, x, y } : n)));
-  }, []);
+  }, [saveSnapshot]);
 
   const updateValue = useCallback((id: string, value: string) => {
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, inputValue: value } : n)));
   }, []);
 
   const removeNode = useCallback((id: string) => {
+    saveSnapshot();
     setNodes(prev => prev.filter(n => n.id !== id));
     setEdges(prev => prev.filter(e => e.sourceId !== id && e.targetId !== id));
     setSelectedNodeId(prev => (prev === id ? null : prev));
-  }, []);
+  }, [saveSnapshot]);
 
   const selectNode = useCallback((id: string) => setSelectedNodeId(id), []);
 
+  const addConnectedNode = useCallback((kind: NodeKind, x: number, y: number, anchorId: string, side: 'input' | 'output') => {
+    saveSnapshot();
+    const def = getNodeDef(kind);
+    const newId = `n-${Date.now()}`;
+    setNodes(prev => [...prev, { id: newId, kind, label: def?.label ?? kind, x, y }]);
+    setEdges(prev => [...prev, {
+      id: `e-${Date.now()}`,
+      sourceId: side === 'output' ? anchorId : newId,
+      targetId: side === 'output' ? newId : anchorId,
+    }]);
+  }, [saveSnapshot]);
+
+  const addEdge = useCallback((sourceId: string, targetId: string) => {
+    saveSnapshot();
+    setEdges(prev => {
+      if (prev.some(e => e.sourceId === sourceId && e.targetId === targetId)) return prev;
+      return [...prev, { id: `e-${Date.now()}`, sourceId, targetId }];
+    });
+  }, [saveSnapshot]);
+
+  const removeEdge = useCallback((id: string) => {
+    saveSnapshot();
+    setEdges(prev => prev.filter(e => e.id !== id));
+  }, [saveSnapshot]);
+
+  const arrangeNodes = useCallback((positions: { id: string; x: number; y: number }[]) => {
+    saveSnapshot();
+    const posMap = Object.fromEntries(positions.map(p => [p.id, p]));
+    setNodes(prev => prev.map(n => posMap[n.id] ? { ...n, x: posMap[n.id].x, y: posMap[n.id].y } : n));
+  }, [saveSnapshot]);
+
+  const toggleStickyNote = useCallback((id: string) => {
+    setNodes(prev => prev.map(n => {
+      if (n.id !== id) return n;
+      if (!n.stickyNote) {
+        return { ...n, stickyNote: { visible: true, text: '', color: randomStickyColor() } };
+      }
+      return { ...n, stickyNote: { ...n.stickyNote, visible: !n.stickyNote.visible } };
+    }));
+  }, []);
+
+  const updateStickyNote = useCallback((id: string, text: string) => {
+    setNodes(prev => prev.map(n =>
+      n.id === id && n.stickyNote ? { ...n, stickyNote: { ...n.stickyNote, text } } : n
+    ));
+  }, []);
+
+  const updateStickyNoteColor = useCallback((id: string, color: string) => {
+    setNodes(prev => prev.map(n =>
+      n.id === id && n.stickyNote ? { ...n, stickyNote: { ...n.stickyNote, color } } : n
+    ));
+  }, []);
+
+  const toggleAllStickyNotes = useCallback(() => {
+    setNodes(prev => {
+      const anyHidden = prev.some(n => n.stickyNote && !n.stickyNote.visible);
+      const anyExists = prev.some(n => n.stickyNote);
+      if (!anyExists) return prev;
+      return prev.map(n =>
+        n.stickyNote ? { ...n, stickyNote: { ...n.stickyNote, visible: anyHidden ? true : false } } : n
+      );
+    });
+  }, []);
+
+  // ── Panel resize ──────────────────────────────────────────────────────────
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDraggingRef.current = true;
@@ -129,25 +250,12 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   }, [isDragging]);
 
   // Keep panel content alive during the slide-out animation.
-  // panelNodeId only updates when a node IS selected, never on deselect,
-  // so the panel has content to render while it slides away.
   const [panelNodeId, setPanelNodeId] = useState<string | null>(null);
   useEffect(() => {
     if (selectedNodeId) setPanelNodeId(selectedNodeId);
   }, [selectedNodeId]);
   const panelNode = panelNodeId ? nodes.find(n => n.id === panelNodeId) ?? null : null;
   const isPanelOpen = !!selectedNodeId && !!nodes.find(n => n.id === selectedNodeId);
-
-  const addEdge = useCallback((sourceId: string, targetId: string) => {
-    setEdges(prev => {
-      if (prev.some(e => e.sourceId === sourceId && e.targetId === targetId)) return prev;
-      return [...prev, { id: `e-${Date.now()}`, sourceId, targetId }];
-    });
-  }, []);
-
-  const removeEdge = useCallback((id: string) => {
-    setEdges(prev => prev.filter(e => e.id !== id));
-  }, []);
 
   return (
     <>
@@ -169,6 +277,16 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           onRemoveEdge={removeEdge}
           onSelectNode={selectNode}
           onDeselect={() => setSelectedNodeId(null)}
+          onAddConnectedNode={addConnectedNode}
+          onArrangeNodes={arrangeNodes}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
+          onToggleStickyNote={toggleStickyNote}
+          onUpdateStickyNote={updateStickyNote}
+          onUpdateStickyNoteColor={updateStickyNoteColor}
+          onToggleAllStickyNotes={toggleAllStickyNotes}
         />
         <div
           className={cn(
