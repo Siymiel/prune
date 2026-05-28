@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
 import { useRef, useState, useEffect } from "react";
 import {
   ChevronDown,
@@ -411,6 +412,99 @@ function EditableLabel({
   );
 }
 
+function OutputNodeContent({ node }: { node: CanvasNode }) {
+  const [tab, setTab] = useState<"formatted" | "text">("formatted");
+  const content = node.inputValue ?? "";
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(content);
+  };
+
+  const handleDownloadPDF = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const escaped = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    win.document.write(
+      `<!DOCTYPE html><html><head><title>Output</title><style>body{font-family:sans-serif;padding:2rem;max-width:800px;margin:0 auto;line-height:1.6}pre{white-space:pre-wrap;font-family:inherit}</style></head><body><pre>${escaped}</pre></body></html>`,
+    );
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  return (
+    <div className="px-3 pb-3">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center border rounded-md overflow-hidden text-[11px]">
+          <button
+            className={cn(
+              "px-2.5 py-1 font-medium transition-colors",
+              tab === "formatted"
+                ? "bg-gray-900 text-white"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setTab("formatted"); }}
+          >
+            Formatted
+          </button>
+          <button
+            className={cn(
+              "px-2.5 py-1 transition-colors",
+              tab === "text"
+                ? "bg-gray-900 text-white"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setTab("text"); }}
+          >
+            Text
+          </button>
+        </div>
+        <div className="ml-auto flex items-center gap-0.5">
+          <button
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleCopy}
+            title="Copy to clipboard"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+          <button
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleDownloadPDF}
+            title="Download as PDF"
+          >
+            <Download className="h-3 w-3" />
+          </button>
+          <button
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      <div className={cn("min-h-[72px] rounded-md border bg-background", content && "p-2")}>
+        {content ? (
+          tab === "formatted" ? (
+            <div className="text-xs text-foreground leading-relaxed [&_h1]:text-sm [&_h1]:font-bold [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:mb-0.5 [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-1 [&_code]:bg-muted/50 [&_code]:px-0.5 [&_code]:rounded [&_code]:font-mono [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
+          ) : (
+            <pre className="text-xs text-foreground font-mono whitespace-pre-wrap leading-relaxed">
+              {content}
+            </pre>
+          )
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function NodeContent({
   node,
   def,
@@ -542,47 +636,7 @@ function NodeContent({
   }
 
   if (def.kind === "output") {
-    return (
-      <div className="px-3 pb-3">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex items-center border rounded-md overflow-hidden text-[11px]">
-            <button
-              className="px-2.5 py-1 bg-gray-900 text-white font-medium"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              Formatted
-            </button>
-            <button
-              className="px-2.5 py-1 text-muted-foreground hover:text-foreground transition-colors"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              Text
-            </button>
-          </div>
-          <div className="ml-auto flex items-center gap-0.5">
-            <button
-              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <Copy className="h-3 w-3" />
-            </button>
-            <button
-              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <Download className="h-3 w-3" />
-            </button>
-            <button
-              className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-        <div className="min-h-[72px] rounded-md border bg-background" />
-      </div>
-    );
+    return <OutputNodeContent node={node} />;
   }
 
   if (def.kind === "audio-output") {
@@ -740,6 +794,7 @@ export function NodeCard({
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       className={cn(
         "absolute group/node bg-card rounded-xl shadow-sm select-none border transition-all duration-300",
+        "z-10 hover:z-20",
         runStatus === 'running' ? "border-blue-400 shadow-blue-100/60 shadow-md"
           : runStatus === 'done'    ? "border-green-400"
           : runStatus === 'error'   ? "border-red-400"
@@ -789,13 +844,18 @@ export function NodeCard({
       {/* Run button */}
       <div className="absolute -top-8 left-0 right-0 pb-1 flex justify-start pointer-events-none opacity-0 group-hover/node:opacity-100 transition-opacity z-30">
         <button
+          disabled={def.badge === 'Output'}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto flex items-center gap-1 px-2 py-1 rounded-md bg-background border shadow-sm text-[10px] font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+          className={cn(
+            "pointer-events-auto flex items-center gap-1 px-2 py-1 rounded-md bg-background border shadow-sm text-[10px] font-medium transition-colors whitespace-nowrap",
+            def.badge === 'Output'
+              ? "text-muted-foreground/40 cursor-not-allowed"
+              : "text-foreground hover:bg-muted",
+          )}
         >
           <Play className="h-3 w-3" />
           Run
-          {/* <ChevronDown className="h-3 w-3 opacity-50" /> */}
         </button>
       </div>
 
@@ -849,8 +909,8 @@ export function NodeCard({
         </button>
       )}
 
-      {/* OUTPUT handle */}
-      <button
+      {/* OUTPUT handle — hidden for output nodes (they only receive) */}
+      {def.kind !== "output" && <button
         style={{ top: HANDLE_Y_OFFSET - 10, right: -22 }}
         onMouseDown={(e) => {
           e.stopPropagation();
@@ -901,7 +961,7 @@ export function NodeCard({
         ) : !isConnecting ? (
           <Plus className="h-3 w-3 text-black opacity-0 transition-all duration-200 group-hover/node:opacity-100 hover:text-white" />
         ) : null}
-      </button>
+      </button>}
 
       {/* Header */}
       <div className="mb-2.5">
