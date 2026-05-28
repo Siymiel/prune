@@ -46,6 +46,11 @@ import {
   Code,
   Image,
   AlertTriangle,
+  Info,
+  FileInputIcon,
+  ListTreeIcon,
+  BracesIcon,
+  AsteriskIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -55,6 +60,23 @@ import {
   type NodeDef,
 } from "@/lib/editor-nodes";
 import { renderIntegrationIcon } from "@/components/templates/integration-logo";
+import { Textarea } from "@/components/ui/textarea";
+import { ButtonGroup } from "@/components/ui/button-group";
+import Editor from '@monaco-editor/react'
+import {
+  TOOL_SCHEMAS,
+  TOOL_OUTPUTS,
+  type InputFieldDef,
+  type ToolInputSchema,
+} from "@/lib/tool-schemas";
+import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 const KIND_PREFIX: Record<string, string> = {
   "text-input": "in",
@@ -118,21 +140,31 @@ function Section({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b last:border-b-0">
-      <button
-        className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/30 transition-colors"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {icon && <span className="text-muted-foreground shrink-0">{icon}</span>}
-        <span className="flex-1 text-left text-sm font-medium">{title}</span>
-        {extra}
-        {open ? (
-          <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-        )}
-      </button>
-      {open && <div className="px-4 pb-4">{children}</div>}
-    </div>
+  <button
+    className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/30 transition-colors"
+    onClick={() => setOpen((o) => !o)}
+  >
+    {icon && (
+      <span className="text-prune-commonGray shrink-0">
+        {icon}
+      </span>
+    )}
+
+    <span className="text-left text-[15px] font-medium text-prune-commonGray">
+      {title}
+    </span>
+
+    {extra}
+
+    {open ? (
+      <ChevronUp className="ml-auto h-4 w-4 text-prune-commonGray shrink-0" />
+    ) : (
+      <ChevronDown className="ml-auto h-4 w-4 text-prune-commonGray shrink-0" />
+    )}
+  </button>
+
+  {open && <div className="px-4 pb-4">{children}</div>}
+</div>
   );
 }
 
@@ -146,7 +178,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 function SubLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("text-[11px] font-medium text-muted-foreground underline decoration-dashed underline-offset-2 mb-2", className)}>
+    <div className={cn("text-[15px] font-medium text-gray-700 underline decoration-dashed underline-offset-4 mb-2", className)}>
       {children}
     </div>
   );
@@ -177,21 +209,111 @@ function PromptEditorToolbar({ showLeft }: { showLeft?: boolean }) {
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 rounded-full transition-colors duration-200 shrink-0 focus:outline-none",
-        checked ? "bg-gray-900" : "bg-gray-200",
+        `
+        group
+        relative
+        inline-flex
+        h-5
+        w-10
+        shrink-0
+        items-center
+        rounded-full
+        border
+        transition-all
+        duration-200
+        ease-out
+
+        focus:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-ring/30
+        focus-visible:ring-offset-1
+      `,
+        checked
+          ? `
+            border-transparent
+            bg-gray-800
+            shadow-[0_0_0_1px_rgba(17,24,39,0.04),0_2px_8px_rgba(17,24,39,0.18)]
+          `
+          : `
+            border-border
+            bg-muted/70
+            hover:bg-muted
+          `,
       )}
     >
-      <span className={cn(
-        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-        checked ? "translate-x-5" : "translate-x-0.5",
-      )} />
+      {/* Track glow */}
+      <span
+        className={cn(
+          `
+          absolute
+          inset-0
+          rounded-full
+          opacity-0
+          transition-opacity
+          duration-200
+        `,
+          checked &&
+            `
+            opacity-100
+            shadow-[0_0_18px_rgba(17,24,39,0.22)]
+          `,
+        )}
+      />
+
+      {/* Thumb */}
+      <span
+        className={cn(
+          `
+          absolute
+          left-0.5
+          flex
+          h-5
+          w-5
+          items-center
+          justify-center
+          rounded-full
+          bg-white
+          shadow-[0_1px_2px_rgba(0,0,0,0.08),0_1px_6px_rgba(0,0,0,0.06)]
+          transition-all
+          duration-200
+          ease-out
+          will-change-transform
+        `,
+          checked
+            ? 'translate-x-4'
+            : 'translate-x-0',
+        )}
+      >
+        {/* Inner indicator */}
+        <span
+          className={cn(
+            `
+            h-1.5
+            w-1.5
+            rounded-full
+            transition-colors
+            duration-200
+          `,
+            checked
+              ? 'bg-gray-800'
+              : 'bg-gray-300',
+          )}
+        />
+      </span>
     </button>
   );
 }
@@ -291,26 +413,26 @@ function AIAgentPanelSections({
       {/* Prompting */}
       <Section title="Prompting" icon={<AlignLeft className="h-3.5 w-3.5" />} defaultOpen>
         <div className="space-y-4">
-          <div>
+          <div className="mt-4">
             <SubLabel>Instructions</SubLabel>
             <div className="border rounded-lg overflow-hidden">
-              <textarea
-                className="w-full px-3 py-2.5 text-xs bg-background resize-none focus:outline-none placeholder:text-muted-foreground/40 min-h-[80px]"
-                rows={5}
-                placeholder="You are a helpful assistant that…"
-                value={node.inputValue ?? ""}
-                onChange={(e) => onUpdateValue(node.id, e.target.value)}
+              <Textarea
+              placeholder="You are a helpful assistant that…"
+              value={node.inputValue ?? ""}
+              onChange={(e) => onUpdateValue(node.id, e.target.value)}
               />
               <PromptEditorToolbar showLeft />
             </div>
           </div>
-          <div>
+          <div className="mt-4">
             <div className="flex items-center mb-2">
-              <span className="text-[11px] font-medium text-muted-foreground underline decoration-dashed underline-offset-2">Prompt</span>
-              <div className="ml-auto flex items-center border rounded-md overflow-hidden text-[11px]">
-                <button onClick={() => setPromptMode('edit')} className={cn("px-2.5 py-1 transition-colors", promptMode === 'edit' ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>Edit</button>
-                <button onClick={() => setPromptMode('formatted')} className={cn("px-2.5 py-1 transition-colors", promptMode === 'formatted' ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>Formatted</button>
-              </div>
+              <SubLabel>Prompt</SubLabel>
+              <ButtonGroup
+                className="ml-auto"
+                options={[{ value: 'edit', label: 'Edit' }, { value: 'formatted', label: 'Formatted' }]}
+                value={promptMode}
+                onChange={setPromptMode}
+              />
             </div>
             <div className="border rounded-lg overflow-hidden">
               <div className="px-3 py-2.5 bg-background min-h-[80px] text-xs leading-relaxed relative">
@@ -330,18 +452,16 @@ function AIAgentPanelSections({
               <PromptEditorToolbar />
             </div>
           </div>
+
+          {/* Image URLs */}
+          <div>
+            <div className="mt-4">
+              <SubLabel>Image URLs</SubLabel>
+              <Textarea placeholder="Start typing to add values..." />
+            </div>
+          </div>
         </div>
       </Section>
-
-      {/* Image URLs */}
-      <div className="px-4 py-3 border-b">
-        <SubLabel>Image URLs</SubLabel>
-        <textarea
-          className="w-full px-3 py-2 text-xs bg-muted/20 border rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-prune-midGray placeholder:text-muted-foreground/40"
-          rows={2}
-          placeholder="Start typing to add values..."
-        />
-      </div>
 
       {/* Knowledge Sources */}
       <Section title="Knowledge Sources" icon={<Database className="h-3.5 w-3.5" />}>
@@ -714,6 +834,20 @@ const PROVIDER_TOOLS: Record<string, ActionToolGroup[]> = {
       { id: 'mcp-list',     name: 'List MCP Tools',          description: 'List available tools from a connected MCP server.' },
     ]},
   ],
+  slack: [
+    { name: 'Messaging', tools: [
+      { id: 'slack-send-message', name: 'Send Message',       description: 'Send a message to a Slack channel with optional file attachments.' },
+      { id: 'slack-search',       name: 'Search Messages',    description: 'Search for messages across the Slack workspace.' },
+      { id: 'slack-send-wait',    name: 'Send and Wait',      description: 'Send a message and wait for an approval or free-text response.' },
+      { id: 'slack-query',        name: 'Query Channel',      description: 'Retrieve messages from a configured Slack channel.' },
+    ]},
+    { name: 'Files', tools: [
+      { id: 'slack-upload-file',  name: 'Upload File',        description: 'Upload files to Slack from URL, base64, or text content.' },
+      { id: 'slack-delete-file',  name: 'Delete File',        description: 'Delete a file from the Slack workspace permanently.' },
+      { id: 'slack-get-file',     name: 'Get File Info',      description: 'Get detailed information about a specific Slack file.' },
+      { id: 'slack-list-files',   name: 'List Files',         description: 'List files in the Slack workspace with filtering options.' },
+    ]},
+  ],
   gmail: [
     { name: 'Email', tools: [
       { id: 'gmail-send',   name: 'Send Email',              description: 'Send an email from your Gmail account.' },
@@ -802,6 +936,658 @@ function parseActionConfig(inputValue?: string): ActionConfig | null {
   return null;
 }
 
+// ── Action input schemas ───────────────────────────────────────────────────
+
+
+// ── On Error select ───────────────────────────────────────────────────────
+
+const ON_ERROR_OPTIONS = [
+  { id: 'stop',     label: 'Stop workflow',   description: 'Stop the workflow when this node fails.',                     Icon: AlertTriangle },
+  { id: 'fallback', label: 'Fallback Branch', description: 'Create a separate branch that executes when this node fails.', Icon: GitBranch },
+];
+
+function OnErrorSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="text-xs">
+        <SelectValue placeholder="Select..." />
+      </SelectTrigger>
+      <SelectContent>
+        {ON_ERROR_OPTIONS.map((opt) => (
+          <SelectItem key={opt.id} value={opt.id} className="text-xs">
+            <span className="flex items-center gap-2">
+              <opt.Icon className={cn('h-4 w-4', opt.id === 'stop' ? 'text-orange-500' : 'text-muted-foreground')} />
+              <span>{opt.label}</span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function buildObjectItem(fields: InputFieldDef[]): Record<string, unknown> {
+  const item: Record<string, unknown> = {};
+  for (const f of fields) item[f.key] = f.default ?? null;
+  return item;
+}
+
+function buildDefaultValues(schema: ToolInputSchema): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of schema.fields) {
+    if (f.type === 'array') {
+      out[f.key] = f.fields ? [buildObjectItem(f.fields)] : [''];
+    } else if (f.type === 'multiple_select') {
+      out[f.key] = null;
+    } else {
+      out[f.key] = f.default ?? null;
+    }
+  }
+  return out;
+}
+
+// ── Input form sub-components ─────────────────────────────────────────────
+
+function TypeBadge({ type, switchable, switchTypes }: { type: string; switchable?: boolean; switchTypes?: string[] }) {
+  const [open, setOpen] = useState(false);
+  const TYPE_OPTIONS = switchTypes ?? ['multiple_select', 'array', 'expression'];
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={(e) => { e.stopPropagation(); if (switchable) setOpen(o => !o); }}
+        className={cn(
+          'flex items-center gap-0.5 text-[11px] px-1.5 py-0.5 bg-muted/90 border rounded text-muted-foreground font-mono font-medium',
+          switchable && 'hover:bg-muted/80 cursor-pointer',
+        )}
+      >
+        {type}
+        {switchable && <ChevronsUpDown className="h-2.5 w-2.5 ml-0.5" />}
+      </button>
+      {open && switchable && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
+          <div className="absolute right-0 top-full mt-1 bg-background border rounded-lg shadow-lg z-50 px-1 py-1 min-w-[130px]">
+            {TYPE_OPTIONS.map(t => (
+              <button
+                key={t}
+                onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-[14px] rounded-md hover:bg-prune-lightGray text-left"
+              >
+                {t}
+                {t === type && <Check className="h-3.5 w-3.5" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MultiSelectField({ options, value, onChange }: {
+  options: string[];
+  value: unknown;
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected: string[] = Array.isArray(value) ? (value as string[]) : [];
+  const filtered = search ? options.filter(o => o.toLowerCase().includes(search.toLowerCase())) : options;
+  const allSelected = filtered.length > 0 && filtered.every(o => selected.includes(o));
+
+  function toggle(opt: string) {
+    onChange(selected.includes(opt) ? selected.filter(s => s !== opt) : [...selected, opt]);
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 border rounded-md text-xs hover:bg-muted/20 transition-colors"
+      >
+        <span className="text-muted-foreground">{selected.length > 0 ? `${selected.length} selected` : 'Select multiple...'}</span>
+        {open
+          ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+          : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="mt-1 border rounded-lg overflow-hidden bg-background shadow-sm">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b">
+            <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="flex-1 text-xs bg-transparent" autoFocus onClick={e => e.stopPropagation()} />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            <button
+              onClick={() => onChange(allSelected ? selected.filter(s => !filtered.includes(s)) : [...new Set([...selected, ...filtered])])}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted/40 border-b text-left"
+            >
+              <div className={cn('h-3.5 w-3.5 rounded-sm border shrink-0 flex items-center justify-center', allSelected ? 'bg-foreground border-foreground' : 'border-muted-foreground/40')}>
+                {allSelected && <Check className="h-2.5 w-2.5 text-white" />}
+              </div>
+              <span className="font-medium">Select All</span>
+            </button>
+            {filtered.map(opt => {
+              const checked = selected.includes(opt);
+              return (
+                <button key={opt} onClick={() => toggle(opt)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted/40 text-left">
+                  <div className={cn('h-3.5 w-3.5 rounded-sm border shrink-0 flex items-center justify-center', checked ? 'bg-foreground border-foreground' : 'border-muted-foreground/40')}>
+                    {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                  </div>
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground px-1">
+        <span>{selected.length} of {options.length} selected</span>
+        <button onClick={() => onChange([])} className="hover:text-foreground transition-colors">Select All</button>
+      </div>
+    </div>
+  );
+}
+
+function EnumSelectField({ options, value, onChange }: {
+  options: string[];
+  value: unknown;
+  onChange: (v: string | null) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const val = typeof value === 'string' ? value : null;
+  const filtered = search ? options.filter((o) => o.toLowerCase().includes(search.toLowerCase())) : options;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="relative flex-1">
+        <Select
+          value={val ?? ''}
+          onValueChange={(next) => onChange(next || null)}
+          onOpenChange={(open) => {
+            if (!open) setSearch('');
+          }}
+        >
+          <SelectTrigger className="text-[14px]">
+            <SelectValue placeholder="Select..." />
+          </SelectTrigger>
+          <SelectContent>
+            {options.length > 4 && (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 border-b">
+                <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="flex-1 text-xs bg-transparent"
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            )}
+            <div className="max-h-40 overflow-y-auto">
+              {filtered.map((opt) => (
+                <SelectItem key={opt} value={opt} className="text-[14px] font-medium cursor-pointer">
+                  {opt}
+                </SelectItem>
+              ))}
+            </div>
+          </SelectContent>
+        </Select>
+      </div>
+      {val && (
+        <button onClick={() => onChange(null)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground shrink-0">
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InputFieldRow({
+  field,
+  value,
+  onChange,
+  onDelete,
+  depth = 0,
+}: {
+  field: InputFieldDef;
+  value: unknown;
+  onChange: (v: unknown) => void;
+  onDelete?: () => void;
+  depth?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const pl = 8 + depth * 12;
+
+  // Array of objects
+  if (field.type === 'array' && field.fields) {
+    const items = Array.isArray(value) ? (value as Record<string, unknown>[]) : [buildObjectItem(field.fields)];
+    return (
+      <div>
+        <div
+          style={{ paddingLeft: pl }}
+          className="flex items-center gap-1 py-1.5 pr-3 cursor-pointer hover:bg-muted/10 select-none"
+          onClick={() => setOpen(o => !o)}
+        >
+          {open
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <div className="flex items-start gap-1 flex-1 min-w-0">
+              <span className="text-[15px] font-medium truncate">
+                {field.label}
+              </span>
+
+              {field.required && (
+                <span className="text-[#EF4444] text-[11px] leading-none">
+                  <AsteriskIcon className="h-3 w-3" />
+                </span>
+              )}
+            </div>
+          <TypeBadge type="array" />
+        </div>
+        {open && (
+          <div className="relative border-l border-dashed border-muted-foreground/20 ml-6">
+            {items.map((item, idx) => (
+              <div key={idx}>
+                {field.fields!.map((sf, si) => (
+                  <InputFieldRow
+                    key={sf.key}
+                    field={sf}
+                    value={(item ?? {})[sf.key]}
+                    onChange={(v) => {
+                      const next = [...items];
+                      next[idx] = { ...item, [sf.key]: v };
+                      onChange(next);
+                    }}
+                    onDelete={si === 0 ? () => {
+                      const next = items.filter((_, i) => i !== idx);
+                      onChange(next.length ? next : [buildObjectItem(field.fields!)]);
+                    } : undefined}
+                    depth={depth + 1}
+                  />
+                ))}
+              </div>
+            ))}
+            <button
+              onClick={(e) => { e.stopPropagation(); onChange([...items, buildObjectItem(field.fields!)]); }}
+              className="flex items-center justify-center h-6 w-6 my-1.5 ml-2 border rounded bg-muted/20 hover:bg-muted/40 text-muted-foreground transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Plain array of strings
+  if (field.type === 'array') {
+    const items = Array.isArray(value) ? (value as string[]) : [''];
+    return (
+      <div>
+        <div
+          style={{ paddingLeft: pl }}
+          className="flex items-center gap-1 py-1.5 pr-3 cursor-pointer hover:bg-muted/10 select-none"
+          onClick={() => setOpen(o => !o)}
+        >
+          {open
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <div className="flex items-start gap-1 flex-1 min-w-0">
+              <span className="text-[15px] font-medium truncate">
+                {field.label}
+              </span>
+
+              {field.required && (
+                <span className="text-[#EF4444] text-[11px] leading-none">
+                  <AsteriskIcon className="h-3 w-3" />
+                </span>
+              )}
+            </div>
+          <TypeBadge type="array" />
+        </div>
+        {open && (
+          <div style={{ paddingLeft: pl + 16, paddingRight: 12, paddingBottom: 8 }}>
+            {items.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-1.5 mb-1.5">
+                <Textarea 
+                  placeholder="Start typing to add values..."
+                  value={item}
+                  onChange={(e) => { const n = [...items]; n[idx] = e.target.value; onChange(n); }}
+                  className="flex-1 text-xs resize-none"
+                />
+                <button
+                  onClick={() => onChange(items.filter((_, i) => i !== idx))}
+                  className="h-6 w-6 flex items-center justify-center rounded border hover:bg-muted/40 text-muted-foreground shrink-0"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => onChange([...items, ''])}
+              className="flex items-center justify-center h-6 w-6 border rounded bg-muted/20 hover:bg-muted/40 text-muted-foreground transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Multiple select
+  if (field.type === 'multiple_select') {
+    return (
+      <div>
+        <div
+          style={{ paddingLeft: pl }}
+          className="flex items-center gap-1 py-1.5 pr-3 cursor-pointer hover:bg-muted/10 select-none"
+          onClick={() => setOpen(o => !o)}
+        >
+          {open
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <div className="flex items-start gap-1 flex-1 min-w-0">
+              <span className="text-[15px] font-medium truncate">
+                {field.label}
+              </span>
+
+              {field.required && (
+                <span className="text-[#EF4444] text-[11px] leading-none">
+                  <AsteriskIcon className="h-3 w-3" />
+                </span>
+              )}
+            </div>
+          <TypeBadge type={field.type} switchable={!!field.switchableTypes} switchTypes={field.switchableTypes} />
+        </div>
+        {open && (
+          <div style={{ paddingLeft: pl + 16, paddingRight: 12, paddingBottom: 8 }}>
+            <MultiSelectField options={field.options ?? []} value={value} onChange={onChange} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Boolean — inline toggle, no expand
+  if (field.type === 'boolean') {
+    return (
+      <div
+        style={{ paddingLeft: pl }}
+        className="flex items-center gap-1 py-1.5 pr-3 hover:bg-muted/10"
+      >
+        <div className="w-3.5 shrink-0" />
+        <div className="flex items-start gap-1 flex-1 min-w-0">
+            <span className="text-[15px] font-medium truncate">
+              {field.label}
+            </span>
+
+            {field.required && (
+              <span className="text-[#EF4444] text-[11px] leading-none">
+                <AsteriskIcon className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+        <span className="text-[10px] px-1.5 py-0.5 bg-muted/50 border rounded text-muted-foreground font-mono mr-1.5">boolean</span>
+        <Toggle
+          checked={typeof value === 'boolean' ? value : false}
+          onChange={(v) => onChange(v)}
+        />
+      </div>
+    );
+  }
+
+  // Select — dynamic options (e.g. Slack channels), with optional info/warning banners
+  if (field.type === 'select') {
+    return (
+      <div>
+        <div
+          style={{ paddingLeft: pl }}
+          className="flex items-center gap-1 py-1.5 pr-3 cursor-pointer hover:bg-muted/10 select-none"
+          onClick={() => setOpen(o => !o)}
+        >
+          {open
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+          <div className="flex items-start gap-1 flex-1 min-w-0">
+            <span className="text-[15px] font-medium truncate">
+              {field.label}
+            </span>
+
+            {field.required && (
+              <span className="text-[#EF4444] text-[11px] leading-none">
+                <AsteriskIcon className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+          <TypeBadge type="select" switchable={!!field.switchableTypes} switchTypes={field.switchableTypes} />
+        </div>
+        {open && (
+          <div style={{ paddingLeft: pl + 16, paddingRight: 12, paddingBottom: 8 }} className="space-y-2">
+            {field.infoText && (
+              <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-md">
+                <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                <p className="text-[11px] text-blue-700 leading-relaxed">{field.infoText}</p>
+              </div>
+            )}
+            {field.warningText && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <p className="text-[11px] text-amber-700">{field.warningText}</p>
+              </div>
+            )}
+            {!field.warningText && (
+              <button className="w-full flex items-center justify-between px-3 py-2 border rounded-md text-xs hover:bg-muted/20 transition-colors">
+                <span className="text-muted-foreground">Select option…</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Number
+  if (field.type === 'number') {
+    return (
+      <div>
+        <div
+          style={{ paddingLeft: pl }}
+          className="flex items-center gap-1 py-1.5 pr-3 cursor-pointer hover:bg-muted/10 select-none"
+          onClick={() => setOpen(o => !o)}
+        >
+          {open
+            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+          <div className="flex items-start gap-1 flex-1 min-w-0">
+            <span className="text-[15px] font-medium truncate">
+              {field.label}
+            </span>
+
+            {field.required && (
+              <span className="text-[#EF4444] text-[11px] leading-none">
+                <AsteriskIcon className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+          <TypeBadge type="number" switchable={!!field.switchableTypes} switchTypes={field.switchableTypes} />
+        </div>
+        {open && (
+          <div style={{ paddingLeft: pl + 16, paddingRight: 12, paddingBottom: 8 }}>
+            <Input
+              type="number"
+              placeholder={`Default: ${field.default ?? '—'}`}
+              value={typeof value === 'number' ? value : ''}
+              onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // String (plain or enum)
+  return (
+    <div>
+      <div
+        style={{ paddingLeft: pl }}
+        className="flex items-center gap-1 py-1.5 pr-3 cursor-pointer hover:bg-muted/10 select-none"
+        onClick={() => setOpen(o => !o)}
+      >
+        {open
+          ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+          <div className="flex items-start gap-1 flex-1 min-w-0">
+            <span className="text-[15px] font-medium truncate">
+              {field.label}
+            </span>
+
+            {field.required && (
+              <span className="text-[#EF4444] text-[11px] leading-none">
+                <AsteriskIcon className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+        <div className="flex items-center gap-1">
+          <TypeBadge type="string" switchable={!!field.switchableTypes} switchTypes={field.switchableTypes} />
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground shrink-0"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+      {open && (
+        <div style={{ paddingLeft: pl + 16, paddingRight: 12, paddingBottom: 8 }} className="space-y-2">
+          {field.infoText && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-md">
+              <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-blue-700 leading-relaxed">{field.infoText}</p>
+            </div>
+          )}
+          {field.warningText && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <p className="text-[11px] text-amber-700">{field.warningText}</p>
+            </div>
+          )}
+          {field.options ? (
+            <EnumSelectField options={field.options} value={value} onChange={onChange} />
+          ) : (
+            <div className="relative">
+              <Input
+                placeholder="Start typing to add values..."
+                value={typeof value === 'string' ? value : ''}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full px-2.5 py-1.5 pr-8 text-xs border rounded-md bg-muted/20 resize-none focus:outline-none focus:ring-1 focus:ring-prune-midGray"
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActionInputsForm({ toolId }: { toolId: string }) {
+  const schema = TOOL_SCHEMAS[toolId];
+  const [viewMode, setViewMode] = useState<'tree' | 'json'>('tree');
+  const [values, setValues] = useState<Record<string, unknown>>(() =>
+    schema ? buildDefaultValues(schema) : {}
+  );
+  const [jsonEditor, setJsonEditor] = useState(
+  JSON.stringify(values, null, 2)
+);
+
+  if (!schema) {
+    return <p className="text-xs text-muted-foreground">Configure the required input fields for this action.</p>;
+  }
+
+  const jsonStr = JSON.stringify(values, null, 2);
+
+  return (
+    <div className="-mx-4 -mb-4">
+      {/* View toggle */}
+      <div className="px-4 pb-2 pt-4">
+          <div className="inline-flex items-center gap-1 rounded-lg bg-prune-lightGray border-muted">
+            <button
+              onClick={() => setViewMode('tree')}
+              className={cn(
+                'py-1 px-1 flex items-center justify-center rounded border text-[11px] transition-colors',
+                viewMode === 'tree' ? 'bg-white border text-foreground' : 'border-transparent text-muted-foreground hover:bg-muted/30',
+              )}
+            >
+              <ListTreeIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('json')}
+              className={cn(
+                'py-1 px-1 flex items-center justify-center rounded border text-[11px] font-mono transition-colors',
+                viewMode === 'json' ? 'bg-white border text-foreground' : 'border-transparent text-muted-foreground hover:bg-muted/30',
+              )}
+            >
+              <BracesIcon className="h-5 w-5" />
+            </button>
+        </div>
+      </div>
+
+      {viewMode === 'tree' ? (
+        <div>
+          {schema.fields.map(field => (
+            <InputFieldRow
+              key={field.key}
+              field={field}
+              value={values[field.key]}
+              onChange={(v) => setValues(prev => ({ ...prev, [field.key]: v }))}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="px-4 pb-4">
+          <div className="border rounded-xl overflow-hidden">
+            <Editor
+              height="200px"
+              defaultLanguage="json"
+              value={jsonEditor}
+              onChange={(value) => {
+                if (!value) return;
+                setJsonEditor(value);
+                try {
+                  setValues(JSON.parse(value));
+                } catch {}
+              }}
+              theme="light"
+              options={{
+                minimap: { enabled: false },
+                fontSize: 12,
+                lineNumbersMinChars: 3,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                overviewRulerBorder: false,
+                hideCursorInOverviewRuler: true,
+                renderLineHighlight: 'none',
+                padding: {
+                  top: 10,
+                  bottom: 10,
+                },
+                scrollbar: {
+                  verticalScrollbarSize: 8,
+                  horizontalScrollbarSize: 8,
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActionCategoryPicker({
   node,
   onUpdateValue,
@@ -814,6 +1600,8 @@ function ActionCategoryPicker({
   const [nav, setNav] = useState<ActionNavStep>({ step: 'categories' });
   const [search, setSearch] = useState('');
   const [useEndUser, setUseEndUser] = useState(false);
+  const [retryOnFailure, setRetryOnFailure] = useState(false);
+  const [onError, setOnError] = useState('stop');
 
   const config = parseActionConfig(node.inputValue);
 
@@ -852,18 +1640,18 @@ function ActionCategoryPicker({
           </div>
 
           {/* Connection */}
-          <div className="px-4 py-3 border-b space-y-2">
-            <div className="text-xs font-semibold text-foreground">Connection</div>
+          <div className="px-4 py-3 space-y-2">
+            <SubLabel>Connection</SubLabel>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-foreground">Use end-user connection</span>
+              <span className="text-[14px] font-medium text-prune-commonGray">Use end-user connection</span>
               <Toggle checked={useEndUser} onChange={setUseEndUser} />
             </div>
-            <p className="text-[11px] text-muted-foreground">Require end-users to authenticate at runtime</p>
+            <p className="text-[12px] text-muted-foreground">Require end-users to authenticate at runtime</p>
             <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
               <span className="flex-1 text-left">Select a connection</span>
               <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
             </button>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
+            <p className="text-[12px] text-muted-foreground leading-relaxed">
               <span className="underline cursor-pointer hover:text-foreground">Your credentials are encrypted and can be removed at any time.</span>
               {' '}You can manage all your connections{' '}
               <span className="underline cursor-pointer hover:text-foreground">here</span>.
@@ -875,23 +1663,60 @@ function ActionCategoryPicker({
 
           <Section
             title="Inputs"
-            icon={<AlignLeft className="h-3.5 w-3.5" />}
+            icon={<FileInputIcon className="h-4 w-4" />}
+            defaultOpen
             extra={
-              <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium mr-1">
+              <span className="flex items-center gap-1 text-[12px] text-amber-700 bg-amber-100 px-1 rounded-md font-normal mr-1">
                 <AlertTriangle className="h-3 w-3" />Has required fields
               </span>
             }
           >
-            <p className="text-xs text-muted-foreground">Configure the required input fields for this action.</p>
+            <ActionInputsForm toolId={config.toolId} />
           </Section>
-          <Section title="Test Action" icon={<Play className="h-3.5 w-3.5" />}>
-            <p className="text-xs text-muted-foreground">Test this action with sample data.</p>
-          </Section>
-          <Section title="Outputs" icon={<FileText className="h-3.5 w-3.5" />}>
-            <p className="text-xs text-muted-foreground">View the outputs returned by this action.</p>
+          {/* Outputs */}
+          <Section title="Outputs" icon={<FileText className="h-4 w-4" />}>
+            {(() => {
+              const outputSchema = TOOL_OUTPUTS[config.toolId];
+              if (!outputSchema) {
+                return <p className="text-[14px] text-muted-foreground">No outputs defined for this action.</p>;
+              }
+              return (
+                <div className="-mx-4 -mb-4">
+                  {outputSchema.fields.map((field, idx) => (
+                    <div key={field.key} className={cn('flex items-stretch gap-3 px-4 py-3', idx < outputSchema.fields.length - 1 && 'border-b')}>
+                      <div className="w-px bg-muted-foreground/20 shrink-0 rounded-full my-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[14px] font-medium text-foreground">{field.label}</span>
+                          <span className="text-[11px] px-1.5 py-0.5 bg-muted/50 border font-medium rounded text-muted-foreground font-mono shrink-0 ml-2">{field.type}</span>
+                        </div>
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">{field.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </Section>
           <Section title="Advanced Settings" icon={<Rocket className="h-3.5 w-3.5" />}>
-            <p className="text-xs text-muted-foreground">Configure advanced settings for this action.</p>
+            <div className="space-y-4">
+              <SettingRow label="Retry on Failure">
+                <Toggle checked={retryOnFailure} onChange={setRetryOnFailure} />
+              </SettingRow>
+              <div>
+                <SubLabel>On Error</SubLabel>
+                <OnErrorSelect value={onError} onChange={setOnError} />
+              </div>
+            </div>
+          </Section>
+          <Section title="Test Action" icon={<Play className="h-3.5 w-3.5" />}>
+            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+              Testing an action will use the values you have entered in Inputs and Configurations.
+            </p>
+            <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-foreground text-background rounded-md text-sm font-medium hover:opacity-90 transition-opacity">
+              <Play className="h-3.5 w-3.5 fill-background" />
+              Run Action
+            </button>
           </Section>
         </div>
       </div>

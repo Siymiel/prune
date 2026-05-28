@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
+import { Geist, Geist_Mono, Instrument_Serif, Inter } from 'next/font/google';
 import '@/styles/globals.css';
 
 const geist = Geist({
@@ -22,6 +22,12 @@ const instrument = Instrument_Serif({
   display: 'swap',
 });
 
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'Prune AI — AI Workflow Platform for African Businesses',
   description:
@@ -36,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${geistMono.variable} ${instrument.variable}`}
+      className={`${geist.variable} ${geistMono.variable} ${instrument.variable} ${inter.variable}`}
     >
       <body className="font-sans antialiased" suppressHydrationWarning>{children}</body>
     </html>

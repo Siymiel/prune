@@ -106,7 +106,7 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
       {/* Inner panel */}
       <div
         ref={panelRef}
-        className="flex bg-background border rounded-2xl shadow-xl overflow-hidden w-full"
+        className="flex bg-background border rounded-2xl shadow-xl overflow-hidden w-full font-inter"
         style={{ maxHeight: POPUP_H }}
       >
         {/* Icon sidebar */}

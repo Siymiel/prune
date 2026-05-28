@@ -538,7 +538,7 @@ export function EditorCanvas({
     <div
       ref={outerRef}
       className={cn(
-        "flex-1 relative overflow-hidden",
+        "flex-1 relative overflow-hidden font-inter",
         dragOver && "ring-2 ring-primary/20 ring-inset",
       )}
       style={{

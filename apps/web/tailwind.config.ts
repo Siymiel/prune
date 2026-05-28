@@ -42,7 +42,8 @@ const config: Config = {
           darkGray:  '#71717A',
           midGray:   '#A3A3A3',
           lightGray: '#F4F4F5',
-          spaceGray: '#EFF0F0'
+          spaceGray: '#EFF0F0',
+          commonGray: '#72727B'
         },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
@@ -64,6 +65,7 @@ const config: Config = {
         sans: ['var(--font-geist)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
         serif: ['var(--font-instrument)', 'Georgia', 'serif'],
+        inter: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
       keyframes: {
         'fade-in': {
