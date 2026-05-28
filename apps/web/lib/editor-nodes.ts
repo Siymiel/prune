@@ -1,6 +1,6 @@
 import {
   Type, Files, Zap, Globe, Mic,
-  Send, Cpu, Headphones, LayoutTemplate,
+  Send, Play, Headphones, LayoutTemplate,
   Bot, BookMarked, Leaf,
   Terminal, GitBranch, Shuffle, Repeat2,
   StickyNote, Timer, Brain, HardDrive, Table, SearchCode,
@@ -52,8 +52,8 @@ export const NODE_DEFS: NodeDef[] = [
 
   // OUTPUTS
   { kind: 'output',        label: 'Output',       description: 'Return a text result to the caller',       icon: Send,           category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
-  { kind: 'action',        label: 'Action',        description: 'Execute an action and surface the result', icon: Cpu,            category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
-  { kind: 'audio-output', label: 'Audio Output', description: 'Convert a text response into speech',      icon: Headphones,     category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
+  { kind: 'action',        label: 'Action',        description: 'Perform a task in another app',            icon: Play,           category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
+  { kind: 'audio-output', label: 'Audio',         description: 'Generate audio from text',              icon: Headphones,     category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
   { kind: 'template-out', label: 'Template',      description: 'Render a formatted message template',     icon: LayoutTemplate, category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
 
   // CORE

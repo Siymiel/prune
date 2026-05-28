@@ -78,7 +78,7 @@ function NodeItem({
           ? renderIntegrationIcon(def.integrationId, 13)
           : <Icon className={cn('h-3 w-3', def.iconClass)} />}
       </div>
-      <span className="text-xs font-normal flex-1 truncate">{def.label}</span>
+      <span className="text-[14px] font-medium text-gray-500 flex-1 truncate">{def.label}</span>
       <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
     </div>
   );
@@ -103,8 +103,8 @@ function CategorySection({
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted transition-colors"
       >
-        <CatIcon className="h-4 w-4 text-foreground shrink-0" />
-        <span className="text-sm font-normal text-foreground flex-1 text-left">{cat.label}</span>
+        <CatIcon className="h-5 w-5 text-foreground shrink-0" />
+        <span className="text-[15px] font-medium text-foreground flex-1 text-left">{cat.label}</span>
         {open
           ? <ChevronDown className="h-3.5 w-3.5 text-foreground/60 shrink-0" />
           : <ChevronRight className="h-3.5 w-3.5 text-foreground/60 shrink-0" />}
@@ -220,9 +220,9 @@ export function EditorSidebar() {
                 <button
                   key={cat.id}
                   title={cat.label}
-                  className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-muted text-foreground hover:text-foreground transition-colors"
+                  className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-gray-200 text-foreground hover:text-foreground transition-colors"
                 >
-                  <CatIcon className="h-4 w-4" />
+                  <CatIcon className="h-5 w-5" />
                 </button>
               );
             })}
