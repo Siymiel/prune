@@ -47,6 +47,24 @@ export const NODE_WIDTH = 260;
 export const HANDLE_Y_OFFSET = 24;
 export const HANDLE_SIDE_OFFSET = 16;
 
+interface ActionConfig {
+  providerId: string;
+  providerName: string;
+  providerIcon: { type: string; letter?: string; bg?: string; fg?: string; id?: string };
+  toolId: string;
+  toolName: string;
+  toolDescription: string;
+}
+
+function parseActionConfig(inputValue?: string): ActionConfig | null {
+  if (!inputValue) return null;
+  try {
+    const p = JSON.parse(inputValue);
+    if (p.providerId && p.toolName) return p as ActionConfig;
+  } catch {}
+  return null;
+}
+
 function getLLMIcon(model: string, size: number): React.ReactNode {
   return renderIntegrationIcon(getModelProvider(model), size);
 }
@@ -770,6 +788,7 @@ export function NodeCard({
     def.kind === "ai-agent" ||
     def.kind === "prune-ai" ||
     def.kind === "openai-app";
+  const actionConfig = def.kind === "action" ? parseActionConfig(node.inputValue) : null;
 
   const outputDragMoved = useRef(false);
   const outputDragCleanup = useRef<(() => void) | null>(null);
@@ -972,8 +991,18 @@ export function NodeCard({
             onStartDrag(e);
           }}
         >
-          <div className="h-7 w-7 rounded-md bg-muted/50 border flex items-center justify-center shrink-0">
-            {isLLMNode ? (
+          <div
+            className={cn(
+              "h-7 w-7 rounded-md border flex items-center justify-center shrink-0 overflow-hidden",
+              !actionConfig ? "bg-muted/50" : "",
+            )}
+            style={actionConfig?.providerIcon.type === 'letter' ? { backgroundColor: actionConfig.providerIcon.bg } : undefined}
+          >
+            {actionConfig ? (
+              actionConfig.providerIcon.type === 'integration'
+                ? renderIntegrationIcon(actionConfig.providerIcon.id as Parameters<typeof renderIntegrationIcon>[0], 14)
+                : <span className="text-[11px] font-bold leading-none" style={{ color: actionConfig.providerIcon.fg ?? '#fff' }}>{actionConfig.providerIcon.letter}</span>
+            ) : isLLMNode ? (
               getLLMIcon(
                 node.model ??
                   (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6"),
@@ -1068,7 +1097,7 @@ export function NodeCard({
           </div>
         </div>
         <div className="px-3 text-[12px] text-muted-foreground line-clamp-1">
-          {def.description}
+          {actionConfig?.toolDescription ?? def.description}
         </div>
       </div>
 
@@ -1089,7 +1118,7 @@ export function NodeCard({
             <AlertTriangle className="h-3 w-3" />
             0.00 sec
           </span>
-          <span className="ml-auto">Unset version</span>
+          <span className="ml-auto">{actionConfig ? 'v1.0.0' : 'Unset version'}</span>
         </div>
       ) : def.kind === 'template-out' ? (
         <div className="px-3 py-2 border-t flex items-center gap-2 text-[10px] text-muted-foreground bg-prune-lightGray rounded-b-xl">

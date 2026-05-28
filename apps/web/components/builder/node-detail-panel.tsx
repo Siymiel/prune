@@ -6,6 +6,8 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronRight,
+  ChevronLeft,
+  Play,
   Link2,
   Settings2,
   Cpu,
@@ -43,6 +45,7 @@ import {
   Quote,
   Code,
   Image,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -104,11 +107,13 @@ function Section({
   icon,
   defaultOpen = false,
   children,
+  extra,
 }: {
   title: string;
   icon?: React.ReactNode;
   defaultOpen?: boolean;
   children: React.ReactNode;
+  extra?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -119,6 +124,7 @@ function Section({
       >
         {icon && <span className="text-muted-foreground shrink-0">{icon}</span>}
         <span className="flex-1 text-left text-sm font-medium">{title}</span>
+        {extra}
         {open ? (
           <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
         ) : (
@@ -578,56 +584,504 @@ function TriggerProviderPicker() {
   );
 }
 
-type ActionCategory = {
+// ── Action node drill-down ─────────────────────────────────────────────────
+
+type ActionNavStep =
+  | { step: 'categories' }
+  | { step: 'providers'; catId: string; catLabel: string; catHeader: string }
+  | { step: 'tools'; catId: string; catLabel: string; catHeader: string; providerId: string; providerName: string };
+
+type ProviderIconDef =
+  | { type: 'integration'; id: Parameters<typeof renderIntegrationIcon>[0] }
+  | { type: 'letter'; letter: string; bg: string; fg?: string };
+
+type ActionProviderDef = {
   id: string;
-  label: string;
+  name: string;
   description: string;
-  icon: React.ElementType;
-  verified?: boolean;
+  icon: ProviderIconDef;
+  cats: string[];
 };
 
-const ACTION_CATEGORIES: ActionCategory[] = [
-  { id: 'all',       label: 'All',        description: 'All tools and providers',                  icon: LayoutGrid },
-  { id: 'stackai',   label: 'By StackAI', description: 'Native Stack AI tools and integrations',  icon: Blocks,    verified: true },
-  { id: 'apps',      label: 'Apps',       description: 'Third-party applications and services',   icon: Box },
-  { id: 'llm',       label: 'LLM',        description: 'Large language models and AI services',   icon: Brain },
-  { id: 'databases', label: 'Databases',  description: 'Database connections and data management', icon: Database },
-  { id: 'scrapers',  label: 'Scrapers',   description: 'Web scraping and data extraction tools',  icon: ScanLine },
+type ActionToolGroup = { name: string; tools: { id: string; name: string; description: string }[] };
+
+const ACTION_CATEGORIES_DEF = [
+  { id: 'all',       header: 'ALL',      label: 'All',        description: 'All tools and providers',                   icon: LayoutGrid },
+  { id: 'stackai',   header: 'STACKAI',  label: 'By StackAI', description: 'Native Stack AI tools and integrations',   icon: Blocks, verified: true },
+  { id: 'apps',      header: 'APPS',     label: 'Apps',       description: 'Third-party applications and services',    icon: Box },
+  { id: 'llm',       header: 'LLM',      label: 'LLM',        description: 'Large language models and AI services',    icon: Brain },
+  { id: 'databases', header: 'DATABASE', label: 'Databases',  description: 'Database connections and data management', icon: Database },
+  { id: 'scrapers',  header: 'SCRAPER',  label: 'Scrapers',   description: 'Web scraping and data extraction tools',   icon: ScanLine },
 ];
 
-function ActionCategoryPicker() {
+const ACTION_PROVIDERS: ActionProviderDef[] = [
+  // Apps
+  { id: 'ahrefs',      name: 'Ahrefs',          description: 'Pull SEO and backlink data from Ahrefs: domain ratings, backlinks, and more.',    icon: { type: 'letter', letter: 'a',     bg: '#F96332', fg: '#fff' }, cats: ['all', 'apps'] },
+  { id: 'airops',      name: 'AirOps',          description: 'Full AirOps integration: agents, workflows, definitions, and more.',               icon: { type: 'letter', letter: 'AO',    bg: '#f1f1f1', fg: '#111' }, cats: ['all', 'apps'] },
+  { id: 'algolia',     name: 'Algolia',         description: 'Search an Algolia index.',                                                          icon: { type: 'letter', letter: '@',     bg: '#003DFF', fg: '#fff' }, cats: ['all', 'apps'] },
+  { id: 'apollo',      name: 'Apollo',          description: 'Apollo.io sales intelligence and engagement platform.',                             icon: { type: 'letter', letter: 'A',     bg: '#111',    fg: '#fff' }, cats: ['all', 'apps'] },
+  { id: 'appfolio',    name: 'AppFolio',        description: 'Connect to AppFolio property management software.',                                 icon: { type: 'letter', letter: 'AF',    bg: '#0072CE', fg: '#fff' }, cats: ['all', 'apps'] },
+  { id: 'asana',       name: 'Asana',           description: 'Asana is a work management platform for organizing tasks and projects.',            icon: { type: 'letter', letter: 'A',     bg: '#F06A6A', fg: '#fff' }, cats: ['all', 'apps'] },
+  { id: 'ashby',       name: 'Ashby',           description: 'Integration with Ashby ATS for managing candidates.',                              icon: { type: 'letter', letter: 'A',     bg: '#E8F0FE', fg: '#2563EB' }, cats: ['all', 'apps'] },
+  { id: 'azure-files', name: 'Azure Files',     description: 'Azure Files offers fully managed file shares in the cloud.',                       icon: { type: 'letter', letter: 'Az',    bg: '#0078D4', fg: '#fff' }, cats: ['all', 'apps'] },
+  { id: 'box',         name: 'Box',             description: 'Box cloud content management and file storage integration.',                        icon: { type: 'letter', letter: 'box',   bg: '#fff',    fg: '#0061D5' }, cats: ['all', 'apps'] },
+  { id: 'gmail',       name: 'Gmail',           description: 'Send and receive emails via Gmail.',                                                icon: { type: 'integration', id: 'gmail' },                            cats: ['all', 'apps'] },
+  { id: 'gdrive',      name: 'Google Drive',    description: 'Read and write files in Google Drive.',                                             icon: { type: 'integration', id: 'google-drive' },                    cats: ['all', 'apps'] },
+  { id: 'gcal',        name: 'Google Calendar', description: 'Create and manage calendar events.',                                                icon: { type: 'integration', id: 'google-calendar' },                 cats: ['all', 'apps'] },
+  { id: 'slack',       name: 'Slack',           description: 'Post messages to Slack channels.',                                                  icon: { type: 'integration', id: 'slack' },                            cats: ['all', 'apps'] },
+  // LLMs
+  { id: 'anthropic',   name: 'Anthropic',       description: 'Anthropic provides Claude AI models for natural language processing.',              icon: { type: 'integration', id: 'anthropic' },                        cats: ['all', 'llm'] },
+  { id: 'cerebras',    name: 'Cerebras',        description: 'Connect to Cerebras AI for high-performance language inference.',                   icon: { type: 'letter', letter: 'C',     bg: '#EA5C1C', fg: '#fff' }, cats: ['all', 'llm'] },
+  { id: 'groq',        name: 'Groq',            description: 'Connect to Groq for ultra-fast AI inference and language models.',                  icon: { type: 'letter', letter: 'g',     bg: '#E55B2B', fg: '#fff' }, cats: ['all', 'llm'] },
+  { id: 'custom-mcp',  name: 'Custom MCP',      description: 'Model Context Protocol server integration.',                                        icon: { type: 'letter', letter: 'MCP',   bg: '#1c1c1c', fg: '#fff' }, cats: ['all', 'llm', 'stackai'] },
+  { id: 'openai',      name: 'OpenAI',          description: 'OpenAI provides advanced AI models including GPT-4 and beyond.',                   icon: { type: 'integration', id: 'openai' },                           cats: ['all', 'llm'] },
+  { id: 'xai',         name: 'xAI',             description: 'Connect to xAI API to access Grok models and user data.',                          icon: { type: 'letter', letter: 'xAI',   bg: '#000',    fg: '#fff' }, cats: ['all', 'llm'] },
+  // Databases
+  { id: 'airtable-db', name: 'Airtable',        description: 'Query an Airtable base with natural language or semantic search.',                 icon: { type: 'letter', letter: 'A',     bg: '#FFBF00', fg: '#fff' }, cats: ['all', 'databases'] },
+  { id: 'aws-athena',  name: 'AWS Athena',      description: 'Integration with Amazon Athena for running SQL queries.',                          icon: { type: 'letter', letter: 'Q',     bg: '#8C4FFF', fg: '#fff' }, cats: ['all', 'databases'] },
+  { id: 'azure-sql',   name: 'Azure SQL',       description: 'Query, insert, update, and delete data in an Azure SQL database.',                 icon: { type: 'letter', letter: 'Az',    bg: '#0078D4', fg: '#fff' }, cats: ['all', 'databases'] },
+  { id: 'bigquery',    name: 'BigQuery',        description: 'Query a Google BigQuery database.',                                                  icon: { type: 'letter', letter: 'BQ',    bg: '#4285F4', fg: '#fff' }, cats: ['all', 'databases'] },
+  { id: 'clickhouse',  name: 'ClickHouse',      description: 'Query a ClickHouse database.',                                                       icon: { type: 'letter', letter: 'CH',    bg: '#FFCC00', fg: '#111' }, cats: ['all', 'databases'] },
+  { id: 'gdrive-db',   name: 'Google Drive',    description: 'Google Drive is a file storage and synchronization service.',                      icon: { type: 'integration', id: 'google-drive' },                    cats: ['all', 'databases'] },
+  { id: 'looker',      name: 'Looker',          description: 'Connect to Looker for data analytics. Query models and more.',                     icon: { type: 'letter', letter: 'L',     bg: '#4285F4', fg: '#fff' }, cats: ['all', 'databases'] },
+  { id: 'mongodb',     name: 'MongoDB',         description: 'Query a MongoDB database.',                                                          icon: { type: 'letter', letter: 'M',     bg: '#00684A', fg: '#fff' }, cats: ['all', 'databases'] },
+  { id: 'mysql',       name: 'MySQL',           description: 'Query a MySQL database.',                                                             icon: { type: 'letter', letter: 'My',    bg: '#00758F', fg: '#fff' }, cats: ['all', 'databases'] },
+  // Scrapers
+  { id: 'duckduckgo',  name: 'DuckDuckGo',      description: 'A privacy-focused search engine integration that allows web searching.',           icon: { type: 'letter', letter: 'D',     bg: '#DE5833', fg: '#fff' }, cats: ['all', 'scrapers'] },
+  { id: 'exa-ai',      name: 'Exa AI',          description: 'A comprehensive API for internet-scale search.',                                    icon: { type: 'letter', letter: 'E',     bg: '#1E3A5F', fg: '#fff' }, cats: ['all', 'scrapers'] },
+  { id: 'firecrawl',   name: 'Firecrawl',       description: 'Firecrawl integration for web crawling and scraping.',                             icon: { type: 'letter', letter: 'F',     bg: '#F97316', fg: '#fff' }, cats: ['all', 'scrapers'] },
+  { id: 'hyperbrowser',name: 'HyperBrowser',    description: 'HyperBrowser integration for fast web automation.',                                icon: { type: 'letter', letter: 'H',     bg: '#111',    fg: '#FACC15' }, cats: ['all', 'scrapers'] },
+  { id: 'parallel-ai', name: 'Parallel AI',     description: 'Parallel AI is a web intelligence platform for deep research.',                    icon: { type: 'letter', letter: 'P',     bg: '#1c1c1c', fg: '#fff' }, cats: ['all', 'scrapers'] },
+  { id: 'serpapi',     name: 'SerpAPI',         description: 'A tool for searching the web.',                                                     icon: { type: 'letter', letter: 'S',     bg: '#3B82F6', fg: '#fff' }, cats: ['all', 'scrapers'] },
+  { id: 'tavily',      name: 'Tavily',          description: 'Tavily provides AI-optimized search and content extraction.',                      icon: { type: 'letter', letter: 'T',     bg: '#6366F1', fg: '#fff' }, cats: ['all', 'scrapers'] },
+  // StackAI native
+  { id: 'stackai-web', name: 'Stack AI Web',    description: 'Native Stack AI web search and retrieval tools.',                                   icon: { type: 'letter', letter: 'S',     bg: '#F59E0B', fg: '#fff' }, cats: ['stackai'] },
+];
+
+const PROVIDER_TOOLS: Record<string, ActionToolGroup[]> = {
+  ahrefs: [
+    { name: 'Batch-analysis Tools', tools: [
+      { id: 'ahrefs-batch',         name: 'Batch Analysis',      description: 'Fetch the same SEO metrics for up to 100 targets in one call.' },
+    ]},
+    { name: 'Bulk Tools', tools: [
+      { id: 'ahrefs-bulk',          name: 'Batch Analysis',      description: 'Fetch the same SEO metrics for up to 100 targets in one call.' },
+    ]},
+    { name: 'Domain-rating Tools', tools: [
+      { id: 'ahrefs-domain-batch',  name: 'Batch Analysis',      description: 'Fetch the same SEO metrics for up to 100 targets in one call.' },
+      { id: 'ahrefs-domain-rating', name: 'Get Domain Rating',   description: 'Get Ahrefs Domain Rating and Ahrefs Rank for a target.' },
+    ]},
+    { name: 'Backlinks Tools', tools: [
+      { id: 'ahrefs-bl-batch',      name: 'Batch Analysis',      description: 'Fetch the same SEO metrics for up to 100 targets in one call.' },
+      { id: 'ahrefs-bl-stats',      name: 'Get Backlinks Stats', description: 'Get backlinks and referring-domain counts for a target.' },
+      { id: 'ahrefs-bl-list',       name: 'List Backlinks',      description: 'List the actual backlink rows pointing to a target URL.' },
+    ]},
+  ],
+  anthropic: [
+    { name: 'Text Generation', tools: [
+      { id: 'claude-messages', name: 'Claude Messages',     description: 'Send messages to Claude and receive a completion.' },
+      { id: 'claude-vision',   name: 'Claude with Vision',  description: 'Process images and text together with Claude.' },
+    ]},
+    { name: 'Embeddings', tools: [
+      { id: 'anthropic-embed', name: 'Embed Text',           description: 'Generate embeddings for text using Anthropic models.' },
+    ]},
+  ],
+  openai: [
+    { name: 'Chat', tools: [
+      { id: 'gpt4-chat',    name: 'GPT-4 Chat',             description: 'Chat with GPT-4 and receive a completion.' },
+      { id: 'gpt4-vision',  name: 'GPT-4 Vision',           description: 'Process images and text with GPT-4V.' },
+    ]},
+    { name: 'Embeddings', tools: [
+      { id: 'oai-embed',    name: 'Generate Embeddings',    description: 'Generate text embeddings using OpenAI models.' },
+    ]},
+    { name: 'Audio', tools: [
+      { id: 'whisper',      name: 'Whisper Transcription',  description: 'Transcribe audio to text using Whisper.' },
+      { id: 'tts',          name: 'Text to Speech',         description: 'Convert text to speech using OpenAI TTS.' },
+    ]},
+  ],
+  groq: [
+    { name: 'Chat', tools: [
+      { id: 'groq-chat',    name: 'Groq Chat',              description: 'Ultra-fast chat completions via Groq.' },
+    ]},
+  ],
+  cerebras: [
+    { name: 'Inference', tools: [
+      { id: 'cerebras-chat', name: 'Cerebras Chat',          description: 'High-performance language model inference.' },
+    ]},
+  ],
+  'custom-mcp': [
+    { name: 'MCP Tools', tools: [
+      { id: 'mcp-call',     name: 'Call MCP Tool',           description: 'Invoke a tool on a connected MCP server.' },
+      { id: 'mcp-list',     name: 'List MCP Tools',          description: 'List available tools from a connected MCP server.' },
+    ]},
+  ],
+  gmail: [
+    { name: 'Email', tools: [
+      { id: 'gmail-send',   name: 'Send Email',              description: 'Send an email from your Gmail account.' },
+      { id: 'gmail-list',   name: 'List Emails',             description: 'List emails in your Gmail inbox.' },
+      { id: 'gmail-read',   name: 'Read Email',              description: 'Read the content of a specific email.' },
+    ]},
+  ],
+  gdrive: [
+    { name: 'Files', tools: [
+      { id: 'gdrive-list',  name: 'List Files',              description: 'List files in a Google Drive folder.' },
+      { id: 'gdrive-read',  name: 'Read File',               description: 'Read the content of a file from Drive.' },
+      { id: 'gdrive-write', name: 'Write File',              description: 'Create or update a file in Drive.' },
+    ]},
+  ],
+  mongodb: [
+    { name: 'Operations', tools: [
+      { id: 'mongo-find',   name: 'Find Documents',          description: 'Query documents from a MongoDB collection.' },
+      { id: 'mongo-insert', name: 'Insert Document',         description: 'Insert a new document into a collection.' },
+      { id: 'mongo-update', name: 'Update Document',         description: 'Update existing documents in a collection.' },
+      { id: 'mongo-delete', name: 'Delete Document',         description: 'Delete documents from a collection.' },
+    ]},
+  ],
+  bigquery: [
+    { name: 'Queries', tools: [
+      { id: 'bq-query',     name: 'Run Query',               description: 'Execute a SQL query on BigQuery.' },
+      { id: 'bq-insert',    name: 'Insert Rows',             description: 'Insert rows into a BigQuery table.' },
+    ]},
+  ],
+  serpapi: [
+    { name: 'Search', tools: [
+      { id: 'serp-google',  name: 'Google Search',           description: 'Search the web using the Google SERP API.' },
+      { id: 'serp-images',  name: 'Google Images',           description: 'Search for images using Google Images SERP.' },
+    ]},
+  ],
+  tavily: [
+    { name: 'Search', tools: [
+      { id: 'tavily-search', name: 'AI Search',              description: 'AI-optimized web search with content extraction.' },
+      { id: 'tavily-extract', name: 'Extract Content',       description: 'Extract structured content from a URL.' },
+    ]},
+  ],
+  firecrawl: [
+    { name: 'Crawling', tools: [
+      { id: 'fc-crawl',     name: 'Crawl URL',               description: 'Crawl a URL and extract structured content.' },
+      { id: 'fc-scrape',    name: 'Scrape Page',             description: 'Scrape a single page and return markdown.' },
+    ]},
+  ],
+  'exa-ai': [
+    { name: 'Search', tools: [
+      { id: 'exa-search',   name: 'Semantic Search',         description: 'Search the web using semantic similarity.' },
+      { id: 'exa-contents', name: 'Get Contents',            description: 'Retrieve content for a list of URLs.' },
+    ]},
+  ],
+  mysql: [
+    { name: 'Queries', tools: [
+      { id: 'mysql-select', name: 'Select Rows',             description: 'Run a SELECT query on a MySQL table.' },
+      { id: 'mysql-insert', name: 'Insert Row',              description: 'Insert a row into a MySQL table.' },
+      { id: 'mysql-update', name: 'Update Rows',             description: 'Update rows in a MySQL table.' },
+    ]},
+  ],
+};
+
+function renderProviderIcon(icon: ProviderIconDef, size = 20) {
+  if (icon.type === 'integration') return renderIntegrationIcon(icon.id, size);
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 pt-4 pb-2 shrink-0">
-        <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-          Select a Category
+    <span className="text-[11px] font-bold leading-none" style={{ color: icon.fg ?? '#fff' }}>
+      {icon.letter}
+    </span>
+  );
+}
+
+type ActionConfig = {
+  providerId: string;
+  providerName: string;
+  providerIcon: ProviderIconDef;
+  toolId: string;
+  toolName: string;
+  toolDescription: string;
+};
+
+function parseActionConfig(inputValue?: string): ActionConfig | null {
+  if (!inputValue) return null;
+  try {
+    const p = JSON.parse(inputValue);
+    if (p.providerId && p.toolName) return p as ActionConfig;
+  } catch {}
+  return null;
+}
+
+function ActionCategoryPicker({
+  node,
+  onUpdateValue,
+  onUpdateLabel,
+}: {
+  node: CanvasNode;
+  onUpdateValue: (id: string, value: string) => void;
+  onUpdateLabel: (id: string, label: string) => void;
+}) {
+  const [nav, setNav] = useState<ActionNavStep>({ step: 'categories' });
+  const [search, setSearch] = useState('');
+  const [useEndUser, setUseEndUser] = useState(false);
+
+  const config = parseActionConfig(node.inputValue);
+
+  if (config) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex-1 overflow-y-auto">
+          {/* Provider */}
+          <div className="px-4 py-3 border-b">
+            <SubLabel>Provider</SubLabel>
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
+              <div
+                className="h-6 w-6 rounded flex items-center justify-center shrink-0 border overflow-hidden"
+                style={config.providerIcon.type === 'letter' ? { backgroundColor: config.providerIcon.bg } : undefined}
+              >
+                {renderProviderIcon(config.providerIcon, 14)}
+              </div>
+              <span className="flex-1 text-left font-medium">{config.providerName}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </button>
+          </div>
+
+          {/* Action */}
+          <div className="px-4 py-3 border-b">
+            <SubLabel>Action</SubLabel>
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
+              <div
+                className="h-6 w-6 rounded flex items-center justify-center shrink-0 border overflow-hidden"
+                style={config.providerIcon.type === 'letter' ? { backgroundColor: config.providerIcon.bg } : undefined}
+              >
+                {renderProviderIcon(config.providerIcon, 14)}
+              </div>
+              <span className="flex-1 text-left font-medium">{config.toolName}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </button>
+          </div>
+
+          {/* Connection */}
+          <div className="px-4 py-3 border-b space-y-2">
+            <div className="text-xs font-semibold text-foreground">Connection</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground">Use end-user connection</span>
+              <Toggle checked={useEndUser} onChange={setUseEndUser} />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Require end-users to authenticate at runtime</p>
+            <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
+              <span className="flex-1 text-left">Select a connection</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+            </button>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <span className="underline cursor-pointer hover:text-foreground">Your credentials are encrypted and can be removed at any time.</span>
+              {' '}You can manage all your connections{' '}
+              <span className="underline cursor-pointer hover:text-foreground">here</span>.
+            </p>
+          </div>
+
+          {/* Visual divider before collapsible sections */}
+          <div className="h-2 bg-muted/10 border-b" />
+
+          <Section
+            title="Inputs"
+            icon={<AlignLeft className="h-3.5 w-3.5" />}
+            extra={
+              <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium mr-1">
+                <AlertTriangle className="h-3 w-3" />Has required fields
+              </span>
+            }
+          >
+            <p className="text-xs text-muted-foreground">Configure the required input fields for this action.</p>
+          </Section>
+          <Section title="Test Action" icon={<Play className="h-3.5 w-3.5" />}>
+            <p className="text-xs text-muted-foreground">Test this action with sample data.</p>
+          </Section>
+          <Section title="Outputs" icon={<FileText className="h-3.5 w-3.5" />}>
+            <p className="text-xs text-muted-foreground">View the outputs returned by this action.</p>
+          </Section>
+          <Section title="Advanced Settings" icon={<Rocket className="h-3.5 w-3.5" />}>
+            <p className="text-xs text-muted-foreground">Configure advanced settings for this action.</p>
+          </Section>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto divide-y">
-        {ACTION_CATEGORIES.map((cat) => {
-          const CatIcon = cat.icon;
-          return (
-            <button
-              key={cat.id}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 text-left transition-colors"
-            >
-              <div className="h-10 w-10 rounded-xl border bg-muted/20 flex items-center justify-center shrink-0">
-                <CatIcon className="h-5 w-5 text-foreground" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-sm font-medium text-foreground">{cat.label}</span>
-                  {cat.verified && (
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shrink-0">
-                      <Check className="h-2.5 w-2.5 text-white" />
-                    </span>
-                  )}
+    );
+  }
+
+  // ── Categories view ──────────────────────────────────────────────────────
+  if (nav.step === 'categories') {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 pt-4 pb-2 shrink-0">
+          <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Select a Category
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y">
+          {ACTION_CATEGORIES_DEF.map((cat) => {
+            const CatIcon = cat.icon;
+            return (
+              <button
+                key={cat.id}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 text-left transition-colors"
+                onClick={() => { setNav({ step: 'providers', catId: cat.id, catLabel: cat.label, catHeader: cat.header }); setSearch(''); }}
+              >
+                <div className="h-10 w-10 rounded-xl border bg-muted/20 flex items-center justify-center shrink-0">
+                  <CatIcon className="h-5 w-5 text-foreground" />
                 </div>
-                <div className="text-xs text-muted-foreground">{cat.description}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-sm font-medium text-foreground">{cat.label}</span>
+                    {cat.verified && (
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shrink-0">
+                        <Check className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{cat.description}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Provider list view ───────────────────────────────────────────────────
+  if (nav.step === 'providers') {
+    const providers = ACTION_PROVIDERS
+      .filter(p => p.cats.includes(nav.catId))
+      .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase()));
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-4 pt-3 pb-2 flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => { setNav({ step: 'categories' }); setSearch(''); }}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Providers in {nav.catHeader}
+          </span>
+        </div>
+        <div className="px-4 pb-2 shrink-0">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              autoFocus
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-prune-midGray placeholder:text-muted-foreground/50"
+              placeholder={`Search for a provider in ${nav.catHeader}`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y">
+          {providers.map(provider => (
+            <button
+              key={provider.id}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 text-left transition-colors"
+              onClick={() => { setNav({ step: 'tools', catId: nav.catId, catLabel: nav.catLabel, catHeader: nav.catHeader, providerId: provider.id, providerName: provider.name }); setSearch(''); }}
+            >
+              <div
+                className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 border overflow-hidden shrink-0"
+                style={provider.icon.type === 'letter' ? { backgroundColor: provider.icon.bg } : {}}
+              >
+                {renderProviderIcon(provider.icon)}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-foreground">{provider.name}</div>
+                <div className="text-xs text-muted-foreground truncate">{provider.description}</div>
               </div>
             </button>
-          );
-        })}
+          ))}
+          {providers.length === 0 && (
+            <div className="px-4 py-10 text-center text-xs text-muted-foreground">No providers found</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tool list view ───────────────────────────────────────────────────────
+  const providerDef = ACTION_PROVIDERS.find(p => p.id === nav.providerId);
+  const allGroups = PROVIDER_TOOLS[nav.providerId] ?? [];
+  const filteredGroups = allGroups
+    .map(g => ({
+      ...g,
+      tools: search
+        ? g.tools.filter(t => t.name.toLowerCase().includes(search.toLowerCase()) || t.description.toLowerCase().includes(search.toLowerCase()))
+        : g.tools,
+    }))
+    .filter(g => g.tools.length > 0);
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 pt-3 pb-2 flex items-center gap-1 shrink-0">
+        <button
+          onClick={() => { setNav({ step: 'providers', catId: nav.catId, catLabel: nav.catLabel, catHeader: nav.catHeader }); setSearch(''); }}
+          className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          TOOLS IN {nav.catHeader}
+        </button>
+        <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+          {nav.providerName.toUpperCase()}
+        </span>
+      </div>
+      <div className="px-4 pb-2 shrink-0">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            autoFocus
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-prune-midGray placeholder:text-muted-foreground/50"
+            placeholder={`Search for a tool in ${nav.providerName}`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {filteredGroups.length > 0 ? filteredGroups.map(group => (
+          <div key={group.name}>
+            <div className="px-4 py-1.5 text-[11px] font-semibold text-muted-foreground bg-muted/10">
+              {group.name}
+            </div>
+            {group.tools.map(tool => (
+              <button
+                key={tool.id}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 text-left transition-colors"
+                onClick={() => {
+                  const providerDef = ACTION_PROVIDERS.find(p => p.id === nav.providerId);
+                  if (!providerDef) return;
+                  const cfg: ActionConfig = {
+                    providerId: nav.providerId,
+                    providerName: nav.providerName,
+                    providerIcon: providerDef.icon,
+                    toolId: tool.id,
+                    toolName: tool.name,
+                    toolDescription: tool.description,
+                  };
+                  onUpdateValue(node.id, JSON.stringify(cfg));
+                  onUpdateLabel(node.id, tool.name);
+                }}
+              >
+                <div
+                  className="relative h-10 w-10 rounded-lg flex items-center justify-center shrink-0 border overflow-hidden"
+                  style={providerDef?.icon.type === 'letter' ? { backgroundColor: providerDef.icon.bg } : {}}
+                >
+                  {providerDef && renderProviderIcon(providerDef.icon)}
+                  <div className="absolute bottom-0 right-0 h-4 w-4 bg-white border-t border-l rounded-tl flex items-center justify-center">
+                    <Play className="h-2 w-2 fill-foreground text-foreground" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">{tool.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{tool.description}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )) : (
+          <div className="px-4 py-10 text-center text-xs text-muted-foreground">
+            {allGroups.length === 0 ? 'No tools available for this provider yet.' : 'No tools match your search.'}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1058,7 +1512,7 @@ export function NodeDetailPanel({
             {def.kind === 'trigger'
               ? 'Please select an integration for your trigger.'
               : def.kind === 'action'
-              ? 'Please select an action for your integration.'
+              ? (parseActionConfig(node.inputValue)?.toolDescription ?? 'Please select an action for your integration.')
               : def.description}
           </p>
         </div>
@@ -1074,7 +1528,7 @@ export function NodeDetailPanel({
           </div>
         ) : def.kind === 'action' ? (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <ActionCategoryPicker />
+            <ActionCategoryPicker node={node} onUpdateValue={onUpdateValue} onUpdateLabel={onUpdateLabel} />
           </div>
         ) : def.kind === 'audio-output' ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
