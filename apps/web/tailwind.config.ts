@@ -38,12 +38,14 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        
         prune: {
           darkGray:  '#71717A',
           midGray:   '#A3A3A3',
           lightGray: '#F4F4F5',
           spaceGray: '#EFF0F0',
-          commonGray: '#72727B'
+          commonGray: '#72727B',
+          borderGray: '#E5E5E8',
         },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
@@ -66,6 +68,7 @@ const config: Config = {
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
         serif: ['var(--font-instrument)', 'Georgia', 'serif'],
         inter: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        'google-sans': ['"Google Sans Flex"', 'sans-serif'],
       },
       keyframes: {
         'fade-in': {
@@ -76,10 +79,15 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'none' },
         },
+        'zoom-out': {
+          '0%': { transform: 'scale(1.06)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.2s ease-out',
         'msg-in': 'msg-in 0.25s ease-out',
+        'zoom-out': 'zoom-out 0.18s ease-out forwards',
       },
     },
   },

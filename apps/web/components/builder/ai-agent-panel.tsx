@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AlignLeft,
   ChevronDown,
@@ -16,10 +16,15 @@ import {
   Plus,
   PencilLineIcon,
   Search,
+  Clock,
+  Globe,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { Section, SubLabel, SettingRow, Toggle, Slider, PromptEditorToolbar } from "./panel-ui";
 import { PromptEditor } from "./prompt-editor";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,53 +33,37 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { renderIntegrationIcon } from "@/components/templates/integration-logo";
 import { getModelProvider, type CanvasNode, type NodeDef } from "@/lib/editor-nodes";
 import { KnowledgeBaseDialog, ConnectedAppsDialog, ToolsPickerDialog } from "./knowledge-source-picker";
+import { ModelPickerDialog, MODELS, ProviderIcon, PROVIDER_LABELS } from "./model-picker";
 
-const AI_PROVIDERS = [
-  { id: "openai", label: "OpenAI" },
-  { id: "anthropic", label: "Anthropic" },
-  { id: "google", label: "Google" },
-  { id: "meta", label: "Meta" },
-  { id: "mistral", label: "Mistral" },
-  { id: "xai", label: "XAI" },
-  { id: "perplexity", label: "Perplexity" },
-  { id: "togetherai", label: "TogetherAI" },
-  { id: "cerebras", label: "Cerebras" },
+const MEMORY_TYPES = [
+  {
+    id: "sliding-window",
+    label: "Sliding Window",
+    icon: <Clock className="h-4 w-4 text-foreground shrink-0" />,
+    description:
+      "LLM will remember the full of N previous messages, including references to any files or knowledge bases, which may result in memory running out quickly.",
+  },
+  {
+    id: "sliding-window-input",
+    label: "Sliding Window with Input",
+    icon: <Globe className="h-4 w-4 text-foreground shrink-0" />,
+    description:
+      "Like Sliding Window, but also includes the user's current input in the memory context. Useful when the input references previous conversation content.",
+  },
+  {
+    id: "vector-database",
+    label: "Vector Database",
+    icon: <Database className="h-4 w-4 text-foreground shrink-0" />,
+    description:
+      "Store and retrieve conversation history using vector similarity search. Ideal for long-running sessions where semantic relevance matters more than message order.",
+  },
 ] as const;
 
-const PROVIDER_COLORS: Record<string, string> = {
-  openai: "#000000",
-  anthropic: "#C96442",
-  google: "#4285F4",
-  meta: "#0082FB",
-  mistral: "#FF6B35",
-  xai: "#1a1a1a",
-  perplexity: "#20b2aa",
-  togetherai: "#7c3aed",
-  cerebras: "#FF6B00",
-};
+type MemoryTypeId = (typeof MEMORY_TYPES)[number]["id"];
 
-function ProviderIcon({ id, size = 16 }: { id: string; size?: number }) {
-  const icon = renderIntegrationIcon(id as any, size);
-  if (icon) return <>{icon}</>;
-  const label = AI_PROVIDERS.find((p) => p.id === id)?.label ?? id;
-  const letter = label[0].toUpperCase();
-  return (
-    <span
-      className="inline-flex items-center justify-center rounded-sm text-white font-bold shrink-0"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.55,
-        backgroundColor: PROVIDER_COLORS[id] ?? "#6b7280",
-      }}
-    >
-      {letter}
-    </span>
-  );
-}
+const AI_PROVIDERS = Object.entries(PROVIDER_LABELS).map(([id, label]) => ({ id, label }));
 
 export function AIAgentPanelSections({
   node,
@@ -83,6 +72,7 @@ export function AIAgentPanelSections({
   nodes,
   onUpdateValue,
   onUpdateSystemPrompt,
+  scrollToSection,
 }: {
   node: CanvasNode;
   def: NodeDef;
@@ -90,9 +80,12 @@ export function AIAgentPanelSections({
   nodes: CanvasNode[];
   onUpdateValue: (id: string, value: string) => void;
   onUpdateSystemPrompt: (id: string, value: string) => void;
+  scrollToSection?: { section: "tools" | "knowledge-sources"; trigger: number } | null;
 }) {
   const [promptMode, setPromptMode] = useState<"edit" | "formatted">("edit");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoryType, setMemoryType] = useState<(typeof MEMORY_TYPES)[number]["id"]>("sliding-window");
+  const [hoveredMemoryType, setHoveredMemoryType] = useState<string | null>(null);
   const [windowSize, setWindowSize] = useState(10);
   const [citationsEnabled, setCitationsEnabled] = useState(true);
   const [useReferences, setUseReferences] = useState(false);
@@ -112,6 +105,28 @@ export function AIAgentPanelSections({
   const [connectedAppsOpen, setConnectedAppsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
 
+  const knowledgeSectionRef = useRef<HTMLDivElement>(null);
+  const toolsSectionRef = useRef<HTMLDivElement>(null);
+  const [knowledgeForceTrigger, setKnowledgeForceTrigger] = useState(0);
+  const [toolsForceTrigger, setToolsForceTrigger] = useState(0);
+
+  useEffect(() => {
+    if (!scrollToSection) return;
+    if (scrollToSection.section === "tools") {
+      setToolsForceTrigger(scrollToSection.trigger);
+      setTimeout(() => {
+        setToolsOpen(true);
+        toolsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } else if (scrollToSection.section === "knowledge-sources") {
+      setKnowledgeForceTrigger(scrollToSection.trigger);
+      setTimeout(() => {
+        setKnowledgeBaseOpen(true);
+        knowledgeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [scrollToSection?.trigger]);
+
   const model =
     node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6");
   const provider = getModelProvider(model);
@@ -119,6 +134,8 @@ export function AIAgentPanelSections({
 
   const [providerQuery, setProviderQuery] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>(provider);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState("gpt-5.5");
 
   return (
     <div className="bg-prune-lightGray">
@@ -128,26 +145,24 @@ export function AIAgentPanelSections({
           <SubLabel>AI Provider</SubLabel>
           <DropdownMenu onOpenChange={(open) => { if (!open) setProviderQuery(""); }}>
             <DropdownMenuTrigger asChild>
-              <button className="w-full bg-white flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
-                <span className="flex items-center justify-center shrink-0">
-                  <ProviderIcon id={selectedProvider} size={16} />
-                </span>
+              <Button variant="outline" className="w-full justify-start gap-2.5 rounded-lg bg-white px-3 hover:bg-muted/30 hover:text-foreground">
+                <ProviderIcon id={selectedProvider} size={18} />
                 <span className="flex-1 text-left font-medium">
                   {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.label ?? providerLabel}
                 </span>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              </button>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}>
               <div className="px-2 py-1.5 border-b">
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                  <input
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
                     value={providerQuery}
                     onChange={(e) => setProviderQuery(e.target.value)}
                     onKeyDown={(e) => e.stopPropagation()}
                     placeholder="Search providers..."
-                    className="w-full pl-7 pr-2 py-1 text-sm outline-none bg-transparent placeholder:text-muted-foreground"
+                    className="pl-8 h-8 text-sm"
                   />
                 </div>
               </div>
@@ -157,10 +172,15 @@ export function AIAgentPanelSections({
                 ).map((p) => (
                   <DropdownMenuItem
                     key={p.id}
-                    className="gap-2.5 text-[14px] font-medium"
-                    onSelect={() => setSelectedProvider(p.id)}
+                    className="gap-2.5 text-[14px] font-normal"
+                    onSelect={() => {
+                      setSelectedProvider(p.id);
+                      const first = MODELS.find((m) => m.provider === p.id && !m.locked)
+                        ?? MODELS.find((m) => m.provider === p.id);
+                      setSelectedModelId(first?.id ?? "");
+                    }}
                   >
-                    <span className="shrink-0"><ProviderIcon id={p.id} size={16} /></span>
+                    <span className="shrink-0"><ProviderIcon id={p.id} size={18} /></span>
                     {p.label}
                   </DropdownMenuItem>
                 ))}
@@ -172,13 +192,29 @@ export function AIAgentPanelSections({
         {/* Model */}
         <div className="px-4 py-3">
           <SubLabel>Model</SubLabel>
-          <button className="w-full bg-white flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
-            <span className="flex items-center justify-center shrink-0">
-              {renderIntegrationIcon(provider, 16)}
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2.5 rounded-lg bg-white px-3 hover:bg-muted/30 hover:text-foreground"
+            onClick={() => setModelPickerOpen(true)}
+          >
+            <span className="shrink-0">
+              <ProviderIcon
+                id={MODELS.find((m) => m.id === selectedModelId)?.provider ?? selectedProvider}
+                size={16}
+              />
             </span>
-            <span className="flex-1 text-left font-medium">{model}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          </button>
+            <span className="flex-1 text-left font-medium">
+              {MODELS.find((m) => m.id === selectedModelId)?.label ?? model}
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto" />
+          </Button>
+          <ModelPickerDialog
+            open={modelPickerOpen}
+            onOpenChange={setModelPickerOpen}
+            selectedModelId={selectedModelId}
+            onSelectModel={setSelectedModelId}
+            selectedProvider={selectedProvider}
+          />
         </div>
 
         {/* Try agent templates */}
@@ -248,7 +284,8 @@ export function AIAgentPanelSections({
       </Section>
 
       {/* Knowledge Sources */}
-      <Section title="Knowledge Sources" icon={<Database className="h-4 w-4" />}>
+      <div ref={knowledgeSectionRef}>
+      <Section title="Knowledge Sources" icon={<Database className="h-4 w-4" />} forceOpenTrigger={knowledgeForceTrigger}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="prune" className="w-full">
@@ -287,18 +324,127 @@ export function AIAgentPanelSections({
         <KnowledgeBaseDialog open={knowledgeBaseOpen} onOpenChange={setKnowledgeBaseOpen} />
         <ConnectedAppsDialog open={connectedAppsOpen} onOpenChange={setConnectedAppsOpen} />
       </Section>
+      </div>
 
       {/* Tools */}
-      <Section title="Tools" icon={<Wrench className="h-3.5 w-3.5" />}>
+      <div ref={toolsSectionRef}>
+      <Section title="Tools" icon={<Wrench className="h-3.5 w-3.5" />} forceOpenTrigger={toolsForceTrigger}>
         <Button variant="prune" className="w-full" onClick={() => setToolsOpen(true)}>
           <Plus className="h-4 w-4" />
           <span className="text-[14px] font-medium">Add tools</span>
         </Button>
         <ToolsPickerDialog open={toolsOpen} onOpenChange={setToolsOpen} />
       </Section>
+      </div>
+
+      {/* Memory */}
+      <div className="border-b last:border-b-0 ml-2 bg-white">
+        <div className="w-full flex items-center gap-2.5 px-4 py-3">
+          <RefreshCw className="h-3.5 w-3.5 text-prune-commonGray shrink-0" />
+          <span className="text-left text-[15px] font-medium text-prune-commonGray flex-1">
+            Memory
+          </span>
+          <Toggle checked={memoryEnabled} onChange={setMemoryEnabled} />
+        </div>
+
+        {memoryEnabled && (
+          <div className="px-4 pb-4 ml-2 space-y-4">
+            {/* Memory type select */}
+            <DropdownMenu
+              onOpenChange={(open) => { if (!open) setHoveredMemoryType(null); }}
+            >
+              <DropdownMenuTrigger asChild>
+                <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium bg-white hover:bg-prune-lightGray transition-colors">
+                  {MEMORY_TYPES.find((t) => t.id === memoryType)?.icon}
+                  <span className="flex-1 text-left">
+                    {MEMORY_TYPES.find((t) => t.id === memoryType)?.label}
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 font-medium text-muted-foreground shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+              >
+                {/* Hover tooltip card — fixed to the left of the panel */}
+                {hoveredMemoryType && (() => {
+                  const t = MEMORY_TYPES.find((x) => x.id === hoveredMemoryType);
+                  return t ? (
+                    <div
+                      className="fixed z-[200] w-96 rounded-xl border bg-white shadow-xl p-4"
+                      style={{
+                        right: "calc(var(--panel-width, 320px) - 36px)",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        {t.icon}
+                        <span className="text-base font-medium text-foreground">{t.label}</span>
+                      </div>
+                      <p className="text-[14px] font-medium text-muted-foreground leading-relaxed">
+                        {t.description}
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+
+                {MEMORY_TYPES.map((t) => (
+                  <DropdownMenuItem
+                    key={t.id}
+                    className="gap-2 text-[14px] font-medium text-foreground/90"
+                    onMouseEnter={() => setHoveredMemoryType(t.id)}
+                    onMouseLeave={() => setHoveredMemoryType(null)}
+                    onSelect={() => setMemoryType(t.id)}
+                  >
+                    {t.icon}
+                    <span className="flex-1">{t.label}</span>
+                    {t.id === memoryType && <Check className="h-4 w-4 text-foreground" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Window Size — only for sliding window types */}
+            {memoryType !== "vector-database" && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[14px] font-medium text-gray-800 underline decoration-dashed underline-offset-4">
+                    Window Size
+                  </span>
+                  <span className="text-sm font-medium tabular-nums">{windowSize}</span>
+                </div>
+                <Slider value={windowSize} min={1} max={20} onChange={setWindowSize} />
+              </div>
+            )}
+
+            {/* Source of User Messages */}
+            <div>
+              <SubLabel className="mb-1.5">Source of User Messages</SubLabel>
+              <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs hover:bg-muted/30 transition-colors">
+                <PencilLineIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-left">User Question</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+              </button>
+              <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                When the workflow runs, the LLM conversation history will use this as the source of
+                user messages.
+              </p>
+              <div className="flex items-center gap-4 mt-2 justify-end">
+                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  View Memory
+                </button>
+                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Subflow Tools */}
-      <Section title="Subflow Tools" icon={<GitBranch className="h-3.5 w-3.5" />}>
+      {/* <Section title="Subflow Tools" icon={<GitBranch className="h-3.5 w-3.5" />}>
         <p className="text-xs text-muted-foreground leading-relaxed mb-3">
           Add subflow tools that the LLM can call. Connect each tool handle to a subflow that will
           execute when the LLM calls that tool.
@@ -314,50 +460,11 @@ export function AIAgentPanelSections({
           <Plus className="h-4 w-4" />
           <span className="text-[14px] font-medium">Add Subflow Tool</span>
         </Button>
-      </Section>
+      </Section> */}
 
       {/* Main Settings */}
-      <Section title="Main Settings" icon={<Settings2 className="h-3.5 w-3.5" />}>
-        <div className="space-y-4">
-          <SettingRow label="Memory">
-            <Toggle checked={memoryEnabled} onChange={setMemoryEnabled} />
-          </SettingRow>
-          {memoryEnabled && (
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-md text-xs hover:bg-muted/30 transition-colors">
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="flex-1 text-left">Sliding Window with Input</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-            </button>
-          )}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-medium text-muted-foreground underline decoration-dashed underline-offset-2">
-                Window Size
-              </span>
-              <span className="text-xs font-medium tabular-nums">{windowSize}</span>
-            </div>
-            <Slider value={windowSize} min={1} max={20} onChange={setWindowSize} />
-          </div>
-          <div>
-            <SubLabel className="mb-1.5">Source of User Messages</SubLabel>
-            <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs hover:bg-muted/30 transition-colors">
-              <PencilLineIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="flex-1 text-left">User Question</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-            </button>
-            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-              When the workflow runs, the LLM conversation history will use this as the source of
-              user messages.
-            </p>
-            <div className="flex items-center gap-4 mt-2 justify-end">
-              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                View Memory
-              </button>
-              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Clear
-              </button>
-            </div>
-          </div>
+      <Section title="Main Settings" icon={<Settings2 className="h-4 w-4" />}>
+        <div className="space-y-4 ml-3">
           <SettingRow label="Citations">
             <Toggle checked={citationsEnabled} onChange={setCitationsEnabled} />
           </SettingRow>

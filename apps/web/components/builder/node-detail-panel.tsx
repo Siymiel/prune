@@ -39,6 +39,7 @@ import {
 import { renderIntegrationIcon } from "@/components/templates/integration-logo";
 import { Textarea } from "@/components/ui/textarea";
 import { Section, FieldLabel, SubLabel, SettingRow } from "./panel-ui";
+import { InlineEditableTextInput } from "./inline-editable-text-input";
 import { AIAgentPanelSections } from "./ai-agent-panel";
 import { ActionCategoryPicker, parseActionConfig } from "./action-panel";
 
@@ -51,19 +52,90 @@ const textareaClass = `${inputClass} resize-none font-medium text-[16px]`;
 /* ── Trigger provider picker ────────────────────────────────────────────────── */
 
 type TriggerProvider =
-  | { id: string; name: string; description: string; integrationId: "google-drive" | "gmail" }
-  | { id: string; name: string; description: string; iconBg: string; letter: string };
+  | {
+      id: string;
+      name: string;
+      description: string;
+      integrationId: "google-drive" | "gmail";
+    }
+  | {
+      id: string;
+      name: string;
+      description: string;
+      iconBg: string;
+      letter: string;
+    };
 
 const TRIGGER_PROVIDERS: TriggerProvider[] = [
-  { id: "airtable",         name: "Airtable",         description: "Query an Airtable base with natural language or semantic search",                   iconBg: "bg-amber-400",   letter: "A" },
-  { id: "asana",            name: "Asana",             description: "Asana is a work management platform for organizing tasks and projects",              iconBg: "bg-red-400",     letter: "A" },
-  { id: "docusign",         name: "DocuSign",          description: "Connect to DocuSign to manage envelopes, documents, and signatures",                 iconBg: "bg-indigo-700",  letter: "D" },
-  { id: "framer",           name: "Framer",            description: "Framer is a no-code website builder. Connect a Framer project",                      iconBg: "bg-blue-600",    letter: "F" },
-  { id: "google-drive",     name: "Google Drive",      description: "Google Drive is a file storage and synchronization service",                         integrationId: "google-drive" },
-  { id: "github",           name: "Github",            description: "GitHub is a development platform for version control and collaboration",              iconBg: "bg-gray-900",    letter: "G" },
-  { id: "gmail",            name: "Gmail",             description: "Gmail is Google's email service for sending, receiving, and managing email",         integrationId: "gmail" },
-  { id: "google-sheets",    name: "Google Sheets",     description: "Google Sheets is a spreadsheet program included as part of Google Drive",            iconBg: "bg-green-500",   letter: "S" },
-  { id: "microsoft-teams",  name: "Microsoft Teams",   description: "Microsoft Teams integration providing OAuth2 authentication and messaging",           iconBg: "bg-purple-600",  letter: "T" },
+  {
+    id: "airtable",
+    name: "Airtable",
+    description:
+      "Query an Airtable base with natural language or semantic search",
+    iconBg: "bg-amber-400",
+    letter: "A",
+  },
+  {
+    id: "asana",
+    name: "Asana",
+    description:
+      "Asana is a work management platform for organizing tasks and projects",
+    iconBg: "bg-red-400",
+    letter: "A",
+  },
+  {
+    id: "docusign",
+    name: "DocuSign",
+    description:
+      "Connect to DocuSign to manage envelopes, documents, and signatures",
+    iconBg: "bg-indigo-700",
+    letter: "D",
+  },
+  {
+    id: "framer",
+    name: "Framer",
+    description:
+      "Framer is a no-code website builder. Connect a Framer project",
+    iconBg: "bg-blue-600",
+    letter: "F",
+  },
+  {
+    id: "google-drive",
+    name: "Google Drive",
+    description: "Google Drive is a file storage and synchronization service",
+    integrationId: "google-drive",
+  },
+  {
+    id: "github",
+    name: "Github",
+    description:
+      "GitHub is a development platform for version control and collaboration",
+    iconBg: "bg-gray-900",
+    letter: "G",
+  },
+  {
+    id: "gmail",
+    name: "Gmail",
+    description:
+      "Gmail is Google's email service for sending, receiving, and managing email",
+    integrationId: "gmail",
+  },
+  {
+    id: "google-sheets",
+    name: "Google Sheets",
+    description:
+      "Google Sheets is a spreadsheet program included as part of Google Drive",
+    iconBg: "bg-green-500",
+    letter: "S",
+  },
+  {
+    id: "microsoft-teams",
+    name: "Microsoft Teams",
+    description:
+      "Microsoft Teams integration providing OAuth2 authentication and messaging",
+    iconBg: "bg-purple-600",
+    letter: "T",
+  },
 ];
 
 function TriggerProviderPicker() {
@@ -107,8 +179,12 @@ function TriggerProviderPicker() {
                 : provider.letter}
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-foreground">{provider.name}</div>
-              <div className="text-xs text-muted-foreground truncate">{provider.description}</div>
+              <div className="text-sm font-medium text-foreground">
+                {provider.name}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {provider.description}
+              </div>
             </div>
           </button>
         ))}
@@ -122,12 +198,19 @@ function TriggerProviderPicker() {
 function AudioOutputPanelSections() {
   return (
     <>
-      <Section title="Test Output" icon={<Mic className="h-3.5 w-3.5" />} defaultOpen>
+      <Section
+        title="Test Output"
+        icon={<Mic className="h-3.5 w-3.5" />}
+        defaultOpen
+      >
         <div className="px-4 py-3 rounded-2xl border text-xs text-muted-foreground bg-muted/10 text-center">
           No audio output, run the flow to generate audio
         </div>
       </Section>
-      <Section title="Configuration" icon={<Settings2 className="h-3.5 w-3.5" />}>
+      <Section
+        title="Configuration"
+        icon={<Settings2 className="h-3.5 w-3.5" />}
+      >
         <div className="space-y-4">
           <SettingRow label="Model">
             <button className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs text-foreground hover:bg-muted/30 transition-colors">
@@ -159,35 +242,65 @@ function AudioOutputPanelSections() {
 
 function TemplatePanelSections() {
   return (
-    <Section title="Edit Template" icon={<PencilLineIcon className="h-3.5 w-3.5" />} defaultOpen>
+    <Section
+      title="Edit Template"
+      icon={<PencilLineIcon className="h-3.5 w-3.5" />}
+      defaultOpen
+    >
       <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-        Add nodes to the template from the options on the left. Remove the template to use default
-        output.
+        Add nodes to the template from the options on the left. Remove the
+        template to use default output.
       </p>
       <div className="border rounded-lg overflow-hidden">
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b bg-muted/10 flex-wrap">
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors text-xs font-bold">B</button>
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors text-xs italic font-serif">I</button>
-          <button className="h-6 px-1.5 flex items-center justify-center rounded bg-gray-800 text-white text-[11px] font-semibold leading-none">H<sub className="text-[8px]">1</sub></button>
-          <button className="h-6 px-1.5 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground text-[11px] font-semibold leading-none">H<sub className="text-[8px]">2</sub></button>
-          <button className="h-6 px-1.5 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground text-[11px] font-semibold leading-none">H<sub className="text-[8px]">3</sub></button>
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors"><List className="h-3.5 w-3.5" /></button>
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors"><ListOrdered className="h-3.5 w-3.5" /></button>
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors"><Quote className="h-3.5 w-3.5" /></button>
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors"><Code className="h-3.5 w-3.5" /></button>
-          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors"><Image className="h-3.5 w-3.5" /></button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors text-xs font-bold">
+            B
+          </button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors text-xs italic font-serif">
+            I
+          </button>
+          <button className="h-6 px-1.5 flex items-center justify-center rounded bg-gray-800 text-white text-[11px] font-semibold leading-none">
+            H<sub className="text-[8px]">1</sub>
+          </button>
+          <button className="h-6 px-1.5 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground text-[11px] font-semibold leading-none">
+            H<sub className="text-[8px]">2</sub>
+          </button>
+          <button className="h-6 px-1.5 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground text-[11px] font-semibold leading-none">
+            H<sub className="text-[8px]">3</sub>
+          </button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors">
+            <List className="h-3.5 w-3.5" />
+          </button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors">
+            <ListOrdered className="h-3.5 w-3.5" />
+          </button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors">
+            <Quote className="h-3.5 w-3.5" />
+          </button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors">
+            <Code className="h-3.5 w-3.5" />
+          </button>
+          <button className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted/50 text-muted-foreground transition-colors">
+            <Image className="h-3.5 w-3.5" />
+          </button>
         </div>
         <div className="p-3 min-h-[280px] text-sm leading-relaxed bg-background">
           <h1 className="text-base font-bold mb-2">Template Node</h1>
           <h2 className="text-sm font-semibold mb-1.5">How this works</h2>
           <p className="text-xs text-foreground/80 mb-3">
-            This node allows you to create a template that can be used to format the output of
-            other nodes.
+            This node allows you to create a template that can be used to format
+            the output of other nodes.
           </p>
           <h2 className="text-sm font-semibold mb-1.5">How to use</h2>
           <ul className="list-disc list-inside text-xs text-foreground/80 space-y-1">
-            <li>Format to heading, bullet points, and more using the options above.</li>
-            <li>Use the values of other nodes by selecting them from the expressions side panel.</li>
+            <li>
+              Format to heading, bullet points, and more using the options
+              above.
+            </li>
+            <li>
+              Use the values of other nodes by selecting them from the
+              expressions side panel.
+            </li>
           </ul>
         </div>
       </div>
@@ -209,7 +322,11 @@ function PanelSections({
   if (def.kind === "url") {
     return (
       <>
-        <Section title="Test URL" icon={<Link2 className="h-3.5 w-3.5" />} defaultOpen>
+        <Section
+          title="Test URL"
+          icon={<Link2 className="h-3.5 w-3.5" />}
+          defaultOpen
+        >
           <FieldLabel>Website URL</FieldLabel>
           <input
             type="url"
@@ -220,10 +337,17 @@ function PanelSections({
           />
         </Section>
         <Section title="Options" icon={<Settings2 className="h-3.5 w-3.5" />}>
-          <p className="text-xs text-muted-foreground">No options configured.</p>
+          <p className="text-xs text-muted-foreground">
+            No options configured.
+          </p>
         </Section>
-        <Section title="Chunking Settings" icon={<Settings2 className="h-3.5 w-3.5" />}>
-          <p className="text-xs text-muted-foreground">Using default chunking settings.</p>
+        <Section
+          title="Chunking Settings"
+          icon={<Settings2 className="h-3.5 w-3.5" />}
+        >
+          <p className="text-xs text-muted-foreground">
+            Using default chunking settings.
+          </p>
         </Section>
       </>
     );
@@ -232,7 +356,11 @@ function PanelSections({
   if (def.kind === "text-input") {
     return (
       <>
-        <Section title="Value" icon={<AlignLeft className="h-3.5 w-3.5" />} defaultOpen>
+        <Section
+          title="Value"
+          icon={<AlignLeft className="h-3.5 w-3.5" />}
+          defaultOpen
+        >
           <FieldLabel>Default value</FieldLabel>
           <textarea
             className={textareaClass}
@@ -243,7 +371,9 @@ function PanelSections({
           />
         </Section>
         <Section title="Options" icon={<Settings2 className="h-3.5 w-3.5" />}>
-          <p className="text-xs text-muted-foreground">No options configured.</p>
+          <p className="text-xs text-muted-foreground">
+            No options configured.
+          </p>
         </Section>
       </>
     );
@@ -252,14 +382,20 @@ function PanelSections({
   if (def.kind === "knowledge-base") {
     return (
       <>
-        <Section title="Source" icon={<Database className="h-3.5 w-3.5" />} defaultOpen>
+        <Section
+          title="Source"
+          icon={<Database className="h-3.5 w-3.5" />}
+          defaultOpen
+        >
           <FieldLabel>Knowledge base</FieldLabel>
           <div className="w-full px-3 py-2 text-xs bg-muted/30 border rounded-md text-muted-foreground/50">
             Select a knowledge base…
           </div>
         </Section>
         <Section title="Options" icon={<Settings2 className="h-3.5 w-3.5" />}>
-          <p className="text-xs text-muted-foreground">No options configured.</p>
+          <p className="text-xs text-muted-foreground">
+            No options configured.
+          </p>
         </Section>
       </>
     );
@@ -267,7 +403,11 @@ function PanelSections({
 
   return (
     <>
-      <Section title="Configuration" icon={<Settings2 className="h-3.5 w-3.5" />} defaultOpen>
+      <Section
+        title="Configuration"
+        icon={<Settings2 className="h-3.5 w-3.5" />}
+        defaultOpen
+      >
         {def.badge === "App" ? (
           <div className="px-3 py-2 bg-muted/30 border rounded-md text-xs text-muted-foreground leading-relaxed">
             {def.description}
@@ -311,6 +451,7 @@ interface NodeDetailPanelProps {
   onRemoveNode: (id: string) => void;
   onFocusNode: (id: string) => void;
   onResizeMouseDown?: (e: React.MouseEvent) => void;
+  scrollToSection?: { section: "tools" | "knowledge-sources"; trigger: number } | null;
 }
 
 export function NodeDetailPanel({
@@ -323,10 +464,8 @@ export function NodeDetailPanel({
   onRemoveNode,
   onFocusNode,
   onResizeMouseDown,
+  scrollToSection,
 }: NodeDetailPanelProps) {
-  const [labelEditing, setLabelEditing] = useState(false);
-  const [labelDraft, setLabelDraft] = useState(node.label);
-  const [labelHovered, setLabelHovered] = useState(false);
   const [testInput, setTestInput] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -334,14 +473,10 @@ export function NodeDetailPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    setLabelDraft(node.label);
-    setLabelEditing(false);
-  }, [node.id, node.label]);
-
-  useEffect(() => {
     if (!menuOpen) return;
     function handleOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setMenuOpen(false);
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
@@ -360,13 +495,6 @@ export function NodeDetailPanel({
 
   const Icon = def.icon;
   const identifier = getNodeIdentifier(node, nodes);
-
-  function commitLabel() {
-    const trimmed = labelDraft.trim();
-    setLabelEditing(false);
-    if (trimmed && trimmed !== node.label) onUpdateLabel(node.id, trimmed);
-    else setLabelDraft(node.label);
-  }
 
   const descriptionValue =
     def.kind === "trigger"
@@ -393,50 +521,36 @@ export function NodeDetailPanel({
       <div className="w-full h-full bg-background rounded-xl border shadow-lg flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
-          <div className="h-7 w-7 rounded-md bg-muted/50 border flex items-center justify-center shrink-0">
-            {def.kind === "ai-agent" || def.kind === "prune-ai" || def.kind === "openai-app" ? (
+          <div className="h-8 w-8 rounded-md bg-muted/50 border flex items-center justify-center shrink-0">
+            {def.kind === "ai-agent" ||
+            def.kind === "prune-ai" ||
+            def.kind === "openai-app" ? (
               renderIntegrationIcon(
-                getModelProvider(node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6")),
+                getModelProvider(
+                  node.model ??
+                    (def.kind === "openai-app"
+                      ? "gpt-4o"
+                      : "claude-sonnet-4-6"),
+                ),
                 14,
               )
             ) : def.integrationId ? (
               renderIntegrationIcon(def.integrationId, 14)
             ) : (
-              <Icon className={cn("h-3.5 w-3.5", def.iconClass)} />
+              <Icon className={cn("h-4 w-4", def.iconClass)} />
             )}
           </div>
 
-          <div className="flex-1 min-w-0">
-            {labelEditing ? (
-              <input
-                autoFocus
-                className="w-full text-sm font-semibold bg-prune-lightGray rounded px-1 outline-none focus:ring-1 focus:ring-ring"
-                value={labelDraft}
-                onChange={(e) => setLabelDraft(e.target.value)}
-                onBlur={commitLabel}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  if (e.key === "Escape") { setLabelDraft(node.label); setLabelEditing(false); }
-                }}
+          <div className="flex-1 min-w-0 -ml-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <InlineEditableTextInput
+                value={node.label}
+                onCommit={(v) => onUpdateLabel(node.id, v)}
               />
-            ) : (
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span
-                  className={cn(
-                    "text-sm font-semibold truncate rounded px-1 -mx-1 cursor-text transition-colors select-none",
-                    labelHovered && "bg-prune-lightGray",
-                  )}
-                  onMouseEnter={() => setLabelHovered(true)}
-                  onMouseLeave={() => setLabelHovered(false)}
-                  onClick={() => { setLabelEditing(true); setLabelDraft(node.label); }}
-                >
-                  {node.label}
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted/60 border text-muted-foreground shrink-0">
-                  {identifier}
-                </span>
-              </div>
-            )}
+              <span className="text-[12px] font-mono px-1.5 py-0.5 rounded bg-muted/60 border text-muted-foreground shrink-0 ml-1">
+                {identifier}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-0.5 shrink-0">
@@ -453,9 +567,24 @@ export function NodeDetailPanel({
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-36 bg-background border rounded-xl shadow-lg font-normal overflow-hidden z-50 py-1 px-1">
                   {[
-                    { icon: Copy,        label: "Copy",   onClick: () => setMenuOpen(false) },
-                    { icon: SkipForward, label: "Skip",   onClick: () => setMenuOpen(false) },
-                    { icon: Crosshair,   label: "Focus",  onClick: () => { setMenuOpen(false); onFocusNode(node.id); } },
+                    {
+                      icon: Copy,
+                      label: "Copy",
+                      onClick: () => setMenuOpen(false),
+                    },
+                    {
+                      icon: SkipForward,
+                      label: "Skip",
+                      onClick: () => setMenuOpen(false),
+                    },
+                    {
+                      icon: Crosshair,
+                      label: "Focus",
+                      onClick: () => {
+                        setMenuOpen(false);
+                        onFocusNode(node.id);
+                      },
+                    },
                   ].map(({ icon: MenuIcon, label, onClick }) => (
                     <button
                       key={label}
@@ -468,7 +597,11 @@ export function NodeDetailPanel({
                   ))}
                   <div className="mx-2 my-1 h-px bg-border" />
                   <button
-                    onClick={() => { setMenuOpen(false); onRemoveNode(node.id); onClose(); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRemoveNode(node.id);
+                      onClose();
+                    }}
                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[14px] text-red-500 rounded-md font-normal hover:bg-red-50 transition-colors"
                   >
                     <Trash2 className="h-4 w-4 shrink-0" />
@@ -495,7 +628,10 @@ export function NodeDetailPanel({
                 defaultValue={descriptionValue}
                 onBlur={() => setIsEditingDescription(false)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); setIsEditingDescription(false); }
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    setIsEditingDescription(false);
+                  }
                 }}
                 className="!min-h-0 h-[24px] border-0 bg-transparent p-0 text-[14px] font-medium leading-relaxed shadow-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
@@ -515,7 +651,9 @@ export function NodeDetailPanel({
           <div className="flex-1 overflow-hidden flex flex-col">
             <TriggerProviderPicker />
           </div>
-        ) : def.kind === "ai-agent" || def.kind === "prune-ai" || def.kind === "openai-app" ? (
+        ) : def.kind === "ai-agent" ||
+          def.kind === "prune-ai" ||
+          def.kind === "openai-app" ? (
           <div className="flex-1 overflow-y-auto">
             <AIAgentPanelSections
               node={node}
@@ -524,6 +662,7 @@ export function NodeDetailPanel({
               nodes={nodes}
               onUpdateValue={onUpdateValue}
               onUpdateSystemPrompt={onUpdateSystemPrompt}
+              scrollToSection={scrollToSection}
             />
           </div>
         ) : def.kind === "action" ? (
@@ -552,10 +691,14 @@ export function NodeDetailPanel({
           </>
         ) : def.kind === "output" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
-            <Section title="Templated Output" icon={<LayoutTemplate className="h-3.5 w-3.5" />} defaultOpen>
+            <Section
+              title="Templated Output"
+              icon={<LayoutTemplate className="h-3.5 w-3.5" />}
+              defaultOpen
+            >
               <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                Add a template to format the output. By default, the output combines the results of
-                all connected nodes.
+                Add a template to format the output. By default, the output
+                combines the results of all connected nodes.
               </p>
               <div className="flex gap-2">
                 <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 border rounded-md text-xs text-foreground hover:bg-muted/30 transition-colors">
@@ -568,7 +711,11 @@ export function NodeDetailPanel({
                 </button>
               </div>
             </Section>
-            <Section title="Output Content" icon={<FileText className="h-3.5 w-3.5" />} defaultOpen>
+            <Section
+              title="Output Content"
+              icon={<FileText className="h-3.5 w-3.5" />}
+              defaultOpen
+            >
               <p className="text-xs text-muted-foreground leading-relaxed">
                 No output available. Run the workflow to see the output here.
               </p>
@@ -576,7 +723,11 @@ export function NodeDetailPanel({
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto py-[3px]">
-            <Section title="Input text" icon={<PencilLineIcon className="h-3.5 w-3.5" />} defaultOpen>
+            <Section
+              title="Input text"
+              icon={<PencilLineIcon className="h-3.5 w-3.5" />}
+              defaultOpen
+            >
               <textarea
                 className={textareaClass}
                 rows={5}
@@ -585,7 +736,11 @@ export function NodeDetailPanel({
                 onChange={(e) => setTestInput(e.target.value)}
               />
             </Section>
-            <PanelSections node={node} def={def} onUpdateValue={onUpdateValue} />
+            <PanelSections
+              node={node}
+              def={def}
+              onUpdateValue={onUpdateValue}
+            />
           </div>
         )}
       </div>

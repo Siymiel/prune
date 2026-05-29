@@ -12,7 +12,7 @@ import {
   Database,
   Link2,
   Check,
-  FileSearch2,
+  FileSearch,
   CopyPlus,
   Copy,
   Download,
@@ -34,6 +34,13 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InlineEditableTextInput } from "./inline-editable-text-input";
+import { NodeHandle } from "./node-handle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   getNodeDef,
   getModelProvider,
@@ -51,7 +58,13 @@ export const HANDLE_SIDE_OFFSET = 16;
 interface ActionConfig {
   providerId: string;
   providerName: string;
-  providerIcon: { type: string; letter?: string; bg?: string; fg?: string; id?: string };
+  providerIcon: {
+    type: string;
+    letter?: string;
+    bg?: string;
+    fg?: string;
+    id?: string;
+  };
   toolId: string;
   toolName: string;
   toolDescription: string;
@@ -111,8 +124,16 @@ function MenuItem({
           danger ? "text-red-500" : "text-foreground",
         )}
       />
-      <span className="flex-1 font-normal">{label}</span>
+      <span className="flex-1 font-normal font-sans">{label}</span>
       {RightIcon && <RightIcon className="h-3.5 w-3.5 text-muted-foreground" />}
+    </div>
+  );
+}
+
+function NodeContentSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[12px] font-medium text-prune-darkGray mb-1.5">
+      {children}
     </div>
   );
 }
@@ -180,13 +201,20 @@ function StickyNoteEditor({
   const [toolbarMounted, setToolbarMounted] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const [fmt, setFmt] = useState({ bold: false, italic: false, underline: false, block: '' });
+  const [fmt, setFmt] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    block: "",
+  });
 
   // Animate toolbar in on focus, animate out then unmount on blur
   useEffect(() => {
     if (isFocused) {
       setToolbarMounted(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => setToolbarVisible(true)));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setToolbarVisible(true)),
+      );
     } else {
       setToolbarVisible(false);
       const t = setTimeout(() => setToolbarMounted(false), 180);
@@ -205,24 +233,28 @@ function StickyNoteEditor({
   // Sync active-format state whenever the caret moves inside this editor
   useEffect(() => {
     const update = () => {
-      if (!editorRef.current?.contains(document.activeElement) && document.activeElement !== editorRef.current) return;
+      if (
+        !editorRef.current?.contains(document.activeElement) &&
+        document.activeElement !== editorRef.current
+      )
+        return;
       setFmt({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        block: document.queryCommandValue('formatBlock').toLowerCase(),
+        bold: document.queryCommandState("bold"),
+        italic: document.queryCommandState("italic"),
+        underline: document.queryCommandState("underline"),
+        block: document.queryCommandValue("formatBlock").toLowerCase(),
       });
     };
-    document.addEventListener('selectionchange', update);
-    return () => document.removeEventListener('selectionchange', update);
+    document.addEventListener("selectionchange", update);
+    return () => document.removeEventListener("selectionchange", update);
   }, []);
 
   const refreshFmt = () => {
     setFmt({
-      bold: document.queryCommandState('bold'),
-      italic: document.queryCommandState('italic'),
-      underline: document.queryCommandState('underline'),
-      block: document.queryCommandValue('formatBlock').toLowerCase(),
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      underline: document.queryCommandState("underline"),
+      block: document.queryCommandValue("formatBlock").toLowerCase(),
     });
   };
 
@@ -243,10 +275,6 @@ function StickyNoteEditor({
         <div
           className={cn(
             "mb-1 bg-white rounded-lg border border-gray-200 shadow-sm px-2 py-1.5 flex items-center gap-0.5",
-            "transition-all duration-[180ms] ease-out origin-bottom",
-            toolbarVisible
-              ? "opacity-100 translate-y-0 scale-y-100"
-              : "opacity-0 translate-y-2 scale-y-95 pointer-events-none",
           )}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -295,42 +323,72 @@ function StickyNoteEditor({
           </div>
 
           <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
-          <FmtBtn title="Bold" isActive={fmt.bold} onExecute={() => exec("bold")}>
+          <FmtBtn
+            title="Bold"
+            isActive={fmt.bold}
+            onExecute={() => exec("bold")}
+          >
             <Bold className="h-3.5 w-3.5" />
           </FmtBtn>
-          <FmtBtn title="Italic" isActive={fmt.italic} onExecute={() => exec("italic")}>
+          <FmtBtn
+            title="Italic"
+            isActive={fmt.italic}
+            onExecute={() => exec("italic")}
+          >
             <Italic className="h-3.5 w-3.5" />
           </FmtBtn>
-          <FmtBtn title="Underline" isActive={fmt.underline} onExecute={() => exec("underline")}>
+          <FmtBtn
+            title="Underline"
+            isActive={fmt.underline}
+            onExecute={() => exec("underline")}
+          >
             <Underline className="h-3.5 w-3.5" />
           </FmtBtn>
           <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
           <FmtBtn
             title="Bullet list"
-            isActive={fmt.block === 'ul' || document.queryCommandState('insertUnorderedList')}
+            isActive={
+              fmt.block === "ul" ||
+              document.queryCommandState("insertUnorderedList")
+            }
             onExecute={() => exec("insertUnorderedList")}
           >
             <List className="h-3.5 w-3.5" />
           </FmtBtn>
           <FmtBtn
             title="Numbered list"
-            isActive={fmt.block === 'ol' || document.queryCommandState('insertOrderedList')}
+            isActive={
+              fmt.block === "ol" ||
+              document.queryCommandState("insertOrderedList")
+            }
             onExecute={() => exec("insertOrderedList")}
           >
             <ListOrdered className="h-3.5 w-3.5" />
           </FmtBtn>
           <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
-          <FmtBtn title="Heading 1" isActive={fmt.block === 'h1'} onExecute={() => exec("formatBlock", "h1")}>
+          <FmtBtn
+            title="Heading 1"
+            isActive={fmt.block === "h1"}
+            onExecute={() => exec("formatBlock", "h1")}
+          >
             <span className="text-[12px] font-semibold leading-none">
               H<sub className="text-[9px] relative bottom-[-1px]">1</sub>
             </span>
           </FmtBtn>
-          <FmtBtn title="Heading 2" isActive={fmt.block === 'h2'} onExecute={() => exec("formatBlock", "h2")}>
+          <FmtBtn
+            title="Heading 2"
+            isActive={fmt.block === "h2"}
+            onExecute={() => exec("formatBlock", "h2")}
+          >
             <span className="text-[12px] font-semibold leading-none">
               H<sub className="text-[9px] relative bottom-[-1px]">2</sub>
             </span>
           </FmtBtn>
-          <FmtBtn title="Heading 3" isActive={fmt.block === 'h3'} onExecute={() => exec("formatBlock", "h3")}>
+          <FmtBtn
+            title="Heading 3"
+            isActive={fmt.block === "h3"}
+            onExecute={() => exec("formatBlock", "h3")}
+          >
             <span className="text-[12px] font-semibold leading-none">
               H<sub className="text-[9px] relative bottom-[-1px]">3</sub>
             </span>
@@ -377,60 +435,6 @@ function StickyNoteEditor({
   );
 }
 
-// ── Editable label ────────────────────────────────────────────────────────────
-
-function EditableLabel({
-  value,
-  onCommit,
-}: {
-  value: string;
-  onCommit: (v: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing) {
-      setDraft(value);
-      requestAnimationFrame(() => { inputRef.current?.select(); });
-    }
-  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== value) onCommit(trimmed);
-  };
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={e => {
-          if (e.key === 'Enter') { e.preventDefault(); commit(); }
-          if (e.key === 'Escape') setEditing(false);
-          e.stopPropagation();
-        }}
-        onMouseDown={e => e.stopPropagation()}
-        className="text-sm font-medium leading-tight bg-muted/60 rounded px-1 py-1 -mx-1 w-full outline-none focus:ring-1 focus:ring-prune-midGray"
-      />
-    );
-  }
-
-  return (
-    <div
-      className="text-sm font-medium leading-tight rounded px-1 py-1 -mx-1 hover:bg-prune-lightGray cursor-grab transition-colors"
-      onDoubleClick={e => { e.stopPropagation(); setEditing(true); }}
-    >
-      {value}
-    </div>
-  );
-}
-
 function OutputNodeContent({ node }: { node: CanvasNode }) {
   const [tab, setTab] = useState<"formatted" | "text">("formatted");
   const content = node.inputValue ?? "";
@@ -465,7 +469,10 @@ function OutputNodeContent({ node }: { node: CanvasNode }) {
                 : "text-muted-foreground hover:text-foreground",
             )}
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); setTab("formatted"); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setTab("formatted");
+            }}
           >
             Formatted
           </button>
@@ -477,7 +484,10 @@ function OutputNodeContent({ node }: { node: CanvasNode }) {
                 : "text-muted-foreground hover:text-foreground",
             )}
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); setTab("text"); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setTab("text");
+            }}
           >
             Text
           </button>
@@ -507,7 +517,12 @@ function OutputNodeContent({ node }: { node: CanvasNode }) {
           </button>
         </div>
       </div>
-      <div className={cn("min-h-[72px] rounded-md border bg-background", content && "p-2")}>
+      <div
+        className={cn(
+          "min-h-[72px] rounded-md border bg-background",
+          content && "p-2",
+        )}
+      >
         {content ? (
           tab === "formatted" ? (
             <div className="text-xs text-foreground leading-relaxed [&_h1]:text-sm [&_h1]:font-bold [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:mb-0.5 [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-1 [&_code]:bg-muted/50 [&_code]:px-0.5 [&_code]:rounded [&_code]:font-mono [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground">
@@ -528,10 +543,15 @@ function NodeContent({
   node,
   def,
   onUpdateValue,
+  onOpenDetail,
 }: {
   node: CanvasNode;
   def: NodeDef;
   onUpdateValue: (id: string, value: string) => void;
+  onOpenDetail?: (
+    nodeId: string,
+    section: "tools" | "knowledge-sources",
+  ) => void;
 }) {
   const textareaClass =
     "w-full px-2 py-1.5 text-xs bg-prune-lightGray rounded text-foreground placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-prune-midGray";
@@ -542,16 +562,8 @@ function NodeContent({
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
           Value
         </div>
-        {/* <textarea
-          className={textareaClass}
+        <Textarea
           rows={3}
-          placeholder="Enter value or leave blank for user input…"
-          value={node.inputValue ?? ""}
-          onChange={(e) => onUpdateValue(node.id, e.target.value)}
-          onMouseDown={(e) => e.stopPropagation()}
-        /> */}
-        <Textarea 
-         rows={3}
           placeholder="Enter value or leave blank for user input…"
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
@@ -601,19 +613,17 @@ function NodeContent({
       <div className="px-3 pb-3 space-y-3">
         {/* Model selector */}
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-prune-lightGray/50 text-xs text-foreground cursor-pointer hover:bg-muted/60 transition-colors"
+          className="flex items-center gap-1.5 px-2 py-2 rounded-md bg-prune-lightGray text-xs text-foreground cursor-pointer hover:bg-muted/60 transition-colors"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="flex-1 font-medium">{model}</span>
+          <Layers className="h-4 w-4 shrink-0" />
+          <span className="flex-1 font-[450] font-inter text-[12px]">{model}</span>
         </div>
         {/* Knowledge Sources */}
         <div>
-          <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5">
-            Knowledge Sources
-          </div>
+          <NodeContentSectionLabel>Knowledge Sources</NodeContentSectionLabel>
           <button
-            className="w-full flex items-center justify-center shadow-xs gap-2 px-3 py-1 rounded-lg border text-[11px] text-foreground hover:bg-muted/30 transition-colors font-normal"
+            className="w-full flex items-center justify-center shadow-sm gap-1 px-3 py-1 rounded-md border border-prune-borderGray font-medium text-[11px] text-foreground hover:bg-prune-lightGray transition-colors"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <Database className="h-3.5 w-3.5" />
@@ -621,21 +631,38 @@ function NodeContent({
           </button>
         </div>
         {/* Tools */}
-        <div>
-          <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5">
-            Tools
-          </div>
-          <div className="flex items-center">
-            <button
-              className="h-6 w-6 rounded-full border bg-background flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors z-10"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-            <div className="-ml-1.5 h-6 w-6 rounded-full border bg-muted/30 flex items-center justify-center text-muted-foreground">
-              <FileSearch2 className="h-3 w-3 text-gray-800" />
-            </div>
-          </div>
+        <div className="flex items-center group/tools w-fit">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="h-6 w-6 rounded-full border border-prune-borderGray bg-background flex items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetail?.(node.id, "tools");
+                }}
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Add Tools</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="-ml-1.5 h-6 w-6 rounded-full border border-prune-borderGray bg-background flex items-center justify-center text-muted-foreground hover:bg-muted/50 z-10 transition-all duration-200 ease-out group-hover/tools:translate-x-2"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetail?.(node.id, "knowledge-sources");
+                }}
+              >
+                <FileSearch className="h-3 w-3 text-gray-800" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Add Knowledge Sources</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     );
@@ -692,7 +719,10 @@ function NodeContent({
         <div className="rounded-lg bg-muted/30 border p-3 min-h-[80px] text-xs leading-relaxed">
           <div className="font-bold text-[13px] mb-0.5">Template Node</div>
           <div className="font-semibold text-[12px] mb-0.5">How this works</div>
-          <div className="text-muted-foreground">This node allows you to create a template that can be used to format the output of other nodes.</div>
+          <div className="text-muted-foreground">
+            This node allows you to create a template that can be used to format
+            the output of other nodes.
+          </div>
         </div>
       </div>
     );
@@ -763,6 +793,10 @@ interface NodeCardProps {
   onUpdateStickyNote?: (id: string, text: string) => void;
   onUpdateStickyNoteColor?: (id: string, color: string) => void;
   onUpdateLabel?: (id: string, label: string) => void;
+  onOpenDetail?: (
+    nodeId: string,
+    section: "tools" | "knowledge-sources",
+  ) => void;
   runStatus?: NodeRunStatus;
 }
 
@@ -785,23 +819,20 @@ export function NodeCard({
   onUpdateStickyNote,
   onUpdateStickyNoteColor,
   onUpdateLabel,
+  onOpenDetail,
   runStatus,
 }: NodeCardProps) {
   const def = getNodeDef(node.kind);
   if (!def) return null;
 
   const Icon = def.icon;
-  const isSource = connectingSourceId === node.id;
   const isLLMNode =
     def.kind === "ai-agent" ||
     def.kind === "prune-ai" ||
     def.kind === "openai-app";
-  const actionConfig = def.kind === "action" ? parseActionConfig(node.inputValue) : null;
+  const actionConfig =
+    def.kind === "action" ? parseActionConfig(node.inputValue) : null;
 
-  const outputDragMoved = useRef(false);
-  const outputDragCleanup = useRef<(() => void) | null>(null);
-  const inputDragMoved = useRef(false);
-  const inputDragCleanup = useRef<(() => void) | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -820,14 +851,24 @@ export function NodeCard({
     <div
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       className={cn(
-        "absolute group/node bg-card rounded-xl shadow-sm select-none border transition-all duration-300",
+        "absolute group/node bg-[#FFFFFF] rounded-xl shadow-sm select-none border transition-all duration-300 cursor-grab active:cursor-grabbing",
         "z-10 hover:z-20",
-        runStatus === 'running' ? "border-blue-400 shadow-blue-100/60 shadow-md"
-          : runStatus === 'done'    ? "border-green-400"
-          : runStatus === 'error'   ? "border-red-400"
-          : runStatus === 'pending' ? "opacity-50"
-          : isSelected ? "border-prune-midGray" : "border-border",
+        runStatus === "running"
+          ? "border-blue-400 shadow-blue-100/60 shadow-md"
+          : runStatus === "done"
+            ? "border-green-400"
+            : runStatus === "error"
+              ? "border-red-400"
+              : runStatus === "pending"
+                ? "opacity-50"
+                : isSelected
+                  ? "border-prune-midGray"
+                  : "border-border",
       )}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        onStartDrag(e);
+      }}
       onClick={(e) => {
         e.stopPropagation();
         if ((e.target as HTMLElement).closest("button")) return;
@@ -837,16 +878,20 @@ export function NodeCard({
       onMouseLeave={onHoverEnd}
     >
       {/* Run status badge */}
-      {runStatus && runStatus !== 'pending' && (
-        <div className={cn(
-          "absolute -top-2 -right-2 h-5 w-5 rounded-full flex items-center justify-center z-30 border-2 border-background",
-          runStatus === 'running' && "bg-blue-500",
-          runStatus === 'done'    && "bg-green-500",
-          runStatus === 'error'   && "bg-red-500",
-        )}>
-          {runStatus === 'running' && <Loader2 className="h-3 w-3 text-white animate-spin" />}
-          {runStatus === 'done'    && <Check className="h-3 w-3 text-white" />}
-          {runStatus === 'error'   && <X className="h-3 w-3 text-white" />}
+      {runStatus && runStatus !== "pending" && (
+        <div
+          className={cn(
+            "absolute -top-2 -right-2 h-5 w-5 rounded-full flex items-center justify-center z-30 border-2 border-background",
+            runStatus === "running" && "bg-blue-500",
+            runStatus === "done" && "bg-green-500",
+            runStatus === "error" && "bg-red-500",
+          )}
+        >
+          {runStatus === "running" && (
+            <Loader2 className="h-3 w-3 text-white animate-spin" />
+          )}
+          {runStatus === "done" && <Check className="h-3 w-3 text-white" />}
+          {runStatus === "error" && <X className="h-3 w-3 text-white" />}
         </div>
       )}
 
@@ -871,12 +916,12 @@ export function NodeCard({
       {/* Run button */}
       <div className="absolute -top-8 left-0 right-0 pb-1 flex justify-start pointer-events-none opacity-0 group-hover/node:opacity-100 transition-opacity z-30">
         <button
-          disabled={def.badge === 'Output'}
+          disabled={def.badge === "Output"}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "pointer-events-auto flex items-center gap-1 px-2 py-1 rounded-md bg-background border shadow-sm text-[10px] font-medium transition-colors whitespace-nowrap",
-            def.badge === 'Output'
+            def.badge === "Output"
               ? "text-muted-foreground/40 cursor-not-allowed"
               : "text-foreground hover:bg-muted",
           )}
@@ -886,130 +931,60 @@ export function NodeCard({
         </button>
       </div>
 
-      {/* INPUT handle — hidden for trigger nodes */}
-      {node.kind !== "trigger" && (
-        <button
-          style={{ top: HANDLE_Y_OFFSET - 10, left: -22 }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            if (isConnecting) return;
-            inputDragMoved.current = false;
-            const startX = e.clientX;
-            const startY = e.clientY;
-            const onMove = (me: MouseEvent) => {
-              if (
-                !inputDragMoved.current &&
-                Math.abs(me.clientX - startX) + Math.abs(me.clientY - startY) >
-                  6
-              ) {
-                inputDragMoved.current = true;
-                document.removeEventListener("mousemove", onMove);
-                inputDragCleanup.current = null;
-              }
-            };
-            inputDragCleanup.current = () =>
-              document.removeEventListener("mousemove", onMove);
-            document.addEventListener("mousemove", onMove);
-          }}
-          onMouseUp={(e) => {
-            e.stopPropagation();
-            inputDragCleanup.current?.();
-            inputDragCleanup.current = null;
-            if (isConnecting && !isSource) {
-              onCompleteConnect(node.id);
-            } else if (!isConnecting && !inputDragMoved.current) {
-              onOpenPicker?.(node.id, e.clientX, e.clientY, "input");
-            }
-          }}
-          className={cn(
-            "absolute w-4 h-4 rounded-md border z-20 flex items-center justify-center transition-all duration-200 ease-out",
-            "group-hover/node:scale-125 hover:scale-125",
-            "hover:bg-black hover:border-black",
-            isConnecting && !isSource
-              ? "bg-primary/20 border-primary cursor-pointer animate-pulse"
-              : "bg-background border-muted-foreground/30",
-          )}
-        >
-          {!isConnecting && (
-            <Plus className="h-3 w-3 text-black opacity-0 transition-all duration-200 group-hover/node:opacity-100 hover:text-white" />
-          )}
-        </button>
-      )}
-
-      {/* OUTPUT handle — hidden for output nodes (they only receive) */}
-      {def.kind !== "output" && <button
-        style={{ top: HANDLE_Y_OFFSET - 10, right: -22 }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          if (isConnecting) return;
-
-          outputDragMoved.current = false;
-          const startX = e.clientX;
-          const startY = e.clientY;
-
-          const onMove = (me: MouseEvent) => {
-            if (
-              !outputDragMoved.current &&
-              Math.abs(me.clientX - startX) + Math.abs(me.clientY - startY) > 6
-            ) {
-              outputDragMoved.current = true;
-              document.removeEventListener("mousemove", onMove);
-              outputDragCleanup.current = null;
-              onStartConnect(node.id);
-            }
-          };
-          outputDragCleanup.current = () =>
-            document.removeEventListener("mousemove", onMove);
-          document.addEventListener("mousemove", onMove);
-        }}
-        onMouseUp={(e) => {
-          e.stopPropagation();
-          outputDragCleanup.current?.();
-          outputDragCleanup.current = null;
-          if (isConnecting) {
-            onCompleteConnect(node.id);
-          } else if (!outputDragMoved.current) {
-            onOpenPicker?.(node.id, e.clientX, e.clientY, "output");
-          }
-        }}
-        className={cn(
-          "absolute w-4 h-4 rounded-md border z-20 flex items-center justify-center transition-all duration-200 ease-out",
-          "group-hover/node:scale-125 hover:scale-125",
-          "hover:bg-black hover:border-black",
-          isSource
-            ? "bg-primary border-primary"
-            : isConnecting
-              ? "bg-background border-muted-foreground/20 opacity-40 cursor-default"
-              : "bg-background border-muted-foreground/30 cursor-pointer",
-        )}
-      >
-        {isSource ? (
-          <Plus className="h-3 w-3 text-white" />
-        ) : !isConnecting ? (
-          <Plus className="h-3 w-3 text-black opacity-0 transition-all duration-200 group-hover/node:opacity-100 hover:text-white" />
-        ) : null}
-      </button>}
+      {/* Connection handles */}
+      <NodeHandle
+        type="input"
+        node={node}
+        def={def}
+        isConnecting={isConnecting}
+        connectingSourceId={connectingSourceId}
+        onStartConnect={onStartConnect}
+        onCompleteConnect={onCompleteConnect}
+        onOpenPicker={onOpenPicker}
+      />
+      <NodeHandle
+        type="output"
+        node={node}
+        def={def}
+        isConnecting={isConnecting}
+        connectingSourceId={connectingSourceId}
+        onStartConnect={onStartConnect}
+        onCompleteConnect={onCompleteConnect}
+        onOpenPicker={onOpenPicker}
+      />
 
       {/* Header */}
       <div className="mb-2.5">
         <div
-          className="px-3 pt-2.5 pb-1 flex items-center gap-2 cursor-grab active:cursor-grabbing"
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            onStartDrag(e);
-          }}
+          className="px-3 pt-2.5 pb-1 flex items-center gap-1"
         >
           <div
             className={cn(
-              "h-7 w-7 rounded-md border flex items-center justify-center shrink-0 overflow-hidden",
+              "h-7 w-7 rounded-md border border-gray-400 flex items-center justify-center shrink-0 overflow-hidden",
               !actionConfig ? "bg-muted/50" : "",
             )}
-            style={actionConfig?.providerIcon.type === 'letter' ? { backgroundColor: actionConfig.providerIcon.bg } : undefined}
+            style={
+              actionConfig?.providerIcon.type === "letter"
+                ? { backgroundColor: "#FFFFFF" }
+                : undefined
+            }
           >
             {actionConfig ? (
-              actionConfig.providerIcon.type === 'integration'
-                ? renderIntegrationIcon(actionConfig.providerIcon.id as Parameters<typeof renderIntegrationIcon>[0], 14)
-                : <span className="text-[11px] font-bold leading-none" style={{ color: actionConfig.providerIcon.fg ?? '#fff' }}>{actionConfig.providerIcon.letter}</span>
+              actionConfig.providerIcon.type === "integration" ? (
+                renderIntegrationIcon(
+                  actionConfig.providerIcon.id as Parameters<
+                    typeof renderIntegrationIcon
+                  >[0],
+                  14,
+                )
+              ) : (
+                <span
+                  className="text-[11px] font-bold leading-none"
+                  style={{ color: actionConfig.providerIcon.fg ?? "#fff" }}
+                >
+                  {actionConfig.providerIcon.letter}
+                </span>
+              )
             ) : isLLMNode ? (
               getLLMIcon(
                 node.model ??
@@ -1022,10 +997,15 @@ export function NodeCard({
               <Icon className={cn("h-3.5 w-3.5", def.iconClass)} />
             )}
           </div>
-          <div className="min-w-0 flex-1 pt-0.5">
-            <EditableLabel
+          <div
+            className="min-w-0 flex-1 pt-0.5"
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <InlineEditableTextInput
               value={node.label}
-              onCommit={label => onUpdateLabel?.(node.id, label)}
+              onCommit={(label) => onUpdateLabel?.(node.id, label)}
+              textSize="text-sm"
+              editOnDoubleClick
             />
           </div>
 
@@ -1104,16 +1084,23 @@ export function NodeCard({
             )}
           </div>
         </div>
-        <div className="px-3 text-[12px] text-muted-foreground line-clamp-1">
+
+        {/* Node Description */}
+        <div className="px-3 pt-1 text-[12px] tracking-normal leading-4 font-inter font-[450] text-prune-darkGray line-clamp-2">
           {actionConfig?.toolDescription ?? def.description}
         </div>
       </div>
 
       {/* Content */}
-      <NodeContent node={node} def={def} onUpdateValue={onUpdateValue} />
+      <NodeContent
+        node={node}
+        def={def}
+        onUpdateValue={onUpdateValue}
+        onOpenDetail={onOpenDetail}
+      />
 
       {/* Footer */}
-      {def.kind === 'action' ? (
+      {def.kind === "action" ? (
         <div className="px-3 py-2 border-t flex items-center gap-2 text-[10px] text-muted-foreground bg-prune-lightGray rounded-b-xl">
           <button
             className="flex items-center gap-0.5 hover:text-foreground transition-colors"
@@ -1126,9 +1113,11 @@ export function NodeCard({
             <AlertTriangle className="h-3 w-3" />
             0.00 sec
           </span>
-          <span className="ml-auto">{actionConfig ? 'v1.0.0' : 'Unset version'}</span>
+          <span className="ml-auto">
+            {actionConfig ? "v1.0.0" : "Unset version"}
+          </span>
         </div>
-      ) : def.kind === 'template-out' ? (
+      ) : def.kind === "template-out" ? (
         <div className="px-3 py-2 border-t flex items-center gap-2 text-[10px] text-muted-foreground bg-prune-lightGray rounded-b-xl">
           <button
             className="flex items-center gap-0.5 hover:text-foreground transition-colors"

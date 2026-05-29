@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 const CANVAS_W = 4000;
 const CANVAS_H = 3000;
 const MIN_ZOOM = 0.15;
-const MAX_ZOOM = 2.5;
+const MAX_ZOOM = 3.5;
 
 // ── Auto-arrange: hierarchical left-to-right layout ──────────────────────────
 const NODE_H = 170; // approximate card height for spacing
@@ -166,6 +166,7 @@ interface EditorCanvasProps {
   onUpdateStickyNoteColor?: (id: string, color: string) => void;
   onToggleAllStickyNotes?: () => void;
   onUpdateLabel?: (id: string, label: string) => void;
+  onOpenDetail?: (nodeId: string, section: "tools" | "knowledge-sources") => void;
   nodeRunStatuses?: Record<string, NodeRunStatus>;
   runPhase?: RunPhase;
   runCurrentNodeLabel?: string;
@@ -201,6 +202,7 @@ export function EditorCanvas({
   onUpdateStickyNoteColor,
   onToggleAllStickyNotes,
   onUpdateLabel,
+  onOpenDetail,
   nodeRunStatuses,
   runPhase,
   runCurrentNodeLabel,
@@ -709,6 +711,7 @@ export function EditorCanvas({
             onUpdateStickyNote={onUpdateStickyNote}
             onUpdateStickyNoteColor={onUpdateStickyNoteColor}
             onUpdateLabel={onUpdateLabel}
+            onOpenDetail={onOpenDetail}
             runStatus={nodeRunStatuses?.[node.id]}
           />
         ))}

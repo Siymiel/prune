@@ -115,6 +115,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const [nodes, setNodes] = useState<CanvasNode[]>(init.nodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(init.edges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [detailSection, setDetailSection] = useState<{ section: "tools" | "knowledge-sources"; trigger: number } | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string; at: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState(460);
   const [isDragging, setIsDragging] = useState(false);
@@ -285,7 +286,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
     setSelectedNodeId(prev => (prev === id ? null : prev));
   }, [saveSnapshot]);
 
-  const selectNode = useCallback((id: string) => setSelectedNodeId(id), []);
+  const selectNode = useCallback((id: string) => { setSelectedNodeId(id); setDetailSection(null); }, []);
 
   const addConnectedNode = useCallback((kind: NodeKind, x: number, y: number, anchorId: string, side: 'input' | 'output') => {
     hasContentChangeRef.current = true;
@@ -425,7 +426,8 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           onAddEdge={addEdge}
           onRemoveEdge={removeEdge}
           onSelectNode={selectNode}
-          onDeselect={() => setSelectedNodeId(null)}
+          onDeselect={() => { setSelectedNodeId(null); setDetailSection(null); }}
+          onOpenDetail={(nodeId, section) => { setSelectedNodeId(nodeId); setDetailSection({ section, trigger: Date.now() }); }}
           onAddConnectedNode={addConnectedNode}
           onUpdateLabel={updateLabel}
           onArrangeNodes={arrangeNodes}
@@ -457,13 +459,14 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
             <NodeDetailPanel
               node={panelNode}
               nodes={nodes}
-              onClose={() => setSelectedNodeId(null)}
+              onClose={() => { setSelectedNodeId(null); setDetailSection(null); }}
               onUpdateValue={updateValue}
               onUpdateSystemPrompt={updateSystemPrompt}
               onUpdateLabel={updateLabel}
               onRemoveNode={removeNode}
               onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
               onResizeMouseDown={handleResizeMouseDown}
+              scrollToSection={detailSection}
             />
           )}
         </div>

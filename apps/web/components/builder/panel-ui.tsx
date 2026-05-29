@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -11,6 +11,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -23,14 +24,21 @@ export function Section({
   defaultOpen = false,
   children,
   extra,
+  forceOpenTrigger,
 }: {
   title: string;
   icon?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
   extra?: ReactNode;
+  forceOpenTrigger?: number;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (forceOpenTrigger) setOpen(true);
+  }, [forceOpenTrigger]);
+
   return (
     <div className="border-b last:border-b-0 ml-2 bg-white">
       <button
@@ -71,10 +79,27 @@ export function SubLabel({
   return (
     <div
       className={cn(
-        "text-[15px] font-medium text-gray-700/80 underline decoration-dashed underline-offset-4 mb-2",
+        "text-[14px] font-medium text-gray-800 underline decoration-dashed underline-offset-4 mb-2",
         className,
       )}
     >
+      {children}
+    </div>
+  );
+}
+
+export function SettingRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[14px] font-medium text-gray-80 underline decoration-dashed underline-offset-4 mb-2">
+        {label}
+      </span>
       {children}
     </div>
   );
@@ -137,45 +162,7 @@ export function Toggle({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        `group relative inline-flex h-5 w-10 shrink-0 items-center rounded-full border
-         transition-all duration-200 ease-out focus:outline-none
-         focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-1`,
-        checked
-          ? `border-transparent bg-gray-800
-             shadow-[0_0_0_1px_rgba(17,24,39,0.04),0_2px_8px_rgba(17,24,39,0.18)]`
-          : `border-border bg-muted/70 hover:bg-muted`,
-      )}
-    >
-      <span
-        className={cn(
-          `absolute inset-0 rounded-full opacity-0 transition-opacity duration-200`,
-          checked && `opacity-100 shadow-[0_0_18px_rgba(17,24,39,0.22)]`,
-        )}
-      />
-      <span
-        className={cn(
-          `absolute left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white
-           shadow-[0_1px_2px_rgba(0,0,0,0.08),0_1px_6px_rgba(0,0,0,0.06)]
-           transition-all duration-200 ease-out will-change-transform`,
-          checked ? "translate-x-4" : "translate-x-0",
-        )}
-      >
-        <span
-          className={cn(
-            `h-1.5 w-1.5 rounded-full transition-colors duration-200`,
-            checked ? "bg-gray-800" : "bg-gray-300",
-          )}
-        />
-      </span>
-    </button>
-  );
+  return <Switch checked={checked} onCheckedChange={onChange} />;
 }
 
 export function Slider({
@@ -210,22 +197,5 @@ export function Slider({
         [&::-webkit-slider-thumb]:border-gray-300 [&::-webkit-slider-thumb]:shadow-sm
         [&::-webkit-slider-thumb]:cursor-pointer"
     />
-  );
-}
-
-export function SettingRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-[11px] font-medium text-muted-foreground underline decoration-dashed underline-offset-2 shrink-0">
-        {label}
-      </span>
-      {children}
-    </div>
   );
 }
