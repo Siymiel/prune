@@ -266,6 +266,11 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, inputValue: value } : n)));
   }, []);
 
+  const updateSystemPrompt = useCallback((id: string, value: string) => {
+    hasContentChangeRef.current = true;
+    setNodes(prev => prev.map(n => (n.id === id ? { ...n, systemPrompt: value } : n)));
+  }, []);
+
   const updateLabel = useCallback((id: string, label: string) => {
     hasContentChangeRef.current = true;
     saveSnapshot();
@@ -395,6 +400,10 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const panelNode = panelNodeId ? nodes.find(n => n.id === panelNodeId) ?? null : null;
   const isPanelOpen = !!selectedNodeId && !!nodes.find(n => n.id === selectedNodeId);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--panel-width', isPanelOpen ? `${panelWidth}px` : '0px');
+  }, [panelWidth, isPanelOpen]);
+
   return (
     <>
       <EditorTopbar
@@ -450,6 +459,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
               nodes={nodes}
               onClose={() => setSelectedNodeId(null)}
               onUpdateValue={updateValue}
+              onUpdateSystemPrompt={updateSystemPrompt}
               onUpdateLabel={updateLabel}
               onRemoveNode={removeNode}
               onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}

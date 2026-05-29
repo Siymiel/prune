@@ -92,6 +92,45 @@ export function getNodeDef(kind: NodeKind): NodeDef | undefined {
   return NODE_DEFS.find(n => n.kind === kind);
 }
 
+export const KIND_PREFIX: Record<string, string> = {
+  'text-input':    'in',
+  url:             'url',
+  files:           'files',
+  trigger:         'trigger',
+  'audio-input':   'audio',
+  output:          'out',
+  action:          'action',
+  'audio-output':  'text2audio',
+  'template-out':  'template',
+  'ai-agent':      'llm',
+  'knowledge-base':'kb',
+  'prune-ai':      'prune',
+  'whatsapp':      'wa',
+  mpesa:           'mpesa',
+  'openai-app':    'openai',
+  'slack-app':     'slack',
+  'gmail-app':     'gmail',
+  'if-else':       'if',
+  code:            'code',
+  'ai-routing':    'router',
+  'loop-subflow':  'loop',
+  'sticky-note':   'note',
+  'default-message':'msg',
+  delay:           'delay',
+  'shared-memory': 'mem',
+  'vector-store':  'vs',
+  'text-to-sql':   'sql',
+  'search-tables': 'tbl',
+  'search-data':   'search',
+};
+
+export function getNodeIdentifier(node: CanvasNode, nodes: CanvasNode[]): string {
+  const prefix = KIND_PREFIX[node.kind] ?? node.kind.split('-')[0];
+  const sameKind = nodes.filter(n => n.kind === node.kind);
+  const index = Math.max(0, sameKind.findIndex(n => n.id === node.id));
+  return `${prefix}-${index}`;
+}
+
 export function getNodesByCategory(category: NodeCategory): NodeDef[] {
   return NODE_DEFS.filter(n => n.category === category);
 }
@@ -103,6 +142,7 @@ export interface CanvasNode {
   x: number;
   y: number;
   inputValue?: string;
+  systemPrompt?: string;
   model?: string;
   stickyNote?: {
     visible: boolean;

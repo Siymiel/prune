@@ -1,7 +1,15 @@
-export default function EditorLayout({ children }: { children: React.ReactNode }) {
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+export default function EditorLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background flex flex-col">
-      {children}
-    </div>
+    <TooltipProvider>
+      <div className="h-screen w-screen overflow-hidden bg-background flex flex-col">
+        {children}
+      </div>
+    </TooltipProvider>
   );
 }

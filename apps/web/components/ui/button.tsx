@@ -4,7 +4,7 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
-type Variant = 'default' | 'secondary' | 'ghost' | 'outline' | 'destructive' | 'link' | 'primary';
+type Variant = 'default' | 'secondary' | 'ghost' | 'outline' | 'destructive' | 'link' | 'primary' | 'prune';
 type Size = 'sm' | 'default' | 'lg' | 'icon';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -28,6 +28,8 @@ const variants: Record<Variant, string> = {
     'bg-destructive text-destructive-foreground hover:bg-destructive/90',
   link:
     'text-primary underline-offset-4 hover:underline',
+  prune:
+    'border border-input bg-background text-foreground hover:bg-prune-lightGray',
 };
 
 const sizes: Record<Size, string> = {

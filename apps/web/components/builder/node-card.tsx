@@ -42,6 +42,7 @@ import {
   type NodeRunStatus,
 } from "@/lib/editor-nodes";
 import { renderIntegrationIcon } from "@/components/templates/integration-logo";
+import { Textarea } from "../ui/textarea";
 
 export const NODE_WIDTH = 260;
 export const HANDLE_Y_OFFSET = 24;
@@ -541,9 +542,16 @@ function NodeContent({
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
           Value
         </div>
-        <textarea
+        {/* <textarea
           className={textareaClass}
           rows={3}
+          placeholder="Enter value or leave blank for user input…"
+          value={node.inputValue ?? ""}
+          onChange={(e) => onUpdateValue(node.id, e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+        /> */}
+        <Textarea 
+         rows={3}
           placeholder="Enter value or leave blank for user input…"
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
