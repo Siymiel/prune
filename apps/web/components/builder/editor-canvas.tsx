@@ -222,11 +222,6 @@ export function EditorCanvas({
     zoomRef.current = zoom;
   }, [zoom]);
 
-  const [dragging, setDragging] = useState<{
-    id: string;
-    offsetX: number;
-    offsetY: number;
-  } | null>(null);
   const [panning, setPanning] = useState<{
     startMX: number;
     startMY: number;
@@ -246,6 +241,14 @@ export function EditorCanvas({
   const [showMinimap, setShowMinimap] = useState(false);
   const [containerSize, setContainerSize] = useState({ w: 1200, h: 700 });
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // Refs for zero-lag direct DOM drag
+  const nodeCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const edgeGroupRefs = useRef<Map<string, SVGGElement>>(new Map());
+  const dragPosRef = useRef<{ x: number; y: number } | null>(null);
+  const edgesRef = useRef(edges);
+  const nodeMapRef = useRef<Record<string, CanvasNode>>({});
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     const el = outerRef.current;
@@ -312,7 +315,7 @@ export function EditorCanvas({
   // ── Outer mouse events ────────────────────────────────────────────────────
   function handleOuterMouseDown(e: React.MouseEvent) {
     if (connecting) return; // don't start panning while drawing a connection
-    if (dragging) return;
+    if (isDraggingRef.current) return;
     setIsAnimating(false);
     setPanning({
       startMX: e.clientX,
@@ -323,15 +326,9 @@ export function EditorCanvas({
   }
 
   function handleMouseMove(e: React.MouseEvent) {
+    if (isDraggingRef.current) return; // native drag listener handles this
     const c = toCanvas(e.clientX, e.clientY);
     setMousePos(c);
-
-    if (dragging) {
-      const x = c.x - dragging.offsetX;
-      const y = c.y - dragging.offsetY;
-      setLocalPositions((prev) => ({ ...prev, [dragging.id]: { x, y } }));
-      return;
-    }
     if (panning) {
       setPan({
         x: panning.startPX + e.clientX - panning.startMX,
@@ -342,13 +339,8 @@ export function EditorCanvas({
 
   function handleMouseUp() {
     if (connecting) setConnecting(null);
-    if (dragging) {
-      const lp = localPositions[dragging.id];
-      if (lp) onMoveNode(dragging.id, lp.x, lp.y);
-    }
-    setLocalPositions({});
-    setDragging(null);
     setPanning(null);
+    // drag cleanup is handled by native listeners in startNodeDrag
   }
 
   // ── Effective nodes (local position overrides during drag) ───────────────
@@ -363,10 +355,75 @@ export function EditorCanvas({
 
   // ── Node drag (called by NodeCard) ────────────────────────────────────────
   const startNodeDrag = useCallback((e: React.MouseEvent, node: CanvasNode) => {
-    const c = toCanvas(e.clientX, e.clientY);
-    setDragging({ id: node.id, offsetX: c.x - node.x, offsetY: c.y - node.y });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Capture rect once — re-querying getBoundingClientRect() every frame forces a synchronous reflow
+    const rect = outerRef.current!.getBoundingClientRect();
+    const offsetX = (e.clientX - rect.left - panRef.current.x) / zoomRef.current - node.x;
+    const offsetY = (e.clientY - rect.top - panRef.current.y) / zoomRef.current - node.y;
+    const nodeId = node.id;
+
+    isDraggingRef.current = true;
+    dragPosRef.current = { x: node.x, y: node.y };
+
+    // Cache DOM elements once — no per-frame Map lookups or querySelectorAll
+    const cardEl = nodeCardRefs.current.get(nodeId);
+    const edgeCache: Array<{ isSource: boolean; paths: SVGPathElement[]; otherId: string }> = [];
+    for (const edge of edgesRef.current) {
+      if (edge.sourceId !== nodeId && edge.targetId !== nodeId) continue;
+      const groupEl = edgeGroupRefs.current.get(edge.id);
+      if (!groupEl) continue;
+      edgeCache.push({
+        isSource: edge.sourceId === nodeId,
+        paths: Array.from(groupEl.querySelectorAll("path")),
+        otherId: edge.sourceId === nodeId ? edge.targetId : edge.sourceId,
+      });
+    }
+
+    function onMove(ev: MouseEvent) {
+      const newX = (ev.clientX - rect.left - panRef.current.x) / zoomRef.current - offsetX;
+      const newY = (ev.clientY - rect.top - panRef.current.y) / zoomRef.current - offsetY;
+      dragPosRef.current = { x: newX, y: newY };
+
+      // left/top puts card and SVG in the same main-thread paint cycle → always in sync
+      if (cardEl) {
+        cardEl.style.left = `${newX}px`;
+        cardEl.style.top = `${newY}px`;
+      }
+
+      const nMap = nodeMapRef.current;
+      for (const { isSource, paths, otherId } of edgeCache) {
+        const other = nMap[otherId];
+        if (!other) continue;
+        const d = isSource
+          ? bezierPath(
+              newX + NODE_WIDTH + HANDLE_SIDE_OFFSET,
+              newY + HANDLE_Y_OFFSET,
+              other.x - HANDLE_SIDE_OFFSET,
+              other.y + HANDLE_Y_OFFSET,
+            )
+          : bezierPath(
+              other.x + NODE_WIDTH + HANDLE_SIDE_OFFSET,
+              other.y + HANDLE_Y_OFFSET,
+              newX - HANDLE_SIDE_OFFSET,
+              newY + HANDLE_Y_OFFSET,
+            );
+        for (const p of paths) p.setAttribute("d", d);
+      }
+    }
+
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      isDraggingRef.current = false;
+      const pos = dragPosRef.current;
+      if (pos) onMoveNode(nodeId, pos.x, pos.y);
+      dragPosRef.current = null;
+      setLocalPositions({});
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMoveNode]);
 
   // ── Connection handlers ───────────────────────────────────────────────────
   const startConnect = useCallback((nodeId: string) => {
@@ -511,6 +568,9 @@ export function EditorCanvas({
 
   // ── SVG edge data ─────────────────────────────────────────────────────────
   const nodeMap = Object.fromEntries(effectiveNodes.map((n) => [n.id, n]));
+  // Keep refs current so direct-DOM drag handlers always see latest data
+  edgesRef.current = edges;
+  nodeMapRef.current = nodeMap;
 
   const edgeData = edges.flatMap((edge) => {
     const src = nodeMap[edge.sourceId];
@@ -584,6 +644,10 @@ export function EditorCanvas({
           {edgeData.map((e) => (
             <g
               key={e.id}
+              ref={(el) => {
+                if (el) edgeGroupRefs.current.set(e.id, el);
+                else edgeGroupRefs.current.delete(e.id);
+              }}
               onMouseEnter={() => setHoveredEdgeId(e.id)}
               onMouseLeave={() => setHoveredEdgeId(null)}
             >
@@ -610,7 +674,7 @@ export function EditorCanvas({
                 markerEnd="url(#arrow-end)"
                 style={{
                   pointerEvents: "none",
-                  transition: "all 180ms ease",
+                  transition: "stroke 180ms ease, stroke-width 180ms ease",
                 }}
               />
               {/* Delete button above midpoint, box-shaped */}
@@ -695,6 +759,10 @@ export function EditorCanvas({
           <NodeCard
             key={node.id}
             node={node}
+            onCardRef={(el) => {
+              if (el) nodeCardRefs.current.set(node.id, el);
+              else nodeCardRefs.current.delete(node.id);
+            }}
             isConnecting={!!connecting}
             connectingSourceId={connecting?.sourceId ?? null}
             isSelected={selectedNodeId === node.id}

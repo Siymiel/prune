@@ -798,6 +798,7 @@ interface NodeCardProps {
     section: "tools" | "knowledge-sources",
   ) => void;
   runStatus?: NodeRunStatus;
+  onCardRef?: (el: HTMLDivElement | null) => void;
 }
 
 export function NodeCard({
@@ -821,6 +822,7 @@ export function NodeCard({
   onUpdateLabel,
   onOpenDetail,
   runStatus,
+  onCardRef,
 }: NodeCardProps) {
   const def = getNodeDef(node.kind);
   if (!def) return null;
@@ -849,9 +851,10 @@ export function NodeCard({
 
   return (
     <div
+      ref={onCardRef}
       style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
       className={cn(
-        "absolute group/node bg-[#FFFFFF] rounded-xl shadow-sm select-none border transition-all duration-300 cursor-grab active:cursor-grabbing",
+        "absolute group/node bg-[#FFFFFF] rounded-xl shadow-sm select-none border transition-[border-color,box-shadow,opacity] duration-300 cursor-grab active:cursor-grabbing",
         "z-10 hover:z-20",
         runStatus === "running"
           ? "border-blue-400 shadow-blue-100/60 shadow-md"
