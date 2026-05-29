@@ -174,9 +174,41 @@ interface EditorCanvasProps {
   focusRequest?: { id: string; at: number } | null;
 }
 
+function orthogonalPath(sx: number, sy: number, tx: number, ty: number): string {
+  const jog = 40;
+  const midX = (sx + tx) / 2;
+  const midY = (sy + ty) / 2;
+  if (tx >= sx) {
+    return `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ty} L ${tx} ${ty}`;
+  }
+  // backflow: route around with a vertical jog
+  return (
+    `M ${sx} ${sy} ` +
+    `L ${sx + jog} ${sy} ` +
+    `L ${sx + jog} ${midY} ` +
+    `L ${tx - jog} ${midY} ` +
+    `L ${tx - jog} ${ty} ` +
+    `L ${tx} ${ty}`
+  );
+}
+
 function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
   const dx = Math.abs(tx - sx) * 0.55;
   return `M ${sx} ${sy} C ${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`;
+}
+
+// Picks bezier for mostly-horizontal forward connections; orthogonal for
+// vertical stacking, backflow, or near-zero horizontal distance where bezier
+// produces an ugly S-curve.
+function smartPath(sx: number, sy: number, tx: number, ty: number): string {
+  const dx = tx - sx;
+  const dy = Math.abs(ty - sy);
+  // Backflow or nearly same X → orthogonal routing is always cleaner
+  if (dx < 30) return orthogonalPath(sx, sy, tx, ty);
+  // Mostly vertical (dy > dx by 20%): orthogonal avoids tall looping bezier
+  if (dy > dx * 1.2) return orthogonalPath(sx, sy, tx, ty);
+  // Mostly horizontal forward → smooth bezier
+  return bezierPath(sx, sy, tx, ty);
 }
 
 export function EditorCanvas({
@@ -394,13 +426,13 @@ export function EditorCanvas({
         const other = nMap[otherId];
         if (!other) continue;
         const d = isSource
-          ? bezierPath(
+          ? smartPath(
               newX + NODE_WIDTH + HANDLE_SIDE_OFFSET,
               newY + HANDLE_Y_OFFSET,
               other.x - HANDLE_SIDE_OFFSET,
               other.y + HANDLE_Y_OFFSET,
             )
-          : bezierPath(
+          : smartPath(
               other.x + NODE_WIDTH + HANDLE_SIDE_OFFSET,
               other.y + HANDLE_Y_OFFSET,
               newX - HANDLE_SIDE_OFFSET,
@@ -586,7 +618,7 @@ export function EditorCanvas({
     return [
       {
         id: edge.id,
-        d: bezierPath(sx, sy, tx, ty),
+        d: smartPath(sx, sy, tx, ty),
         mx: (sx + tx) / 2,
         my: (sy + ty) / 2,
         isConnectedToHoveredNode,
@@ -738,7 +770,7 @@ export function EditorCanvas({
             if (!src) return null;
             return (
               <path
-                d={bezierPath(
+                d={smartPath(
                   src.x + NODE_WIDTH + HANDLE_SIDE_OFFSET,
                   src.y + HANDLE_Y_OFFSET,
                   mousePos.x,
@@ -1152,20 +1184,19 @@ function Minimap({
         </defs>
         <rect width={MM_W} height={MM_H} fill="url(#mm-dot)" />
 
-        {/* Edges — bezier matching real canvas curves */}
+        {/* Edges — matches real canvas routing (smartPath) */}
         {edges.map((edge) => {
           const src = nodes.find((n) => n.id === edge.sourceId);
           const tgt = nodes.find((n) => n.id === edge.targetId);
           if (!src || !tgt) return null;
-          const sx = (src.x + NODE_WIDTH) * scale + offsetX;
-          const sy = (src.y + getNodeEstH(src.kind) / 2) * scale + offsetY;
-          const tx = tgt.x * scale + offsetX;
-          const ty = (tgt.y + getNodeEstH(tgt.kind) / 2) * scale + offsetY;
-          const dx = Math.abs(tx - sx) * 0.55;
+          const sx = (src.x + NODE_WIDTH + HANDLE_SIDE_OFFSET) * scale + offsetX;
+          const sy = (src.y + HANDLE_Y_OFFSET) * scale + offsetY;
+          const tx = (tgt.x - HANDLE_SIDE_OFFSET) * scale + offsetX;
+          const ty = (tgt.y + HANDLE_Y_OFFSET) * scale + offsetY;
           return (
             <path
               key={edge.id}
-              d={`M ${sx} ${sy} C ${sx + dx} ${sy} ${tx - dx} ${ty} ${tx} ${ty}`}
+              d={smartPath(sx, sy, tx, ty)}
               fill="none"
               stroke="#A3A3A3"
               strokeWidth={1}
