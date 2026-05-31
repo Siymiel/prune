@@ -21,7 +21,14 @@ import {
   Check,
   ChevronsUpDown,
 } from "lucide-react";
-import { Section, SubLabel, SettingRow, Toggle, Slider, PromptEditorToolbar } from "./panel-ui";
+import {
+  Section,
+  SubLabel,
+  SettingRow,
+  Toggle,
+  Slider,
+  PromptEditorToolbar,
+} from "./panel-ui";
 import { PromptEditor } from "./prompt-editor";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -33,9 +40,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { getModelProvider, type CanvasNode, type NodeDef } from "@/lib/editor-nodes";
-import { KnowledgeBaseDialog, ConnectedAppsDialog, ToolsPickerDialog } from "./knowledge-source-picker";
-import { ModelPickerDialog, MODELS, ProviderIcon, PROVIDER_LABELS } from "./model-picker";
+import {
+  getModelProvider,
+  type CanvasNode,
+  type NodeDef,
+} from "@/lib/editor-nodes";
+import {
+  KnowledgeBaseDialog,
+  ConnectedAppsDialog,
+  ToolsPickerDialog,
+} from "./knowledge-source-picker";
+import {
+  ModelPickerDialog,
+  MODELS,
+  ProviderIcon,
+  PROVIDER_LABELS,
+} from "./model-picker";
+import { Separator } from "../ui/separator";
 
 const MEMORY_TYPES = [
   {
@@ -63,7 +84,10 @@ const MEMORY_TYPES = [
 
 type MemoryTypeId = (typeof MEMORY_TYPES)[number]["id"];
 
-const AI_PROVIDERS = Object.entries(PROVIDER_LABELS).map(([id, label]) => ({ id, label }));
+const AI_PROVIDERS = Object.entries(PROVIDER_LABELS).map(([id, label]) => ({
+  id,
+  label,
+}));
 
 export function AIAgentPanelSections({
   node,
@@ -80,12 +104,18 @@ export function AIAgentPanelSections({
   nodes: CanvasNode[];
   onUpdateValue: (id: string, value: string) => void;
   onUpdateSystemPrompt: (id: string, value: string) => void;
-  scrollToSection?: { section: "tools" | "knowledge-sources"; trigger: number } | null;
+  scrollToSection?: {
+    section: "tools" | "knowledge-sources";
+    trigger: number;
+  } | null;
 }) {
   const [promptMode, setPromptMode] = useState<"edit" | "formatted">("edit");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
-  const [memoryType, setMemoryType] = useState<(typeof MEMORY_TYPES)[number]["id"]>("sliding-window");
-  const [hoveredMemoryType, setHoveredMemoryType] = useState<string | null>(null);
+  const [memoryType, setMemoryType] =
+    useState<(typeof MEMORY_TYPES)[number]["id"]>("sliding-window");
+  const [hoveredMemoryType, setHoveredMemoryType] = useState<string | null>(
+    null,
+  );
   const [windowSize, setWindowSize] = useState(10);
   const [citationsEnabled, setCitationsEnabled] = useState(true);
   const [useReferences, setUseReferences] = useState(false);
@@ -116,13 +146,19 @@ export function AIAgentPanelSections({
       setToolsForceTrigger(scrollToSection.trigger);
       setTimeout(() => {
         setToolsOpen(true);
-        toolsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        toolsSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }, 100);
     } else if (scrollToSection.section === "knowledge-sources") {
       setKnowledgeForceTrigger(scrollToSection.trigger);
       setTimeout(() => {
         setKnowledgeBaseOpen(true);
-        knowledgeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        knowledgeSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }, 100);
     }
   }, [scrollToSection?.trigger]);
@@ -143,17 +179,28 @@ export function AIAgentPanelSections({
         {/* AI Provider */}
         <div className="px-4 py-2 border-b">
           <SubLabel>AI Provider</SubLabel>
-          <DropdownMenu onOpenChange={(open) => { if (!open) setProviderQuery(""); }}>
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (!open) setProviderQuery("");
+            }}
+          >
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-start gap-2.5 rounded-lg bg-white px-3 hover:bg-muted/30 hover:text-foreground">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2.5 rounded-lg bg-white px-3 hover:bg-muted/30 hover:text-foreground"
+              >
                 <ProviderIcon id={selectedProvider} size={18} />
                 <span className="flex-1 text-left font-medium">
-                  {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.label ?? providerLabel}
+                  {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.label ??
+                    providerLabel}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}>
+            <DropdownMenuContent
+              align="start"
+              style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+            >
               <div className="px-2 py-1.5 border-b">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -168,19 +215,22 @@ export function AIAgentPanelSections({
               </div>
               <div className="max-h-56 overflow-y-auto py-1">
                 {AI_PROVIDERS.filter((p) =>
-                  p.label.toLowerCase().includes(providerQuery.toLowerCase())
+                  p.label.toLowerCase().includes(providerQuery.toLowerCase()),
                 ).map((p) => (
                   <DropdownMenuItem
                     key={p.id}
                     className="gap-2.5 text-[14px] font-normal"
                     onSelect={() => {
                       setSelectedProvider(p.id);
-                      const first = MODELS.find((m) => m.provider === p.id && !m.locked)
-                        ?? MODELS.find((m) => m.provider === p.id);
+                      const first =
+                        MODELS.find((m) => m.provider === p.id && !m.locked) ??
+                        MODELS.find((m) => m.provider === p.id);
                       setSelectedModelId(first?.id ?? "");
                     }}
                   >
-                    <span className="shrink-0"><ProviderIcon id={p.id} size={18} /></span>
+                    <span className="shrink-0">
+                      <ProviderIcon id={p.id} size={18} />
+                    </span>
                     {p.label}
                   </DropdownMenuItem>
                 ))}
@@ -199,7 +249,10 @@ export function AIAgentPanelSections({
           >
             <span className="shrink-0">
               <ProviderIcon
-                id={MODELS.find((m) => m.id === selectedModelId)?.provider ?? selectedProvider}
+                id={
+                  MODELS.find((m) => m.id === selectedModelId)?.provider ??
+                  selectedProvider
+                }
                 size={16}
               />
             </span>
@@ -233,7 +286,11 @@ export function AIAgentPanelSections({
       </div>
 
       {/* Prompting */}
-      <Section title="Prompting" icon={<AlignLeft className="h-3.5 w-3.5" />} defaultOpen>
+      <Section
+        title="Prompting"
+        icon={<AlignLeft className="h-3.5 w-3.5" />}
+        defaultOpen
+      >
         <div className="space-y-4 ml-2">
           <div className="mt-4">
             <SubLabel>Instructions</SubLabel>
@@ -285,162 +342,87 @@ export function AIAgentPanelSections({
 
       {/* Knowledge Sources */}
       <div ref={knowledgeSectionRef}>
-      <Section title="Knowledge Sources" icon={<Database className="h-4 w-4" />} forceOpenTrigger={knowledgeForceTrigger}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="prune" className="w-full">
-              <Plus className="h-4 w-4" />
-              <span className="text-[14px] font-medium">Add Knowledge Sources</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" style={{ width: 'var(--radix-dropdown-menu-trigger-width)' }}>
-            <DropdownMenuItem
-              className="items-start gap-3 py-2.5"
-              onSelect={() => setKnowledgeBaseOpen(true)}
+        <Section
+          title="Knowledge Sources"
+          icon={<Database className="h-4 w-4" />}
+          forceOpenTrigger={knowledgeForceTrigger}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="prune" className="w-full">
+                <Plus className="h-4 w-4" />
+                <span className="text-[14px] font-medium">
+                  Add Knowledge Sources
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
             >
-              <Database className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[14px] font-medium text-foreground">Add Knowledge Base</div>
-                <div className="text-xs font-medium text-muted-foreground leading-relaxed">
-                  Index documents for fast retrieval and reuse across workflows.
+              <DropdownMenuItem
+                className="items-start gap-3 py-2.5"
+                onSelect={() => setKnowledgeBaseOpen(true)}
+              >
+                <Database className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[14px] font-medium text-foreground">
+                    Add Knowledge Base
+                  </div>
+                  <div className="text-xs font-medium text-muted-foreground leading-relaxed">
+                    Index documents for fast retrieval and reuse across
+                    workflows.
+                  </div>
                 </div>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="items-start gap-3 py-2.5"
-              onSelect={() => setConnectedAppsOpen(true)}
-            >
-              <Search className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[14px] font-medium text-foreground">Search Connected Apps</div>
-                <div className="text-xs font-medium text-muted-foreground leading-relaxed">
-                  Search apps like Gmail, Sheets, and Slack without importing data.
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="items-start gap-3 py-2.5"
+                onSelect={() => setConnectedAppsOpen(true)}
+              >
+                <Search className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[14px] font-medium text-foreground">
+                    Search Connected Apps
+                  </div>
+                  <div className="text-xs font-medium text-muted-foreground leading-relaxed">
+                    Search apps like Gmail, Sheets, and Slack without importing
+                    data.
+                  </div>
                 </div>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <KnowledgeBaseDialog open={knowledgeBaseOpen} onOpenChange={setKnowledgeBaseOpen} />
-        <ConnectedAppsDialog open={connectedAppsOpen} onOpenChange={setConnectedAppsOpen} />
-      </Section>
+          <KnowledgeBaseDialog
+            open={knowledgeBaseOpen}
+            onOpenChange={setKnowledgeBaseOpen}
+          />
+          <ConnectedAppsDialog
+            open={connectedAppsOpen}
+            onOpenChange={setConnectedAppsOpen}
+          />
+        </Section>
       </div>
+
+      <Separator />
 
       {/* Tools */}
       <div ref={toolsSectionRef}>
-      <Section title="Tools" icon={<Wrench className="h-3.5 w-3.5" />} forceOpenTrigger={toolsForceTrigger}>
-        <Button variant="prune" className="w-full" onClick={() => setToolsOpen(true)}>
-          <Plus className="h-4 w-4" />
-          <span className="text-[14px] font-medium">Add tools</span>
-        </Button>
-        <ToolsPickerDialog open={toolsOpen} onOpenChange={setToolsOpen} />
-      </Section>
-      </div>
-
-      {/* Memory */}
-      <div className="border-b last:border-b-0 ml-2 bg-white">
-        <div className="w-full flex items-center gap-2.5 px-4 py-3">
-          <RefreshCw className="h-3.5 w-3.5 text-prune-commonGray shrink-0" />
-          <span className="text-left text-[15px] font-medium text-prune-commonGray flex-1">
-            Memory
-          </span>
-          <Toggle checked={memoryEnabled} onChange={setMemoryEnabled} />
-        </div>
-
-        {memoryEnabled && (
-          <div className="px-4 pb-4 ml-2 space-y-4">
-            {/* Memory type select */}
-            <DropdownMenu
-              onOpenChange={(open) => { if (!open) setHoveredMemoryType(null); }}
-            >
-              <DropdownMenuTrigger asChild>
-                <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium bg-white hover:bg-prune-lightGray transition-colors">
-                  {MEMORY_TYPES.find((t) => t.id === memoryType)?.icon}
-                  <span className="flex-1 text-left">
-                    {MEMORY_TYPES.find((t) => t.id === memoryType)?.label}
-                  </span>
-                  <ChevronsUpDown className="h-4 w-4 font-medium text-muted-foreground shrink-0" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
-              >
-                {/* Hover tooltip card — fixed to the left of the panel */}
-                {hoveredMemoryType && (() => {
-                  const t = MEMORY_TYPES.find((x) => x.id === hoveredMemoryType);
-                  return t ? (
-                    <div
-                      className="fixed z-[200] w-96 rounded-xl border bg-white shadow-xl p-4"
-                      style={{
-                        right: "calc(var(--panel-width, 320px) - 36px)",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        {t.icon}
-                        <span className="text-base font-medium text-foreground">{t.label}</span>
-                      </div>
-                      <p className="text-[14px] font-medium text-muted-foreground leading-relaxed">
-                        {t.description}
-                      </p>
-                    </div>
-                  ) : null;
-                })()}
-
-                {MEMORY_TYPES.map((t) => (
-                  <DropdownMenuItem
-                    key={t.id}
-                    className="gap-2 text-[14px] font-medium text-foreground/90"
-                    onMouseEnter={() => setHoveredMemoryType(t.id)}
-                    onMouseLeave={() => setHoveredMemoryType(null)}
-                    onSelect={() => setMemoryType(t.id)}
-                  >
-                    {t.icon}
-                    <span className="flex-1">{t.label}</span>
-                    {t.id === memoryType && <Check className="h-4 w-4 text-foreground" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Window Size — only for sliding window types */}
-            {memoryType !== "vector-database" && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[14px] font-medium text-gray-800 underline decoration-dashed underline-offset-4">
-                    Window Size
-                  </span>
-                  <span className="text-sm font-medium tabular-nums">{windowSize}</span>
-                </div>
-                <Slider value={windowSize} min={1} max={20} onChange={setWindowSize} />
-              </div>
-            )}
-
-            {/* Source of User Messages */}
-            <div>
-              <SubLabel className="mb-1.5">Source of User Messages</SubLabel>
-              <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs hover:bg-muted/30 transition-colors">
-                <PencilLineIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="flex-1 text-left">User Question</span>
-                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-              </button>
-              <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-                When the workflow runs, the LLM conversation history will use this as the source of
-                user messages.
-              </p>
-              <div className="flex items-center gap-4 mt-2 justify-end">
-                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  View Memory
-                </button>
-                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Clear
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Section
+          title="Tools"
+          icon={<Wrench className="h-3.5 w-3.5" />}
+          forceOpenTrigger={toolsForceTrigger}
+        >
+          <Button
+            variant="prune"
+            className="w-full"
+            onClick={() => setToolsOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="text-[14px] font-medium">Add tools</span>
+          </Button>
+          <ToolsPickerDialog open={toolsOpen} onOpenChange={setToolsOpen} />
+        </Section>
       </div>
 
       {/* Subflow Tools */}
@@ -462,9 +444,135 @@ export function AIAgentPanelSections({
         </Button>
       </Section> */}
 
+      <Separator />
+
       {/* Main Settings */}
       <Section title="Main Settings" icon={<Settings2 className="h-4 w-4" />}>
-        <div className="space-y-4 ml-3">
+        <div className="space-y-4 ml-2">
+          {/* Memory */}
+          <div className="border-b last:border-b-0 bg-white">
+            <div className="w-full flex items-center gap-2.5 py-3">
+              <RefreshCw className="h-3.5 w-3.5 text-prune-commonGray shrink-0" />
+              <span className="text-left text-[15px] font-medium text-gray-800 flex-1">
+                Memory
+              </span>
+              <Toggle checked={memoryEnabled} onChange={setMemoryEnabled} />
+            </div>
+
+            {memoryEnabled && (
+              <div className="pb-4 space-y-4">
+                {/* Memory type select */}
+                <DropdownMenu
+                  onOpenChange={(open) => {
+                    if (!open) setHoveredMemoryType(null);
+                  }}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium bg-white hover:bg-prune-lightGray transition-colors">
+                      {MEMORY_TYPES.find((t) => t.id === memoryType)?.icon}
+                      <span className="flex-1 text-left">
+                        {MEMORY_TYPES.find((t) => t.id === memoryType)?.label}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 font-medium text-muted-foreground shrink-0" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    style={{
+                      width: "var(--radix-dropdown-menu-trigger-width)",
+                    }}
+                  >
+                    {/* Hover tooltip card — fixed to the left of the panel */}
+                    {hoveredMemoryType &&
+                      (() => {
+                        const t = MEMORY_TYPES.find(
+                          (x) => x.id === hoveredMemoryType,
+                        );
+                        return t ? (
+                          <div
+                            className="fixed z-[200] w-96 rounded-xl border bg-white shadow-xl p-4"
+                            style={{
+                              right: "calc(var(--panel-width, 320px) - 36px)",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                            }}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              {t.icon}
+                              <span className="text-base font-medium text-foreground">
+                                {t.label}
+                              </span>
+                            </div>
+                            <p className="text-[14px] font-medium text-muted-foreground leading-relaxed">
+                              {t.description}
+                            </p>
+                          </div>
+                        ) : null;
+                      })()}
+
+                    {MEMORY_TYPES.map((t) => (
+                      <DropdownMenuItem
+                        key={t.id}
+                        className="gap-2 text-[14px] font-medium text-foreground/90"
+                        onMouseEnter={() => setHoveredMemoryType(t.id)}
+                        onMouseLeave={() => setHoveredMemoryType(null)}
+                        onSelect={() => setMemoryType(t.id)}
+                      >
+                        {t.icon}
+                        <span className="flex-1">{t.label}</span>
+                        {t.id === memoryType && (
+                          <Check className="h-4 w-4 text-foreground" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Window Size — only for sliding window types */}
+                {memoryType !== "vector-database" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[14px] font-medium text-gray-800 underline decoration-dashed underline-offset-4">
+                        Window Size
+                      </span>
+                      <span className="text-sm font-medium tabular-nums">
+                        {windowSize}
+                      </span>
+                    </div>
+                    <Slider
+                      value={windowSize}
+                      min={1}
+                      max={20}
+                      onChange={setWindowSize}
+                    />
+                  </div>
+                )}
+
+                {/* Source of User Messages */}
+                {/* <div>
+              <SubLabel className="mb-1.5">Source of User Messages</SubLabel>
+              <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs hover:bg-muted/30 transition-colors">
+                <PencilLineIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-left">User Question</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+              </button>
+              <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                When the workflow runs, the LLM conversation history will use this as the source of
+                user messages.
+              </p>
+              <div className="flex items-center gap-4 mt-2 justify-end">
+                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  View Memory
+                </button>
+                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Clear
+                </button>
+              </div>
+            </div> */}
+              </div>
+            )}
+          </div>
+
           <SettingRow label="Citations">
             <Toggle checked={citationsEnabled} onChange={setCitationsEnabled} />
           </SettingRow>
@@ -492,15 +600,18 @@ export function AIAgentPanelSections({
               <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
             </button>
             <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-              Your credentials are encrypted and can be removed at any time. You can manage all
-              your connections here.
+              Your credentials are encrypted and can be removed at any time. You
+              can manage all your connections here.
             </p>
           </div>
         </div>
       </Section>
 
       {/* Advanced Settings */}
-      <Section title="Advanced Settings" icon={<Rocket className="h-3.5 w-3.5" />}>
+      <Section
+        title="Advanced Settings"
+        icon={<Rocket className="h-3.5 w-3.5" />}
+      >
         <div className="space-y-4">
           <SettingRow label="Stream Data">
             <Toggle checked={streamData} onChange={setStreamData} />
@@ -525,9 +636,17 @@ export function AIAgentPanelSections({
               <span className="text-[11px] font-medium text-muted-foreground underline decoration-dashed underline-offset-2">
                 Temperature
               </span>
-              <span className="text-xs font-medium tabular-nums">{temperature.toFixed(1)}</span>
+              <span className="text-xs font-medium tabular-nums">
+                {temperature.toFixed(1)}
+              </span>
             </div>
-            <Slider value={temperature} min={0} max={1} step={0.1} onChange={setTemperature} />
+            <Slider
+              value={temperature}
+              min={0}
+              max={1}
+              step={0.1}
+              onChange={setTemperature}
+            />
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
