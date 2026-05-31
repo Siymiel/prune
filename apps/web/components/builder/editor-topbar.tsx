@@ -1,22 +1,22 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RunPhase } from '@/lib/editor-nodes';
 
-type Tab = 'workflow' | 'export' | 'analytics' | 'manager';
+export type EditorTab = 'workflow' | 'export' | 'analytics' | 'manager';
 
 interface EditorTopbarProps {
   templateName: string | null;
   templateSlug: string | null;
   onRun?: () => void;
   runPhase?: RunPhase;
+  activeTab?: EditorTab;
+  onTabChange?: (tab: EditorTab) => void;
 }
 
-export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'idle' }: EditorTopbarProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('workflow');
+export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'idle', activeTab = 'workflow', onTabChange }: EditorTopbarProps) {
 
   const backHref = templateSlug ? `/templates/${templateSlug}` : '/templates';
 
@@ -45,10 +45,10 @@ export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'id
 
       {/* Tabs — scrollable on narrow viewports */}
       <nav className="flex items-center bg-prune-lightGray gap-0.5 sm:gap-1 p-1 rounded-lg overflow-x-auto [&::-webkit-scrollbar]:hidden shrink-0">
-        {(['workflow', 'export', 'analytics', 'manager'] as Tab[]).map((tab) => (
+        {(['workflow', 'export', 'analytics', 'manager'] as EditorTab[]).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => onTabChange?.(tab)}
             className={cn(
               'px-1.5 sm:px-2 py-1 text-[11px] sm:text-[13px] rounded-md font-medium capitalize transition-colors whitespace-nowrap',
               activeTab === tab

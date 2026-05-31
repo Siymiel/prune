@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getTemplate } from '@/lib/templates';
-import { EditorTopbar } from './editor-topbar';
+import { EditorTopbar, type EditorTab } from './editor-topbar';
+import { ExportView } from './export-view';
 import { EditorSidebar } from './editor-sidebar';
 import { EditorCanvas } from './editor-canvas';
 import { NodeDetailPanel } from './panels';
@@ -112,6 +113,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const template = templateSlug ? getTemplate(templateSlug) : null;
   const init = buildInitialState(templateSlug);
 
+  const [activeTab, setActiveTab] = useState<EditorTab>('workflow');
   const [nodes, setNodes] = useState<CanvasNode[]>(init.nodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(init.edges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -412,7 +414,12 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
         templateSlug={templateSlug}
         onRun={runWorkflow}
         runPhase={runState.phase}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
+      {activeTab === 'export' ? (
+        <ExportView />
+      ) : (
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar />
         <EditorCanvas
@@ -471,6 +478,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           )}
         </div>
       </div>
+      )}
     </>
   );
 }
