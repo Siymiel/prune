@@ -29,7 +29,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Prune AI — AI Workflow Platform for African Businesses',
+  title: 'PruneAI — AI Workflow Platform for African Businesses',
   description:
     'WhatsApp-first AI assistants pre-wired with M-Pesa and built for the way Kenyan SMEs actually run.',
 };

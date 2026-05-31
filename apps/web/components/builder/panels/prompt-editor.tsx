@@ -24,7 +24,7 @@ import {
   buildChip,
   mountValue,
   readValue,
-} from "./chip-utils";
+} from "../chip-utils";
 
 type PanelTab = "nodes" | "tools" | "variables";
 

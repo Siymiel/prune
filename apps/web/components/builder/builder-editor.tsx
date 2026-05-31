@@ -5,7 +5,7 @@ import { getTemplate } from '@/lib/templates';
 import { EditorTopbar } from './editor-topbar';
 import { EditorSidebar } from './editor-sidebar';
 import { EditorCanvas } from './editor-canvas';
-import { NodeDetailPanel } from './node-detail-panel';
+import { NodeDetailPanel } from './panels';
 import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind, type NodeRunStatus, type RunPhase } from '@/lib/editor-nodes';
 import { cn } from '@/lib/utils';
 import type { NodeType } from '@/lib/types';

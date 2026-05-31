@@ -56,7 +56,7 @@ import {
   ProviderIcon,
   PROVIDER_LABELS,
 } from "./model-picker";
-import { Separator } from "../ui/separator";
+import { Separator } from "@/components/ui/separator";
 
 const MEMORY_TYPES = [
   {
