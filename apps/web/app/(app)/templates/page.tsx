@@ -28,7 +28,7 @@ export default function TemplatesPage() {
       : TEMPLATES.filter((t) => t.tags.includes(filter));
 
   return (
-    <>
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-4 overflow-y-auto">
       <header className="mb-6">
         <h1 className="text-3xl font-semibold tracking-tight leading-tight">
           Start with a{' '}
@@ -86,6 +86,6 @@ export default function TemplatesPage() {
           <Button>Build from scratch</Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

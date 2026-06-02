@@ -40,9 +40,25 @@ async def run_workflow(
     trace: list[dict[str, Any]] = []
 
     while current:
-        node_def = node_map[current]
+        node_def = node_map.get(current)
+        if node_def is None:
+            return {
+                "status": RunStatus.ERROR,
+                "error": f"Node '{current}' not found in workflow",
+                "state": state,
+                "trace": trace,
+            }
+
         node_type = node_def["type"]
-        node_cls = node_registry[node_type]
+        node_cls = node_registry.get(node_type)
+        if node_cls is None:
+            return {
+                "status": RunStatus.ERROR,
+                "error": f"Unknown node type '{node_type}' — add it to NODE_REGISTRY",
+                "state": state,
+                "trace": trace,
+            }
+
         node = node_cls(node_def["id"], node_def.get("config", {}))
 
         ctx: NodeContext = {
@@ -55,7 +71,11 @@ async def run_workflow(
         }
 
         result: NodeResult = await node.execute(ctx)
-        trace.append({"node": current, "result": result.get("status")})
+        trace.append({
+            "node": current,
+            "node_type": node_type,
+            "status": result.get("status"),
+        })
 
         match result.get("status"):
             case "ok":
@@ -81,7 +101,7 @@ async def run_workflow(
             case _:
                 return {
                     "status": RunStatus.ERROR,
-                    "error": f"Node {current} returned invalid status",
+                    "error": f"Node '{current}' returned invalid status",
                     "state": state,
                     "trace": trace,
                 }

@@ -143,6 +143,7 @@ function Sidebar({
   side = "left",
   variant = "sidebar",
   collapsible = "offcanvas",
+  hoverExpand = false,
   className,
   children,
   ...props
@@ -150,6 +151,7 @@ function Sidebar({
   side?: "left" | "right"
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
+  hoverExpand?: boolean
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
@@ -202,25 +204,32 @@ function Sidebar({
       data-side={side}
       data-slot="sidebar"
     >
+      {/* Spacer — in hoverExpand mode stays at icon width so content never shifts */}
       <div
         className={cn(
-          "relative h-svh w-[--sidebar-width] bg-transparent transition-[width] duration-200 ease-linear",
-          "group-data-[collapsible=offcanvas]:w-0",
-          "group-data-[side=right]:rotate-180",
-          variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
-            : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
+          "relative h-svh bg-transparent group-data-[side=right]:rotate-180",
+          hoverExpand
+            ? "w-[--sidebar-width-icon]"
+            : cn(
+                "w-[--sidebar-width] transition-[width] duration-200 ease-linear",
+                "group-data-[collapsible=offcanvas]:w-0",
+                variant === "floating" || variant === "inset"
+                  ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
+                  : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
+              )
         )}
       />
+      {/* Fixed panel — overlays content when hoverExpand, higher z-index so it floats above page */}
       <div
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
+          "fixed inset-y-0 z-40 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-in-out md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
             : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l border-sidebar-border",
+          hoverExpand && "group-data-[state=expanded]:shadow-[4px_0_24px_rgba(0,0,0,0.08)]",
           className
         )}
         {...props}
@@ -434,7 +443,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-1", className)}
+      className={cn("flex w-full min-w-0 flex-col gap-0.5", className)}
       {...props}
     />
   )

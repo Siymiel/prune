@@ -2,7 +2,7 @@ import { Inbox as InboxIcon } from 'lucide-react';
 
 export default function InboxPage() {
   return (
-    <>
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-4 overflow-y-auto">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Inbox</h1>
         <p className="text-muted-foreground text-sm mt-1.5">
@@ -24,6 +24,6 @@ export default function InboxPage() {
           </p>
         </div>
       </div>
-    </>
+    </div>
   );
 }
