@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 import jwt
+from jwt import PyJWKClient
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from prune_api.core.settings import settings
 from prune_api.db.base import get_session
 from prune_api.db.models import Tenant, User
+
+# Lazily initialised — reused across requests to cache fetched JWKS keys.
+_jwks_client: PyJWKClient | None = None
+
+
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        _jwks_client = PyJWKClient(
+            f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        )
+    return _jwks_client
 
 
 @dataclass
@@ -52,19 +65,36 @@ async def get_current_user(
 
     token = authorization[7:].strip()
 
-    if not settings.supabase_jwt_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Auth not configured — set SUPABASE_JWT_SECRET",
-        )
-
     try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        alg = jwt.get_unverified_header(token).get("alg", "HS256")
+
+        if alg == "HS256":
+            # Symmetric — verify with the shared JWT secret.
+            if not settings.supabase_jwt_secret:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Auth not configured — set SUPABASE_JWT_SECRET",
+                )
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        else:
+            # Asymmetric (ES256, RS256, …) — fetch public key from Supabase JWKS.
+            if not settings.supabase_url:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Auth not configured — set SUPABASE_URL",
+                )
+            signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=[alg],
+                audience="authenticated",
+            )
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     except jwt.InvalidTokenError as exc:

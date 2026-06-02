@@ -41,6 +41,7 @@ export interface NodeDetailPanelProps {
   onUpdateValue: (id: string, value: string) => void;
   onUpdateSystemPrompt: (id: string, value: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
+  onUpdateModel: (id: string, model: string) => void;
   onRemoveNode: (id: string) => void;
   onFocusNode: (id: string) => void;
   onResizeMouseDown?: (e: React.MouseEvent) => void;
@@ -54,6 +55,7 @@ export function NodeDetailPanel({
   onUpdateValue,
   onUpdateSystemPrompt,
   onUpdateLabel,
+  onUpdateModel,
   onRemoveNode,
   onFocusNode,
   onResizeMouseDown,
@@ -226,6 +228,7 @@ export function NodeDetailPanel({
               nodes={nodes}
               onUpdateValue={onUpdateValue}
               onUpdateSystemPrompt={onUpdateSystemPrompt}
+              onUpdateModel={onUpdateModel}
               scrollToSection={scrollToSection}
             />
           </div>

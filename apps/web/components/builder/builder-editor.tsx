@@ -3,16 +3,30 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getTemplate } from '@/lib/templates';
+import { api } from '@/lib/api';
 import { EditorTopbar, type EditorTab } from './editor-topbar';
 import { ExportView } from './export-view';
 import { EditorSidebar } from './editor-sidebar';
 import { EditorCanvas } from './editor-canvas';
 import { NodeDetailPanel } from './panels';
 import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind, type NodeRunStatus, type RunPhase } from '@/lib/editor-nodes';
+import { AskAIPanel } from './ask-ai-panel';
+import { RunProgressPanel } from './run-progress-panel';
 import { cn } from '@/lib/utils';
+import type { RunOut } from '@/lib/api';
 import type { NodeType } from '@/lib/types';
 
 const MAX_HISTORY = 50;
+
+const EXAMPLE_NODES: CanvasNode[] = [
+  { id: 'ex-in-1',   kind: 'text-input', label: 'Text Input',      x: 80,  y: 220, inputValue: 'Hello from Prune!' },
+  { id: 'ex-code-1', kind: 'code',       label: 'Format Message',  x: 360, y: 220, code: 'msg = state.get("message", "")\noutput["result"] = msg.upper()\noutput["word_count"] = len(msg.split())\noutput["char_count"] = len(msg)' },
+  { id: 'ex-out-1',  kind: 'output',     label: 'Output',          x: 640, y: 220 },
+];
+const EXAMPLE_EDGES: CanvasEdge[] = [
+  { id: 'ex-e-1', sourceId: 'ex-in-1',   targetId: 'ex-code-1' },
+  { id: 'ex-e-2', sourceId: 'ex-code-1', targetId: 'ex-out-1'  },
+];
 
 const STICKY_COLORS = [
   '#FEF9C3', '#FCE7F3', '#DBEAFE', '#D1FAE5',
@@ -24,6 +38,7 @@ function randomStickyColor() {
 
 interface BuilderEditorProps {
   templateSlug: string | null;
+  workflowId?: string | null;
 }
 
 type Snapshot = { nodes: CanvasNode[]; edges: CanvasEdge[] };
@@ -73,6 +88,7 @@ interface RunState {
   nodeStatuses: Record<string, NodeRunStatus>;
   startedAt: number;
   currentNodeLabel?: string;
+  errorMessage?: string;
 }
 
 function topoSort(nodes: CanvasNode[], edges: CanvasEdge[]): string[] {
@@ -110,7 +126,7 @@ function getMinPanelWidth() {
   return Math.max(260, Math.floor(window.innerWidth * 0.22));
 }
 
-export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
+export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditorProps) {
   const template = templateSlug ? getTemplate(templateSlug) : null;
   const init = buildInitialState(templateSlug);
 
@@ -147,7 +163,26 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
     dragStartWidthRef.current = w;
   }, []);
 
-  // ── Autosave to localStorage ──────────────────────────────────────────────
+  // ── API workflow persistence ──────────────────────────────────────────────
+  const [apiWorkflowId, setApiWorkflowId] = useState<string | null>(workflowId);
+  const apiWorkflowIdRef = useRef<string | null>(workflowId);
+  const [workflowName, setWorkflowName] = useState<string>(template?.name ?? 'Untitled Workflow');
+  const workflowNameRef = useRef<string>(template?.name ?? 'Untitled Workflow');
+  useEffect(() => { workflowNameRef.current = workflowName; }, [workflowName]);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // Load existing workflow from API on mount
+  useEffect(() => {
+    if (!workflowId) return;
+    api.workflows.get(workflowId).then(wf => {
+      setNodes(wf.graph?.nodes as CanvasNode[] ?? []);
+      setEdges(wf.graph?.edges as CanvasEdge[] ?? []);
+      setWorkflowName(wf.name);
+    }).catch(() => { /* not found or offline — keep blank canvas */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Autosave to API (falls back to localStorage when API unavailable) ─────
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // True only when a real content edit happened (not just a position drag).
@@ -155,19 +190,36 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
 
   useEffect(() => {
     if (nodes.length === 0 && edges.length === 0) return;
+    if (!hasContentChangeRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
+      if (!hasContentChangeRef.current) return;
+      hasContentChangeRef.current = false;
+      setSaveState('saving');
+      const graph = { nodes, edges };
       try {
-        const key = `prune-draft-${templateSlug ?? 'untitled'}`;
-        localStorage.setItem(key, JSON.stringify({ nodes, edges }));
-        if (hasContentChangeRef.current) {
-          setLastSavedAt(Date.now());
-          hasContentChangeRef.current = false;
+        if (apiWorkflowIdRef.current) {
+          await api.workflows.update(apiWorkflowIdRef.current, { graph, name: workflowNameRef.current });
+        } else {
+          const wf = await api.workflows.create({ name: workflowNameRef.current, graph });
+          apiWorkflowIdRef.current = wf.id;
+          setApiWorkflowId(wf.id);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('workflowId', wf.id);
+          router.replace(`?${params.toString()}`, { scroll: false });
         }
-      } catch {}
+        setSaveState('saved');
+        setLastSavedAt(Date.now());
+      } catch {
+        setSaveState('error');
+        try {
+          localStorage.setItem(`prune-draft-${templateSlug ?? 'untitled'}`, JSON.stringify(graph));
+        } catch { /* storage full — ignore */ }
+      }
     }, 1500);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [nodes, edges, templateSlug]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges]);
 
   // Hide the autosave pill 20 s after the last save
   useEffect(() => {
@@ -178,13 +230,17 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
 
   // ── Run workflow ──────────────────────────────────────────────────────────
   const [runState, setRunState] = useState<RunState>({ phase: 'idle', nodeStatuses: {}, startedAt: 0 });
+  const [runResult, setRunResult] = useState<RunOut | null>(null);
+  const [showRunPanel, setShowRunPanel] = useState(false);
   const runIdRef = useRef(0);
 
-  const runWorkflow = useCallback(() => {
+  const runWorkflow = useCallback(async () => {
     if (runState.phase === 'running' || nodes.length === 0) return;
     const runId = ++runIdRef.current;
     const order = topoSort(nodes, edges);
 
+    setRunResult(null);
+    setShowRunPanel(true);
     setRunState({
       phase: 'running',
       nodeStatuses: Object.fromEntries(nodes.map(n => [n.id, 'pending' as NodeRunStatus])),
@@ -192,36 +248,59 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
       currentNodeLabel: nodes.find(n => n.id === order[0])?.label,
     });
 
-    let t = 0;
-    const timings = order.map(() => {
-      const runAt = t;
-      const doneAt = t + 600 + Math.floor(Math.random() * 500);
-      t = doneAt + 80;
-      return { runAt, doneAt };
-    });
+    // Ensure the workflow is saved before running
+    let wfId = apiWorkflowIdRef.current;
+    if (!wfId) {
+      try {
+        setSaveState('saving');
+        const wf = await api.workflows.create({ name: workflowName, graph: { nodes, edges } });
+        wfId = wf.id;
+        apiWorkflowIdRef.current = wf.id;
+        setApiWorkflowId(wf.id);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('workflowId', wf.id);
+        router.replace(`?${params.toString()}`, { scroll: false });
+        setSaveState('saved');
+      } catch (err) {
+        setSaveState('error');
+        setRunState({ phase: 'error', nodeStatuses: {}, startedAt: 0, errorMessage: err instanceof Error ? err.message : 'Failed to save workflow before running' });
+        return;
+      }
+    }
 
-    order.forEach((nodeId, i) => {
-      const { runAt, doneAt } = timings[i];
-      const label = nodes.find(n => n.id === nodeId)?.label;
-      setTimeout(() => {
-        if (runIdRef.current !== runId) return;
-        setRunState(prev => ({ ...prev, nodeStatuses: { ...prev.nodeStatuses, [nodeId]: 'running' }, currentNodeLabel: label }));
-      }, runAt);
-      setTimeout(() => {
-        if (runIdRef.current !== runId) return;
-        setRunState(prev => ({ ...prev, nodeStatuses: { ...prev.nodeStatuses, [nodeId]: 'done' } }));
-      }, doneAt);
-    });
+    // Collect inputs from any text-input node
+    const textInputNode = nodes.find(n => n.kind === 'text-input');
+    const inputs: Record<string, string> = { message: textInputNode?.inputValue ?? '' };
 
-    setTimeout(() => {
+    try {
+      const result = await api.runs.trigger({ workflow_id: wfId, inputs });
       if (runIdRef.current !== runId) return;
-      setRunState(prev => ({ ...prev, phase: 'done', currentNodeLabel: undefined }));
-      setTimeout(() => {
-        if (runIdRef.current !== runId) return;
-        setRunState({ phase: 'idle', nodeStatuses: {}, startedAt: 0 });
-      }, 3000);
-    }, t);
-  }, [nodes, edges, runState.phase]);
+
+      // Map real trace statuses onto node IDs
+      const traceMap = Object.fromEntries(result.trace.map(s => [s.node, s.status]));
+      const finalStatuses = Object.fromEntries(
+        nodes.map(n => [n.id, (traceMap[n.id] === 'ok' ? 'done' : traceMap[n.id] ? 'error' : 'pending') as NodeRunStatus])
+      );
+
+      setRunResult(result);
+      setRunState(prev => ({
+        ...prev,
+        phase: result.status === 'done' ? 'done' : 'error',
+        nodeStatuses: finalStatuses,
+        currentNodeLabel: undefined,
+        errorMessage: result.status !== 'done' ? (result.error ?? 'Workflow failed') : undefined,
+      }));
+    } catch (err) {
+      if (runIdRef.current !== runId) return;
+      setRunState(prev => ({ ...prev, phase: 'error', currentNodeLabel: undefined, errorMessage: err instanceof Error ? err.message : 'Network error — check the API server is running' }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, runState.phase, workflowName]);
+
+  const loadExample = useCallback(() => {
+    setNodes(EXAMPLE_NODES);
+    setEdges(EXAMPLE_EDGES);
+  }, []);
 
   // ── History (undo / redo) ─────────────────────────────────────────────────
   const [history, setHistory] = useState<{ past: Snapshot[]; future: Snapshot[] }>({ past: [], future: [] });
@@ -294,6 +373,16 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
     saveSnapshot();
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, label } : n)));
   }, [saveSnapshot]);
+
+  const updateModel = useCallback((id: string, model: string) => {
+    hasContentChangeRef.current = true;
+    setNodes(prev => prev.map(n => (n.id === id ? { ...n, model } : n)));
+  }, []);
+
+  const updateWorkflowName = useCallback((name: string) => {
+    hasContentChangeRef.current = true;
+    setWorkflowName(name);
+  }, []);
 
   const removeNode = useCallback((id: string) => {
     hasContentChangeRef.current = true;
@@ -410,6 +499,9 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
     };
   }, [isDragging]);
 
+  // ── Ask AI panel ──────────────────────────────────────────────────────────
+  const [askAIOpen, setAskAIOpen] = useState(false);
+
   // Keep panel content alive during the slide-out animation.
   const [panelNodeId, setPanelNodeId] = useState<string | null>(null);
   useEffect(() => {
@@ -425,18 +517,39 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   return (
     <>
       <EditorTopbar
-        templateName={template?.name ?? null}
+        templateName={workflowName}
         templateSlug={templateSlug}
+        workflowId={apiWorkflowId}
+        saveState={saveState}
         onRun={runWorkflow}
         runPhase={runState.phase}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        onUpdateWorkflowName={updateWorkflowName}
+        onLoadExample={loadExample}
       />
       {activeTab === 'export' ? (
         <ExportView />
       ) : (
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar />
+        <AskAIPanel
+          open={askAIOpen}
+          onClose={() => setAskAIOpen(false)}
+          workflowName={workflowName}
+          nodes={nodes}
+          edges={edges}
+        />
+        <RunProgressPanel
+          open={showRunPanel}
+          onClose={() => setShowRunPanel(false)}
+          nodes={nodes}
+          edges={edges}
+          runPhase={runState.phase}
+          runResult={runResult}
+          nodeRunStatuses={runState.nodeStatuses}
+          runError={runState.errorMessage}
+        />
         <EditorCanvas
           nodes={nodes}
           edges={edges}
@@ -466,6 +579,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
           runCurrentNodeLabel={runState.currentNodeLabel}
           lastSavedAt={lastSavedAt}
           focusRequest={focusRequest}
+          onAskAI={() => setAskAIOpen(o => !o)}
         />
         <div
           className={cn(
@@ -485,6 +599,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
               onUpdateValue={updateValue}
               onUpdateSystemPrompt={updateSystemPrompt}
               onUpdateLabel={updateLabel}
+              onUpdateModel={updateModel}
               onRemoveNode={removeNode}
               onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
               onResizeMouseDown={handleResizeMouseDown}

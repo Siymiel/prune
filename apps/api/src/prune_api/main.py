@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from prune_api.routers import auth, chat, health, webhooks
+from prune_api.routers import auth, chat, health, runs, webhooks, workflows
 
 
 @asynccontextmanager
@@ -39,4 +39,6 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
+app.include_router(workflows.router, prefix="/v1")
+app.include_router(runs.router, prefix="/v1")
 app.include_router(webhooks.router, prefix="/v1/webhooks")

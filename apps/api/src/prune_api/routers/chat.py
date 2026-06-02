@@ -9,15 +9,19 @@ Two modes:
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, AsyncGenerator
 
+import anthropic
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from prune_api.core.settings import settings
 from prune_api.db.base import get_session
 from prune_api.db.models import Conversation
 from prune_api.db.models import Message as MessageModel
@@ -322,4 +326,66 @@ async def _real_dispatch(req: ChatRequest, session: AsyncSession) -> ChatRespons
         reply=reply,
         conversation_id=str(conversation.id),
         trace=trace,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Streaming endpoint — SSE token-by-token response from Claude
+# ---------------------------------------------------------------------------
+
+class StreamRequest(BaseModel):
+    template_slug: str | None = None
+    message: str
+    system_prompt: str | None = None
+    model: str = "claude-haiku-4-5-20251001"
+    history: list[MessageItem] = []
+
+
+async def _stream_claude(req: StreamRequest) -> AsyncGenerator[str, None]:
+    """Yield SSE-formatted chunks from an Anthropic streaming call."""
+    if not settings.anthropic_api_key:
+        yield _sse({"error": "ANTHROPIC_API_KEY not configured"})
+        return
+
+    system = req.system_prompt or _TEMPLATE_SYSTEM_PROMPTS.get(
+        req.template_slug or "", _DEFAULT_SYSTEM_PROMPT
+    )
+    messages = [*[m.model_dump() for m in req.history], {"role": "user", "content": req.message}]
+
+    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    try:
+        async with client.messages.stream(
+            model=req.model,
+            system=system,
+            messages=messages,
+            max_tokens=512,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield _sse({"token": text})
+        yield _sse({"done": True})
+    except Exception as exc:
+        yield _sse({"error": str(exc)})
+
+
+def _sse(data: dict[str, Any]) -> str:
+    return f"data: {json.dumps(data)}\n\n"
+
+
+@router.post("/chat/stream")
+async def chat_stream(req: StreamRequest) -> StreamingResponse:
+    """Stream Claude tokens back as Server-Sent Events.
+
+    Response format: `data: {"token": "..."}\\n\\n`
+    Final event:     `data: {"done": true}\\n\\n`
+    """
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Empty message")
+
+    return StreamingResponse(
+        _stream_claude(req),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )

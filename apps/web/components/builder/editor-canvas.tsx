@@ -44,7 +44,7 @@ const MAX_ZOOM = 3.5;
 
 // ── Auto-arrange: hierarchical left-to-right layout ──────────────────────────
 const NODE_H = 170; // approximate card height for spacing
-const H_STEP = NODE_WIDTH + 140;
+const H_STEP = NODE_WIDTH + 100;
 const V_STEP = NODE_H + 70;
 
 function autoArrange(
@@ -172,6 +172,7 @@ interface EditorCanvasProps {
   runCurrentNodeLabel?: string;
   lastSavedAt?: number | null;
   focusRequest?: { id: string; at: number } | null;
+  onAskAI?: () => void;
 }
 
 function orthogonalPath(sx: number, sy: number, tx: number, ty: number): string {
@@ -240,11 +241,12 @@ export function EditorCanvas({
   runCurrentNodeLabel,
   lastSavedAt,
   focusRequest,
+  onAskAI,
 }: EditorCanvasProps) {
   const outerRef = useRef<HTMLDivElement>(null);
 
   const [pan, setPan] = useState({ x: 40, y: 40 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.70);
   const panRef = useRef(pan);
   const zoomRef = useRef(zoom);
   useEffect(() => {
@@ -902,6 +904,7 @@ export function EditorCanvas({
           {/* Ask AI */}
           <button
             onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onAskAI?.(); }}
             className="
             flex items-center gap-1
             px-3 py-1

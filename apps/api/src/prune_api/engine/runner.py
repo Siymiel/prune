@@ -7,6 +7,7 @@ fired by webhooks (e.g. M-Pesa STK callback).
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from prune_api.nodes.base import Node, NodeContext, NodeResult
@@ -70,11 +71,19 @@ async def run_workflow(
             "workflow": workflow,
         }
 
+        input_snapshot = dict(state)
+        t0 = time.monotonic()
         result: NodeResult = await node.execute(ctx)
+        elapsed_ms = round((time.monotonic() - t0) * 1000)
+
         trace.append({
             "node": current,
             "node_type": node_type,
             "status": result.get("status"),
+            "ms": elapsed_ms,
+            "input": input_snapshot,
+            "output": result.get("output"),
+            "error": result.get("error") if result.get("status") == "error" else None,
         })
 
         match result.get("status"):

@@ -1,34 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Grid3X3, List, ChevronDown,
   FolderOpen, Folder, Archive, MoreHorizontal,
-  Cpu, Workflow,
+  Cpu, Workflow, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import type { WorkflowOut } from '@/lib/api';
 
 interface ProjectFolder {
   id: string;
   name: string;
 }
-
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'quick-start' | 'workflow';
-  folderId: string;
-  updatedAt: Date;
-}
-
-const DEFAULT_FOLDERS: ProjectFolder[] = [
-  { id: 'general', name: 'General' },
-];
 
 function QuickStartIllustration() {
   return (
@@ -76,8 +65,10 @@ function WorkflowIllustration() {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [folders, setFolders] = useState<ProjectFolder[]>(DEFAULT_FOLDERS);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [folders, setFolders] = useState<ProjectFolder[]>([{ id: 'general', name: 'General' }]);
+  const [workflows, setWorkflows] = useState<WorkflowOut[]>([]);
+  const [loadingWorkflows, setLoadingWorkflows] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState('general');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,14 +77,25 @@ export default function DashboardPage() {
   const displayName = user?.email?.split('@')[0] ?? 'My Workspace';
   const orgTitle = `${displayName.charAt(0).toUpperCase() + displayName.slice(1)}'s Workspace`;
 
+  const loadWorkflows = useCallback(async () => {
+    try {
+      const list = await api.workflows.list();
+      setWorkflows(list);
+    } catch {
+      // silently fail — user may not be authenticated yet
+    } finally {
+      setLoadingWorkflows(false);
+    }
+  }, []);
+
+  useEffect(() => { loadWorkflows(); }, [loadWorkflows]);
+
   const filteredFolders = folders.filter(
     (f) => !folderSearch || f.name.toLowerCase().includes(folderSearch.toLowerCase()),
   );
 
-  const filteredProjects = projects.filter(
-    (p) =>
-      p.folderId === selectedFolder &&
-      (!searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())),
+  const filteredWorkflows = workflows.filter(
+    (w) => !searchQuery || w.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   function handleNewFolder() {
@@ -104,12 +106,25 @@ export default function DashboardPage() {
     }
   }
 
-  function handleCreateWorkflow() {
-    router.push('/builder');
+  async function handleCreateWorkflow() {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const wf = await api.workflows.create({ name: 'Untitled Workflow' });
+      router.push(`/builder?workflowId=${wf.id}`);
+    } catch {
+      router.push('/builder');
+    } finally {
+      setCreating(false);
+    }
   }
 
   function handleQuickStart() {
     router.push('/templates');
+  }
+
+  function handleOpenWorkflow(id: string) {
+    router.push(`/builder?workflowId=${id}`);
   }
 
   return (
@@ -220,8 +235,8 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <Button size="sm" className="h-7 text-xs gap-1.5 px-3" onClick={handleCreateWorkflow}>
-              <Plus className="h-3.5 w-3.5" />
+            <Button size="sm" className="h-7 text-xs gap-1.5 px-3" onClick={handleCreateWorkflow} disabled={creating}>
+              {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               New Project
             </Button>
           </div>
@@ -229,7 +244,11 @@ export default function DashboardPage() {
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto">
-          {filteredProjects.length === 0 ? (
+          {loadingWorkflows ? (
+            <div className="flex items-center justify-center pt-24">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredWorkflows.length === 0 ? (
             /* Empty state */
             <div className="flex flex-col items-center pt-16 px-8">
               <h2 className="text-2xl font-semibold mb-8">Get Started</h2>
@@ -269,8 +288,8 @@ export default function DashboardPage() {
                     <p className="text-sm text-muted-foreground mb-4 flex-1">
                       Craft an assistant from scratch with our powerful workflow builder
                     </p>
-                    <Button size="sm" className="gap-1.5 w-fit" onClick={handleCreateWorkflow}>
-                      <Plus className="h-3.5 w-3.5" />
+                    <Button size="sm" className="gap-1.5 w-fit" onClick={handleCreateWorkflow} disabled={creating}>
+                      {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                       Create
                     </Button>
                   </div>
@@ -278,21 +297,21 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : (
-            /* Projects grid / list */
+            /* Workflows grid / list */
             <div className={cn(
               'p-6',
               viewMode === 'grid'
                 ? 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(240px,1fr))]'
                 : 'flex flex-col gap-2',
             )}>
-              {filteredProjects.map((project) => (
+              {filteredWorkflows.map((wf) => (
                 <div
-                  key={project.id}
-                  onClick={handleCreateWorkflow}
+                  key={wf.id}
+                  onClick={() => handleOpenWorkflow(wf.id)}
                   className="rounded-lg border bg-card p-4 cursor-pointer hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium text-sm">{project.name}</h3>
+                    <h3 className="font-medium text-sm">{wf.name}</h3>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -302,20 +321,20 @@ export default function DashboardPage() {
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </div>
-                  {project.description && (
-                    <p className="text-xs text-muted-foreground mt-1">{project.description}</p>
+                  {wf.description && (
+                    <p className="text-xs text-muted-foreground mt-1">{wf.description}</p>
                   )}
                   <div className="mt-3 flex items-center gap-2">
-                    <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                      project.type === 'workflow'
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-blue-100 text-blue-700',
-                    )}>
-                      {project.type === 'workflow' ? 'Workflow' : 'Quick Start'}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">
+                      Workflow
                     </span>
+                    {wf.is_published && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
+                        Published
+                      </span>
+                    )}
                     <span className="text-[10px] text-muted-foreground">
-                      {project.updatedAt.toLocaleDateString()}
+                      {new Date(wf.updated_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>

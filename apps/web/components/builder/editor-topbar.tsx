@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle, Cloud, CloudOff, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RunPhase } from '@/lib/editor-nodes';
 
@@ -10,15 +11,31 @@ export type EditorTab = 'workflow' | 'export' | 'analytics' | 'manager';
 interface EditorTopbarProps {
   templateName: string | null;
   templateSlug: string | null;
+  workflowId?: string | null;
+  saveState?: 'idle' | 'saving' | 'saved' | 'error';
   onRun?: () => void;
   runPhase?: RunPhase;
   activeTab?: EditorTab;
   onTabChange?: (tab: EditorTab) => void;
+  onUpdateWorkflowName?: (name: string) => void;
+  onLoadExample?: () => void;
 }
 
-export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'idle', activeTab = 'workflow', onTabChange }: EditorTopbarProps) {
+export function EditorTopbar({ templateName, templateSlug, workflowId, saveState = 'idle', onRun, runPhase = 'idle', activeTab = 'workflow', onTabChange, onUpdateWorkflowName, onLoadExample }: EditorTopbarProps) {
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [localName, setLocalName] = useState(templateName ?? 'Untitled Workflow');
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const backHref = templateSlug ? `/templates/${templateSlug}` : '/templates';
+  useEffect(() => { setLocalName(templateName ?? 'Untitled Workflow'); }, [templateName]);
+
+  function commitName() {
+    setIsEditingName(false);
+    const name = localName.trim() || 'Untitled Workflow';
+    setLocalName(name);
+    if (name !== templateName) onUpdateWorkflowName?.(name);
+  }
+
+  const backHref = templateSlug ? `/templates/${templateSlug}` : workflowId ? '/dashboard' : '/dashboard';
 
   return (
     <header className="h-12 border-b bg-background flex items-center gap-2 md:gap-3 px-3 md:px-4 shrink-0 z-20 min-w-0">
@@ -61,8 +78,66 @@ export function EditorTopbar({ templateName, templateSlug, onRun, runPhase = 'id
         ))}
       </nav>
 
+      {/* Editable workflow title — centered in available space */}
+      <div className="flex-1 flex items-center justify-center min-w-0 px-3">
+        {isEditingName ? (
+          <input
+            ref={nameInputRef}
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitName(); }
+              if (e.key === 'Escape') { setLocalName(templateName ?? 'Untitled Workflow'); setIsEditingName(false); }
+            }}
+            className="text-sm font-medium text-center bg-transparent border-b border-foreground/40 outline-none w-full max-w-[240px] px-1"
+            autoFocus
+          />
+        ) : (
+          <button
+            onClick={() => setIsEditingName(true)}
+            className="text-sm font-medium text-foreground hover:text-foreground/60 transition-colors truncate max-w-[240px]"
+            title="Click to rename"
+          >
+            {localName}
+          </button>
+        )}
+      </div>
+
+      {/* Save state indicator */}
+      <div className="flex items-center shrink-0">
+        {saveState === 'saving' && (
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground mr-3">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving…
+          </span>
+        )}
+        {saveState === 'saved' && (
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground mr-3">
+            <Cloud className="h-3 w-3" />
+            Saved
+          </span>
+        )}
+        {saveState === 'error' && (
+          <span className="flex items-center gap-1 text-[11px] text-destructive mr-3">
+            <CloudOff className="h-3 w-3" />
+            Save failed
+          </span>
+        )}
+      </div>
+
       {/* Right actions */}
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {onLoadExample && (
+          <button
+            onClick={onLoadExample}
+            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-muted hover:text-foreground transition-colors"
+            title="Load example workflow"
+          >
+            <FlaskConical className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Example</span>
+          </button>
+        )}
         <button className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-muted hover:text-foreground transition-colors">
           <Share2 className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline">Share</span>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { TEMPLATES } from '@/lib/templates';
 import type { TemplateCategory } from '@/lib/types';
@@ -20,6 +21,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 ];
 
 export default function TemplatesPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
 
   const visible =
@@ -83,7 +85,7 @@ export default function TemplatesPage() {
         </div>
         <div className="ml-auto flex gap-2">
           <Button variant="outline">Describe with AI</Button>
-          <Button>Build from scratch</Button>
+          <Button onClick={() => router.push('/builder')}>Build from scratch</Button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { Search, Home, ArrowLeftRight, Zap, PlaySquare, AppWindow, Workflow } from 'lucide-react';
+import { Search, Home, ArrowLeftRight, Zap, PlaySquare, AppWindow, Network } from 'lucide-react';
 import { NODE_DEFS, type NodeKind, type NodeDef } from '@/lib/editor-nodes';
 import { renderIntegrationIcon } from '@/components/templates/integration-logo';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,7 @@ const SIDEBAR_ITEMS: { key: CategoryKey; label: string; icon: React.ElementType 
   { key: 'triggers', label: 'Triggers',       icon: Zap            },
   { key: 'actions',  label: 'Actions',        icon: PlaySquare     },
   { key: 'apps',     label: 'Apps',           icon: AppWindow      },
-  { key: 'logic',    label: 'Logic & Utils',  icon: Workflow       },
+  { key: 'logic',    label: 'Logic & Utils',  icon: Network        },
 ];
 
 interface SidebarItem { key: CategoryKey; label: string; icon: React.ElementType }

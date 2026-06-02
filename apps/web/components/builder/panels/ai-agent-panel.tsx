@@ -96,6 +96,7 @@ export function AIAgentPanelSections({
   nodes,
   onUpdateValue,
   onUpdateSystemPrompt,
+  onUpdateModel,
   scrollToSection,
 }: {
   node: CanvasNode;
@@ -104,6 +105,7 @@ export function AIAgentPanelSections({
   nodes: CanvasNode[];
   onUpdateValue: (id: string, value: string) => void;
   onUpdateSystemPrompt: (id: string, value: string) => void;
+  onUpdateModel: (id: string, model: string) => void;
   scrollToSection?: {
     section: "tools" | "knowledge-sources";
     trigger: number;
@@ -171,7 +173,14 @@ export function AIAgentPanelSections({
   const [providerQuery, setProviderQuery] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>(provider);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [selectedModelId, setSelectedModelId] = useState("gpt-5.5");
+  const [selectedModelId, setSelectedModelId] = useState(model);
+
+  // Keep local state in sync if the node's model changes externally (undo/redo).
+  useEffect(() => {
+    setSelectedModelId(model);
+    setSelectedProvider(getModelProvider(model));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.model]);
 
   return (
     <div className="bg-prune-lightGray">
@@ -225,7 +234,9 @@ export function AIAgentPanelSections({
                       const first =
                         MODELS.find((m) => m.provider === p.id && !m.locked) ??
                         MODELS.find((m) => m.provider === p.id);
-                      setSelectedModelId(first?.id ?? "");
+                      const newModelId = first?.id ?? "";
+                      setSelectedModelId(newModelId);
+                      if (newModelId) onUpdateModel(node.id, newModelId);
                     }}
                   >
                     <span className="shrink-0">
@@ -265,7 +276,7 @@ export function AIAgentPanelSections({
             open={modelPickerOpen}
             onOpenChange={setModelPickerOpen}
             selectedModelId={selectedModelId}
-            onSelectModel={setSelectedModelId}
+            onSelectModel={(id) => { setSelectedModelId(id); onUpdateModel(node.id, id); }}
             selectedProvider={selectedProvider}
           />
         </div>
