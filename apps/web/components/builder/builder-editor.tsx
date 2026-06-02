@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getTemplate } from '@/lib/templates';
 import { EditorTopbar, type EditorTab } from './editor-topbar';
 import { ExportView } from './export-view';
@@ -113,7 +114,21 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
   const template = templateSlug ? getTemplate(templateSlug) : null;
   const init = buildInitialState(templateSlug);
 
-  const [activeTab, setActiveTab] = useState<EditorTab>('workflow');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as EditorTab | null;
+  const [activeTab, setActiveTab] = useState<EditorTab>(tabParam ?? 'workflow');
+
+  const handleTabChange = useCallback((tab: EditorTab) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'workflow') {
+      params.delete('tab');
+    } else {
+      params.set('tab', tab);
+    }
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
   const [nodes, setNodes] = useState<CanvasNode[]>(init.nodes);
   const [edges, setEdges] = useState<CanvasEdge[]>(init.edges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -415,7 +430,7 @@ export function BuilderEditor({ templateSlug }: BuilderEditorProps) {
         onRun={runWorkflow}
         runPhase={runState.phase}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
       {activeTab === 'export' ? (
         <ExportView />

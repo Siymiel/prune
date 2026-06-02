@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { BuilderEditor } from '@/components/builder/builder-editor';
 
 interface PageProps {
@@ -6,5 +7,9 @@ interface PageProps {
 
 export default async function BuilderPage({ searchParams }: PageProps) {
   const { template: slug } = await searchParams;
-  return <BuilderEditor templateSlug={slug ?? null} />;
+  return (
+    <Suspense>
+      <BuilderEditor templateSlug={slug ?? null} />
+    </Suspense>
+  );
 }
