@@ -2,11 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle, Cloud, CloudOff, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle, Cloud, CloudOff, FlaskConical, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RunPhase } from '@/lib/editor-nodes';
 
 export type EditorTab = 'workflow' | 'export' | 'analytics' | 'manager';
+
+interface ExampleDef {
+  label: string;
+  onLoad: () => void;
+}
 
 interface EditorTopbarProps {
   templateName: string | null;
@@ -18,13 +23,26 @@ interface EditorTopbarProps {
   activeTab?: EditorTab;
   onTabChange?: (tab: EditorTab) => void;
   onUpdateWorkflowName?: (name: string) => void;
-  onLoadExample?: () => void;
+  examples?: ExampleDef[];
 }
 
-export function EditorTopbar({ templateName, templateSlug, workflowId, saveState = 'idle', onRun, runPhase = 'idle', activeTab = 'workflow', onTabChange, onUpdateWorkflowName, onLoadExample }: EditorTopbarProps) {
+export function EditorTopbar({ templateName, templateSlug, workflowId, saveState = 'idle', onRun, runPhase = 'idle', activeTab = 'workflow', onTabChange, onUpdateWorkflowName, examples }: EditorTopbarProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [localName, setLocalName] = useState(templateName ?? 'Untitled Workflow');
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const [examplesOpen, setExamplesOpen] = useState(false);
+  const examplesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!examplesOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (examplesRef.current && !examplesRef.current.contains(e.target as Node)) {
+        setExamplesOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [examplesOpen]);
 
   useEffect(() => { setLocalName(templateName ?? 'Untitled Workflow'); }, [templateName]);
 
@@ -128,15 +146,31 @@ export function EditorTopbar({ templateName, templateSlug, workflowId, saveState
 
       {/* Right actions */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {onLoadExample && (
-          <button
-            onClick={onLoadExample}
-            className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-muted hover:text-foreground transition-colors"
-            title="Load example workflow"
-          >
-            <FlaskConical className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden sm:inline">Example</span>
-          </button>
+        {examples && examples.length > 0 && (
+          <div className="relative" ref={examplesRef}>
+            <button
+              onClick={() => examples.length === 1 ? examples[0].onLoad() : setExamplesOpen(o => !o)}
+              className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-muted hover:text-foreground transition-colors"
+              title="Load example workflow"
+            >
+              <FlaskConical className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Example</span>
+              {examples.length > 1 && <ChevronDown className="h-3 w-3 shrink-0" />}
+            </button>
+            {examplesOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-prune-borderGray rounded-lg shadow-lg overflow-hidden min-w-[160px]">
+                {examples.map((ex) => (
+                  <button
+                    key={ex.label}
+                    onClick={() => { ex.onLoad(); setExamplesOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-[450] text-left hover:bg-prune-lightGray transition-colors"
+                  >
+                    {ex.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         <button className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-muted hover:text-foreground transition-colors">
           <Share2 className="h-3.5 w-3.5 shrink-0" />

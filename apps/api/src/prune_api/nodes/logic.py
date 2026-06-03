@@ -152,3 +152,12 @@ class CodeNode(Node):
             "output": local_vars.get("output", {}),
             "next": next_node,
         }
+
+
+class OutputNode(Node):
+    """Terminal output node — surfaces the accumulated workflow state as its output."""
+
+    type = "workflow.output"
+
+    async def execute(self, ctx: NodeContext) -> NodeResult:
+        return {"status": "ok", "output": dict(ctx["state"]), "next": self.config.get("next")}

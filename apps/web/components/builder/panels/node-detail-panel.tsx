@@ -46,6 +46,7 @@ export interface NodeDetailPanelProps {
   onFocusNode: (id: string) => void;
   onResizeMouseDown?: (e: React.MouseEvent) => void;
   scrollToSection?: { section: "tools" | "knowledge-sources"; trigger: number } | null;
+  runOutput?: string;
 }
 
 export function NodeDetailPanel({
@@ -60,6 +61,7 @@ export function NodeDetailPanel({
   onFocusNode,
   onResizeMouseDown,
   scrollToSection,
+  runOutput,
 }: NodeDetailPanelProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -258,7 +260,7 @@ export function NodeDetailPanel({
           </>
         ) : def.kind === "output" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
-            <OutputPanelSections />
+            <OutputPanelSections runOutput={runOutput} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto py-[3px]">

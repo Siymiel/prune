@@ -168,6 +168,7 @@ interface EditorCanvasProps {
   onUpdateLabel?: (id: string, label: string) => void;
   onOpenDetail?: (nodeId: string, section: "tools" | "knowledge-sources") => void;
   nodeRunStatuses?: Record<string, NodeRunStatus>;
+  nodeOutputs?: Record<string, string>;
   runPhase?: RunPhase;
   runCurrentNodeLabel?: string;
   lastSavedAt?: number | null;
@@ -237,6 +238,7 @@ export function EditorCanvas({
   onUpdateLabel,
   onOpenDetail,
   nodeRunStatuses,
+  nodeOutputs,
   runPhase,
   runCurrentNodeLabel,
   lastSavedAt,
@@ -583,22 +585,39 @@ export function EditorCanvas({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
 
-  // Auto-fit to content on first render that has nodes.
+  // Auto-arrange + fit view on first render that has nodes.
   // Double-RAF ensures flex layout has fully settled before measuring.
   const hasAutoFit = useRef(false);
   useEffect(() => {
     if (hasAutoFit.current || nodes.length === 0) return;
     hasAutoFit.current = true;
-    let r1 = 0,
-      r2 = 0;
+    let r1 = 0, r2 = 0;
     r1 = requestAnimationFrame(() => {
-      r2 = requestAnimationFrame(fitView);
+      r2 = requestAnimationFrame(() => {
+        const positions = autoArrange(nodes, edges);
+        if (positions.length > 0) onArrangeNodes?.(positions);
+
+        // Fit to arranged positions immediately — don't wait for the state update
+        const rect = outerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const pts = positions.length > 0 ? positions : nodes.map((n) => ({ x: n.x, y: n.y }));
+        const minX = Math.min(...pts.map((p) => p.x)) - 60;
+        const minY = Math.min(...pts.map((p) => p.y)) - 60;
+        const maxX = Math.max(...pts.map((p) => p.x + NODE_WIDTH)) + 60;
+        const maxY = Math.max(...pts.map((p) => p.y + 200)) + 60;
+        const cw = maxX - minX;
+        const ch = maxY - minY;
+        const nz = Math.min(MAX_ZOOM, Math.min(rect.width / cw, rect.height / ch) * 0.9);
+        setZoom(nz);
+        setPan({ x: (rect.width - cw * nz) / 2 - minX * nz, y: (rect.height - ch * nz) / 2 - minY * nz });
+      });
     });
     return () => {
       cancelAnimationFrame(r1);
       cancelAnimationFrame(r2);
     };
-  }, [nodes, fitView]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges]);
 
   // ── SVG edge data ─────────────────────────────────────────────────────────
   const nodeMap = Object.fromEntries(effectiveNodes.map((n) => [n.id, n]));
@@ -815,6 +834,7 @@ export function EditorCanvas({
             onUpdateLabel={onUpdateLabel}
             onOpenDetail={onOpenDetail}
             runStatus={nodeRunStatuses?.[node.id]}
+            runOutput={nodeOutputs?.[node.id]}
           />
         ))}
       </div>

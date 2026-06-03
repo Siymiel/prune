@@ -414,7 +414,7 @@ function StickyNoteEditor({
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
-            className="px-3 py-2.5 text-base focus:outline-none text-gray-800 leading-relaxed min-h-[72px] cursor-text [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-xs [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+            className="px-3 py-2.5 focus:outline-none leading-relaxed min-h-[72px] cursor-text prose prose-sm max-w-none"
             onFocus={() => setIsFocused(true)}
             onBlur={() => {
               setIsFocused(false);
@@ -435,9 +435,9 @@ function StickyNoteEditor({
   );
 }
 
-function OutputNodeContent({ node }: { node: CanvasNode }) {
+function OutputNodeContent({ node, runOutput }: { node: CanvasNode; runOutput?: string }) {
   const [tab, setTab] = useState<"formatted" | "text">("formatted");
-  const content = node.inputValue ?? "";
+  const content = runOutput ?? node.inputValue ?? "";
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -450,7 +450,7 @@ function OutputNodeContent({ node }: { node: CanvasNode }) {
     if (!win) return;
     const escaped = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     win.document.write(
-      `<!DOCTYPE html><html><head><title>Output</title><style>body{font-family:sans-serif;padding:2rem;max-width:800px;margin:0 auto;line-height:1.6}pre{white-space:pre-wrap;font-family:inherit}</style></head><body><pre>${escaped}</pre></body></html>`,
+      `<!DOCTYPE html><html><head><title>Output</title><style>body{font-family:inter;padding:2rem;max-width:800px;margin:0 auto;line-height:1.6}pre{white-space:pre-wrap;font-family:inherit}</style></head><body><pre>${escaped}</pre></body></html>`,
     );
     win.document.close();
     win.focus();
@@ -519,13 +519,14 @@ function OutputNodeContent({ node }: { node: CanvasNode }) {
       </div>
       <div
         className={cn(
-          "min-h-[72px] rounded-md border bg-background",
+          "min-h-[72px] max-h-[160px] overflow-y-auto rounded-md border bg-background",
           content && "p-2",
         )}
+        onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopPropagation(); }}
       >
         {content ? (
           tab === "formatted" ? (
-            <div className="text-xs text-foreground leading-relaxed [&_h1]:text-sm [&_h1]:font-bold [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:mb-0.5 [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-1 [&_code]:bg-muted/50 [&_code]:px-0.5 [&_code]:rounded [&_code]:font-mono [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-2 [&_blockquote]:text-muted-foreground">
+            <div className="prose prose-sm max-w-none">
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
           ) : (
@@ -544,6 +545,7 @@ function NodeContent({
   def,
   onUpdateValue,
   onOpenDetail,
+  runOutput,
 }: {
   node: CanvasNode;
   def: NodeDef;
@@ -552,9 +554,10 @@ function NodeContent({
     nodeId: string,
     section: "tools" | "knowledge-sources",
   ) => void;
+  runOutput?: string;
 }) {
   const textareaClass =
-    "w-full px-2 py-1.5 text-xs bg-prune-lightGray rounded text-foreground placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-prune-midGray";
+    "w-full px-2 py-1.5 text-xs bg-prune-lightGray rounded text-foreground placeholder:text-muted-foreground/40 resize-none overflow-y-auto max-h-[80px] focus:outline-none focus:ring-1 focus:ring-prune-midGray";
 
   if (def.kind === "text-input") {
     return (
@@ -564,10 +567,12 @@ function NodeContent({
         </div>
         <Textarea
           rows={3}
+          className="max-h-[80px] overflow-y-auto"
           placeholder="Enter value or leave blank for user input…"
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
           onMouseDown={(e) => e.stopPropagation()}
+          onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopPropagation(); }}
         />
       </div>
     );
@@ -689,7 +694,7 @@ function NodeContent({
   }
 
   if (def.kind === "output") {
-    return <OutputNodeContent node={node} />;
+    return <OutputNodeContent node={node} runOutput={runOutput} />;
   }
 
   if (def.kind === "audio-output") {
@@ -764,6 +769,7 @@ function NodeContent({
         value={node.inputValue ?? ""}
         onChange={(e) => onUpdateValue(node.id, e.target.value)}
         onMouseDown={(e) => e.stopPropagation()}
+        onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopPropagation(); }}
       />
     </div>
   );
@@ -798,6 +804,7 @@ interface NodeCardProps {
     section: "tools" | "knowledge-sources",
   ) => void;
   runStatus?: NodeRunStatus;
+  runOutput?: string;
   onCardRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -822,6 +829,7 @@ export function NodeCard({
   onUpdateLabel,
   onOpenDetail,
   runStatus,
+  runOutput,
   onCardRef,
 }: NodeCardProps) {
   const def = getNodeDef(node.kind);
@@ -1100,6 +1108,7 @@ export function NodeCard({
         def={def}
         onUpdateValue={onUpdateValue}
         onOpenDetail={onOpenDetail}
+        runOutput={runOutput}
       />
 
       {/* Footer */}

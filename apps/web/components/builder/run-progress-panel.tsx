@@ -450,13 +450,18 @@ export function RunProgressPanel({
                 Running…
               </span>
             )}
-            {runPhase === "done" && totalMs > 0 && (
-              <span className="text-[12px] font-[450] text-gray-400 tabular-nums">
-                {formatMs(totalMs)} total
+            {runPhase === "done" && (
+              <span className="flex items-center gap-1.5 text-[12px] font-[450] text-emerald-600">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Completed
+                {totalMs > 0 && (
+                  <span className="text-gray-400 tabular-nums">· {formatMs(totalMs)}</span>
+                )}
               </span>
             )}
             {runPhase === "error" && (
-              <span className="text-[12px] font-[450] text-red-500">
+              <span className="flex items-center gap-1 text-[12px] font-[450] text-red-500">
+                <AlertCircle className="h-3.5 w-3.5" />
                 Failed
               </span>
             )}
@@ -498,7 +503,7 @@ export function RunProgressPanel({
       )}
 
       {/* Node list */}
-      <div className="py-3">
+      <div className="flex-1 overflow-y-auto py-3">
         {orderedNodes.length === 0 ? (
           <p className="text-center py-16 text-[14px] font-[450] text-gray-400">
             No nodes in workflow

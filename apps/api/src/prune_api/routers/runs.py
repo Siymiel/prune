@@ -45,7 +45,7 @@ _KIND_TO_TYPE: dict[str, str] = {
     "trigger":       "passthrough",
     "url":           "passthrough",
     "audio-input":   "passthrough",
-    "output":        "passthrough",
+    "output":        "workflow.output",
     "action":        "passthrough",
     "audio-output":  "passthrough",
     "template-out":  "passthrough",
@@ -305,6 +305,9 @@ async def get_run(
                 node_type=ts.node_type,
                 status=ts.status,
                 ms=ts.duration_ms or 0,
+                input=ts.input,
+                output=ts.output,
+                error=ts.error,
             )
             for ts in trace_steps
         ],

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Clock, ListChecks } from 'lucide-react';
 import { getTemplate } from '@/lib/templates';
 import { api } from '@/lib/api';
 import { EditorTopbar, type EditorTab } from './editor-topbar';
@@ -9,6 +10,7 @@ import { ExportView } from './export-view';
 import { EditorSidebar } from './editor-sidebar';
 import { EditorCanvas } from './editor-canvas';
 import { NodeDetailPanel } from './panels';
+import { ChecklistModal } from './checklist-modal';
 import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind, type NodeRunStatus, type RunPhase } from '@/lib/editor-nodes';
 import { AskAIPanel } from './ask-ai-panel';
 import { RunProgressPanel } from './run-progress-panel';
@@ -26,6 +28,16 @@ const EXAMPLE_NODES: CanvasNode[] = [
 const EXAMPLE_EDGES: CanvasEdge[] = [
   { id: 'ex-e-1', sourceId: 'ex-in-1',   targetId: 'ex-code-1' },
   { id: 'ex-e-2', sourceId: 'ex-code-1', targetId: 'ex-out-1'  },
+];
+
+const LLM_EXAMPLE_NODES: CanvasNode[] = [
+  { id: 'llm-in-1',    kind: 'text-input', label: 'User Question', x: 80,  y: 220, inputValue: 'Explain quantum computing in simple terms.' },
+  { id: 'llm-agent-1', kind: 'ai-agent',   label: 'AI Assistant',  x: 360, y: 220, model: 'claude-sonnet-4-6', systemPrompt: "You are a helpful AI assistant. Answer the user's question clearly and concisely. Keep responses easy to understand." },
+  { id: 'llm-out-1',   kind: 'output',     label: 'Response',      x: 640, y: 220 },
+];
+const LLM_EXAMPLE_EDGES: CanvasEdge[] = [
+  { id: 'llm-e-1', sourceId: 'llm-in-1',    targetId: 'llm-agent-1' },
+  { id: 'llm-e-2', sourceId: 'llm-agent-1', targetId: 'llm-out-1'  },
 ];
 
 const STICKY_COLORS = [
@@ -231,16 +243,30 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   // ── Run workflow ──────────────────────────────────────────────────────────
   const [runState, setRunState] = useState<RunState>({ phase: 'idle', nodeStatuses: {}, startedAt: 0 });
   const [runResult, setRunResult] = useState<RunOut | null>(null);
+  const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({});
   const [showRunPanel, setShowRunPanel] = useState(false);
   const runIdRef = useRef(0);
+  // Simulation state: incrementing simCancelRef invalidates all in-flight timer callbacks.
+  const simCancelRef = useRef(0);
+  const simTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Clean up simulation timers on unmount.
+  useEffect(() => () => { simTimersRef.current.forEach(clearTimeout); }, []);
 
   const runWorkflow = useCallback(async () => {
     if (runState.phase === 'running' || nodes.length === 0) return;
     const runId = ++runIdRef.current;
     const order = topoSort(nodes, edges);
 
+    // Cancel any in-flight simulation from a prior run.
+    simTimersRef.current.forEach(clearTimeout);
+    simTimersRef.current = [];
+    const simId = ++simCancelRef.current;
+
     setRunResult(null);
     setShowRunPanel(true);
+    setSelectedNodeId(null);
+    setDetailSection(null);
     setRunState({
       phase: 'running',
       nodeStatuses: Object.fromEntries(nodes.map(n => [n.id, 'pending' as NodeRunStatus])),
@@ -248,11 +274,40 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
       currentNodeLabel: nodes.find(n => n.id === order[0])?.label,
     });
 
-    // Ensure the workflow is saved before running
+    // Sweep a "running" indicator through nodes while the API call is in flight.
+    const orderedNodes = order.map(id => nodes.find(n => n.id === id)).filter(Boolean) as CanvasNode[];
+    orderedNodes.forEach((node, i) => {
+      const t = setTimeout(() => {
+        if (simCancelRef.current !== simId) return;
+        setRunState(prev => {
+          if (prev.phase !== 'running') return prev;
+          const next = { ...prev.nodeStatuses };
+          // Reset the previous node back to pending so only one node shows "running" at a time.
+          if (i > 0) {
+            const prevId = orderedNodes[i - 1].id;
+            if (next[prevId] === 'running') next[prevId] = 'pending';
+          }
+          next[node.id] = 'running';
+          return { ...prev, nodeStatuses: next, currentNodeLabel: node.label };
+        });
+      }, (i + 1) * 700);
+      simTimersRef.current.push(t);
+    });
+
+    const cancelSim = () => {
+      simCancelRef.current++;          // invalidates any queued callbacks
+      simTimersRef.current.forEach(clearTimeout);
+      simTimersRef.current = [];
+    };
+
+    // Always sync current graph to the backend before running so the runner
+    // always executes the latest canvas state (not a stale saved version).
     let wfId = apiWorkflowIdRef.current;
-    if (!wfId) {
-      try {
-        setSaveState('saving');
+    try {
+      setSaveState('saving');
+      if (wfId) {
+        await api.workflows.update(wfId, { graph: { nodes, edges }, name: workflowName });
+      } else {
         const wf = await api.workflows.create({ name: workflowName, graph: { nodes, edges } });
         wfId = wf.id;
         apiWorkflowIdRef.current = wf.id;
@@ -260,12 +315,13 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
         const params = new URLSearchParams(searchParams.toString());
         params.set('workflowId', wf.id);
         router.replace(`?${params.toString()}`, { scroll: false });
-        setSaveState('saved');
-      } catch (err) {
-        setSaveState('error');
-        setRunState({ phase: 'error', nodeStatuses: {}, startedAt: 0, errorMessage: err instanceof Error ? err.message : 'Failed to save workflow before running' });
-        return;
       }
+      setSaveState('saved');
+    } catch (err) {
+      cancelSim();
+      setSaveState('error');
+      setRunState({ phase: 'error', nodeStatuses: {}, startedAt: 0, errorMessage: err instanceof Error ? err.message : 'Failed to save workflow before running' });
+      return;
     }
 
     // Collect inputs from any text-input node
@@ -274,6 +330,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
 
     try {
       const result = await api.runs.trigger({ workflow_id: wfId, inputs });
+      cancelSim();
       if (runIdRef.current !== runId) return;
 
       // Map real trace statuses onto node IDs
@@ -281,6 +338,19 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
       const finalStatuses = Object.fromEntries(
         nodes.map(n => [n.id, (traceMap[n.id] === 'ok' ? 'done' : traceMap[n.id] ? 'error' : 'pending') as NodeRunStatus])
       );
+
+      // Extract output text for output nodes to display inside the node card
+      const outputs: Record<string, string> = {};
+      for (const step of result.trace) {
+        const node = nodes.find(n => n.id === step.node);
+        if (node?.kind === 'output' && step.output) {
+          const o = step.output as Record<string, unknown>;
+          outputs[step.node] = typeof o.reply === 'string' ? o.reply
+            : typeof o.result === 'string' ? o.result
+            : JSON.stringify(o, null, 2);
+        }
+      }
+      setNodeOutputs(outputs);
 
       setRunResult(result);
       setRunState(prev => ({
@@ -291,6 +361,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
         errorMessage: result.status !== 'done' ? (result.error ?? 'Workflow failed') : undefined,
       }));
     } catch (err) {
+      cancelSim();
       if (runIdRef.current !== runId) return;
       setRunState(prev => ({ ...prev, phase: 'error', currentNodeLabel: undefined, errorMessage: err instanceof Error ? err.message : 'Network error — check the API server is running' }));
     }
@@ -300,6 +371,11 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   const loadExample = useCallback(() => {
     setNodes(EXAMPLE_NODES);
     setEdges(EXAMPLE_EDGES);
+  }, []);
+
+  const loadLLMExample = useCallback(() => {
+    setNodes(LLM_EXAMPLE_NODES);
+    setEdges(LLM_EXAMPLE_EDGES);
   }, []);
 
   // ── History (undo / redo) ─────────────────────────────────────────────────
@@ -392,7 +468,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
     setSelectedNodeId(prev => (prev === id ? null : prev));
   }, [saveSnapshot]);
 
-  const selectNode = useCallback((id: string) => { setSelectedNodeId(id); setDetailSection(null); }, []);
+  const selectNode = useCallback((id: string) => { setSelectedNodeId(id); setDetailSection(null); setShowRunPanel(false); }, []);
 
   const addConnectedNode = useCallback((kind: NodeKind, x: number, y: number, anchorId: string, side: 'input' | 'output') => {
     hasContentChangeRef.current = true;
@@ -502,6 +578,9 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   // ── Ask AI panel ──────────────────────────────────────────────────────────
   const [askAIOpen, setAskAIOpen] = useState(false);
 
+  // ── Checklist modal ───────────────────────────────────────────────────────
+  const [showChecklist, setShowChecklist] = useState(false);
+
   // Keep panel content alive during the slide-out animation.
   const [panelNodeId, setPanelNodeId] = useState<string | null>(null);
   useEffect(() => {
@@ -526,7 +605,10 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onUpdateWorkflowName={updateWorkflowName}
-        onLoadExample={loadExample}
+        examples={[
+          { label: 'Code example', onLoad: loadExample },
+          { label: 'LLM example',  onLoad: loadLLMExample },
+        ]}
       />
       {activeTab === 'export' ? (
         <ExportView />
@@ -562,7 +644,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
           onRemoveEdge={removeEdge}
           onSelectNode={selectNode}
           onDeselect={() => { setSelectedNodeId(null); setDetailSection(null); }}
-          onOpenDetail={(nodeId, section) => { setSelectedNodeId(nodeId); setDetailSection({ section, trigger: Date.now() }); }}
+          onOpenDetail={(nodeId, section) => { setSelectedNodeId(nodeId); setDetailSection({ section, trigger: Date.now() }); setShowRunPanel(false); }}
           onAddConnectedNode={addConnectedNode}
           onUpdateLabel={updateLabel}
           onArrangeNodes={arrangeNodes}
@@ -575,12 +657,37 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
           onUpdateStickyNoteColor={updateStickyNoteColor}
           onToggleAllStickyNotes={toggleAllStickyNotes}
           nodeRunStatuses={runState.nodeStatuses}
+          nodeOutputs={nodeOutputs}
           runPhase={runState.phase}
           runCurrentNodeLabel={runState.currentNodeLabel}
           lastSavedAt={lastSavedAt}
           focusRequest={focusRequest}
           onAskAI={() => setAskAIOpen(o => !o)}
         />
+        {/* ── Bottom-right: Run History + Checklist ──────────────────────── */}
+        <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+          <button
+            onClick={() => { setShowChecklist(false); setShowRunPanel(true); setSelectedNodeId(null); setDetailSection(null); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[14px] font-[450] bg-prune-lightGray border border-prune-borderGray rounded-full hover:bg-white transition-colors"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Run history
+          </button>
+          <button
+            onClick={() => setShowChecklist(v => !v)}
+            className="relative flex items-center gap-1.5 px-3 py-1.5 text-[14px] font-[450] bg-prune-lightGray border border-prune-borderGray rounded-full hover:bg-white transition-colors"
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            Checklist
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-orange-400 border border-white" />
+          </button>
+        </div>
+
+        <ChecklistModal
+          open={showChecklist}
+          onClose={() => setShowChecklist(false)}
+        />
+
         <div
           className={cn(
             'absolute right-3 top-3 bottom-3 z-10',
@@ -604,6 +711,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
               onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
               onResizeMouseDown={handleResizeMouseDown}
               scrollToSection={detailSection}
+              runOutput={nodeOutputs[panelNode.id]}
             />
           )}
         </div>
