@@ -42,11 +42,13 @@ export interface NodeDetailPanelProps {
   onUpdateSystemPrompt: (id: string, value: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
   onUpdateModel: (id: string, model: string) => void;
+  onUpdateKnowledgeBases: (id: string, kbIds: string[]) => void;
   onRemoveNode: (id: string) => void;
   onFocusNode: (id: string) => void;
   onResizeMouseDown?: (e: React.MouseEvent) => void;
   scrollToSection?: { section: "tools" | "knowledge-sources"; trigger: number } | null;
   runOutput?: string;
+  runSources?: import("@/lib/api").KnowledgeSource[];
 }
 
 export function NodeDetailPanel({
@@ -57,11 +59,13 @@ export function NodeDetailPanel({
   onUpdateSystemPrompt,
   onUpdateLabel,
   onUpdateModel,
+  onUpdateKnowledgeBases,
   onRemoveNode,
   onFocusNode,
   onResizeMouseDown,
   scrollToSection,
   runOutput,
+  runSources,
 }: NodeDetailPanelProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -231,6 +235,7 @@ export function NodeDetailPanel({
               onUpdateValue={onUpdateValue}
               onUpdateSystemPrompt={onUpdateSystemPrompt}
               onUpdateModel={onUpdateModel}
+              onUpdateKnowledgeBases={onUpdateKnowledgeBases}
               scrollToSection={scrollToSection}
             />
           </div>
@@ -260,7 +265,7 @@ export function NodeDetailPanel({
           </>
         ) : def.kind === "output" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
-            <OutputPanelSections runOutput={runOutput} />
+            <OutputPanelSections runOutput={runOutput} sources={runSources} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto py-[3px]">
@@ -269,7 +274,7 @@ export function NodeDetailPanel({
             ) : def.kind === "text-input" ? (
               <TextInputPanelSections node={node} onUpdateValue={onUpdateValue} />
             ) : def.kind === "knowledge-base" ? (
-              <KnowledgeBasePanelSections />
+              <KnowledgeBasePanelSections node={node} onUpdateValue={onUpdateValue} />
             ) : def.kind === "files" ? (
               <FilesPanelSections />
             ) : (

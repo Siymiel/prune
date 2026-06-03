@@ -169,8 +169,8 @@ async def _demo_dispatch(req: ChatRequest) -> ChatResponse:
             "message": req.message,
             "history": [m.model_dump() for m in req.history],
         },
-        tenant_id="demo",
-        conversation_id="demo",
+        tenant_id=f"demo-{run_id}",
+        conversation_id=run_id,
         run_id=run_id,
         node_registry=NODE_REGISTRY,
     )

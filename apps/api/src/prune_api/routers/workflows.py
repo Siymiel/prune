@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import delete as sql_delete, select
+from sqlalchemy import delete as sql_delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from prune_api.core.auth import CurrentUser, get_current_user
@@ -70,13 +70,24 @@ def _parse_wid(workflow_id: str) -> uuid.UUID:
 
 @router.get("/workflows", response_model=list[WorkflowOut])
 async def list_workflows(
+    response: Response,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[WorkflowOut]:
+    total = (await session.scalar(
+        select(func.count()).select_from(Workflow)
+        .where(Workflow.tenant_id == current_user.tenant_id)
+    )) or 0
+    response.headers["X-Total-Count"] = str(total)
+
     rows = await session.execute(
         select(Workflow)
         .where(Workflow.tenant_id == current_user.tenant_id)
         .order_by(Workflow.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     return [_to_out(w) for w in rows.scalars().all()]
 

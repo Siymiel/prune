@@ -33,6 +33,16 @@ class AIRespondNode(Node):
         history: list[dict] = state.get("history", [])
         user_message: str = state.get("message", "")
 
+        # Inject retrieved KB context into the system prompt when present
+        context: str = state.get("context", "")
+        if context:
+            system_prompt = (
+                f"{system_prompt}\n\n"
+                "---\n\n"
+                "Use the following retrieved knowledge base context to answer the user's question:\n\n"
+                f"{context}"
+            )
+
         messages = [*history, {"role": "user", "content": user_message}]
 
         if not settings.anthropic_api_key:

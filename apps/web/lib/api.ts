@@ -32,6 +32,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function apiFetchForm<T>(path: string, body: FormData): Promise<T> {
+  const token = await getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `HTTP ${res.status}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
 // ---------------------------------------------------------------------------
 // Response types
 // ---------------------------------------------------------------------------
@@ -111,6 +127,32 @@ export interface TriggerRunRequest {
   inputs?: Record<string, unknown>;
 }
 
+export interface KnowledgeBaseOut {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  document_count: number;
+}
+
+export interface KnowledgeDocumentOut {
+  id: string;
+  filename: string;
+  file_type: string;
+  chunk_count: number;
+  status: 'processing' | 'ready' | 'error';
+  error: string | null;
+  created_at: string;
+}
+
+export interface KnowledgeSource {
+  filename: string;
+  text: string;
+  score: number;
+  chunk_index: number;
+  kb_id: string;
+}
+
 // ---------------------------------------------------------------------------
 // API surface
 // ---------------------------------------------------------------------------
@@ -142,6 +184,32 @@ export const api = {
       apiFetch<void>(`/v1/workflows/${id}`, { method: 'DELETE' }),
   },
 
+  knowledgeBases: {
+    list: () =>
+      apiFetch<KnowledgeBaseOut[]>('/v1/knowledge-bases'),
+
+    create: (name: string, description?: string) =>
+      apiFetch<KnowledgeBaseOut>('/v1/knowledge-bases', {
+        method: 'POST',
+        body: JSON.stringify({ name, description }),
+      }),
+
+    delete: (id: string) =>
+      apiFetch<void>(`/v1/knowledge-bases/${id}`, { method: 'DELETE' }),
+
+    listDocuments: (kbId: string) =>
+      apiFetch<KnowledgeDocumentOut[]>(`/v1/knowledge-bases/${kbId}/documents`),
+
+    uploadDocument: (kbId: string, file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return apiFetchForm<KnowledgeDocumentOut>(`/v1/knowledge-bases/${kbId}/documents`, form);
+    },
+
+    deleteDocument: (kbId: string, docId: string) =>
+      apiFetch<void>(`/v1/knowledge-bases/${kbId}/documents/${docId}`, { method: 'DELETE' }),
+  },
+
   runs: {
     trigger: (body: TriggerRunRequest) =>
       apiFetch<RunOut>('/v1/runs', { method: 'POST', body: JSON.stringify(body) }),
@@ -150,6 +218,64 @@ export const api = {
       apiFetch<RunOut>(`/v1/runs/${id}`),
   },
 };
+
+// ---------------------------------------------------------------------------
+// Streaming run helper — yields SSE events as workflow nodes complete
+// ---------------------------------------------------------------------------
+
+export interface RunStepEvent {
+  event: 'step';
+  node: string;
+  node_type: string;
+  status: string;
+  ms: number;
+  output?: Record<string, unknown> | null;
+  error?: string | null;
+}
+
+export interface RunDoneEvent {
+  event: 'done';
+  status: string;
+  error?: string | null;
+  state?: Record<string, unknown>;
+}
+
+export type RunStreamEvent = RunStepEvent | RunDoneEvent;
+
+export async function* streamRun(runId: string): AsyncGenerator<RunStreamEvent> {
+  const token = await getToken();
+  const res = await fetch(`${API_URL}/v1/runs/${runId}/stream`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`Run stream failed: HTTP ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const payload = JSON.parse(line.slice(6)) as RunStreamEvent;
+        yield payload;
+        if (payload.event === 'done') return;
+      } catch {
+        // malformed chunk — skip
+      }
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Streaming chat helper — yields tokens via SSE

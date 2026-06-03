@@ -48,6 +48,7 @@ import {
   type NodeDef,
   type NodeRunStatus,
 } from "@/lib/editor-nodes";
+import { type KnowledgeBaseOut } from "@/lib/api";
 import { renderIntegrationIcon } from "@/components/templates/integration-logo";
 import { Textarea } from "../ui/textarea";
 
@@ -545,15 +546,16 @@ function NodeContent({
   def,
   onUpdateValue,
   onOpenDetail,
+  allKbs,
+  onRemoveKbFromNode,
   runOutput,
 }: {
   node: CanvasNode;
   def: NodeDef;
   onUpdateValue: (id: string, value: string) => void;
-  onOpenDetail?: (
-    nodeId: string,
-    section: "tools" | "knowledge-sources",
-  ) => void;
+  onOpenDetail?: (nodeId: string, section: "tools" | "knowledge-sources") => void;
+  allKbs?: KnowledgeBaseOut[];
+  onRemoveKbFromNode?: (nodeId: string, kbId: string) => void;
   runOutput?: string;
 }) {
   const textareaClass =
@@ -627,9 +629,32 @@ function NodeContent({
         {/* Knowledge Sources */}
         <div>
           <NodeContentSectionLabel>Knowledge Sources</NodeContentSectionLabel>
+          {(node.knowledgeBases ?? []).length > 0 && (
+            <div className="flex flex-col gap-1 mb-1.5">
+              {(allKbs ?? [])
+                .filter((kb) => (node.knowledgeBases ?? []).includes(kb.id))
+                .map((kb) => (
+                  <div
+                    key={kb.id}
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-md border border-prune-borderGray bg-prune-lightGray"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <Database className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex-1 min-w-0 text-[12px] font-[450] text-foreground truncate">{kb.name}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onOpenDetail?.(node.id, "knowledge-sources"); }}
+                      className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+                    >
+                      <Database className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
           <button
             className="w-full flex items-center justify-center shadow-sm gap-1 px-3 py-1 rounded-md border border-prune-borderGray font-medium text-[11px] text-foreground hover:bg-prune-lightGray transition-colors"
             onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onOpenDetail?.(node.id, "knowledge-sources"); }}
           >
             <Database className="h-3.5 w-3.5" />
             Add Knowledge Sources
@@ -803,6 +828,8 @@ interface NodeCardProps {
     nodeId: string,
     section: "tools" | "knowledge-sources",
   ) => void;
+  allKbs?: KnowledgeBaseOut[];
+  onRemoveKbFromNode?: (nodeId: string, kbId: string) => void;
   runStatus?: NodeRunStatus;
   runOutput?: string;
   onCardRef?: (el: HTMLDivElement | null) => void;
@@ -828,6 +855,8 @@ export function NodeCard({
   onUpdateStickyNoteColor,
   onUpdateLabel,
   onOpenDetail,
+  allKbs,
+  onRemoveKbFromNode,
   runStatus,
   runOutput,
   onCardRef,
@@ -1108,6 +1137,8 @@ export function NodeCard({
         def={def}
         onUpdateValue={onUpdateValue}
         onOpenDetail={onOpenDetail}
+        allKbs={allKbs}
+        onRemoveKbFromNode={onRemoveKbFromNode}
         runOutput={runOutput}
       />
 

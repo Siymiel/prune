@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Clock, ListChecks } from 'lucide-react';
 import { getTemplate } from '@/lib/templates';
-import { api } from '@/lib/api';
+import { api, type KnowledgeBaseOut } from '@/lib/api';
 import { EditorTopbar, type EditorTab } from './editor-topbar';
 import { ExportView } from './export-view';
 import { EditorSidebar } from './editor-sidebar';
@@ -15,7 +15,8 @@ import { getNodeDef, type CanvasNode, type CanvasEdge, type NodeKind, type NodeR
 import { AskAIPanel } from './ask-ai-panel';
 import { RunProgressPanel } from './run-progress-panel';
 import { cn } from '@/lib/utils';
-import type { RunOut } from '@/lib/api';
+import type { RunOut, KnowledgeSource } from '@/lib/api';
+import { streamRun } from '@/lib/api';
 import type { NodeType } from '@/lib/types';
 
 const MAX_HISTORY = 50;
@@ -38,6 +39,24 @@ const LLM_EXAMPLE_NODES: CanvasNode[] = [
 const LLM_EXAMPLE_EDGES: CanvasEdge[] = [
   { id: 'llm-e-1', sourceId: 'llm-in-1',    targetId: 'llm-agent-1' },
   { id: 'llm-e-2', sourceId: 'llm-agent-1', targetId: 'llm-out-1'  },
+];
+
+function buildKbExampleNodes(kbId?: string): CanvasNode[] {
+  return [
+    { id: 'kb-in-1',    kind: 'text-input', label: 'User Question',  x: 80,  y: 220, inputValue: 'What information do you have?' },
+    {
+      id: 'kb-agent-1', kind: 'ai-agent',   label: 'KB Q&A Agent',   x: 360, y: 220,
+      model: 'claude-sonnet-4-6',
+      systemPrompt: "You are a knowledgeable document assistant. Answer questions using only the provided knowledge base. Be concise and accurate. If the answer is not in the knowledge base, clearly state that you don't have that information — do not speculate or fabricate an answer.",
+      inputValue: "Search the connected knowledge base for relevant context, then answer the user's question. Quote directly from the source when helpful, and always indicate which document the information came from.",
+      knowledgeBases: kbId ? [kbId] : [],
+    },
+    { id: 'kb-out-1',   kind: 'output',     label: 'Answer',          x: 640, y: 220 },
+  ];
+}
+const KB_EXAMPLE_EDGES: CanvasEdge[] = [
+  { id: 'kb-e-1', sourceId: 'kb-in-1',    targetId: 'kb-agent-1' },
+  { id: 'kb-e-2', sourceId: 'kb-agent-1', targetId: 'kb-out-1'  },
 ];
 
 const STICKY_COLORS = [
@@ -244,6 +263,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   const [runState, setRunState] = useState<RunState>({ phase: 'idle', nodeStatuses: {}, startedAt: 0 });
   const [runResult, setRunResult] = useState<RunOut | null>(null);
   const [nodeOutputs, setNodeOutputs] = useState<Record<string, string>>({});
+  const [runSources, setRunSources] = useState<KnowledgeSource[]>([]);
   const [showRunPanel, setShowRunPanel] = useState(false);
   const runIdRef = useRef(0);
   // Simulation state: incrementing simCancelRef invalidates all in-flight timer callbacks.
@@ -261,7 +281,6 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
     // Cancel any in-flight simulation from a prior run.
     simTimersRef.current.forEach(clearTimeout);
     simTimersRef.current = [];
-    const simId = ++simCancelRef.current;
 
     setRunResult(null);
     setShowRunPanel(true);
@@ -269,29 +288,12 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
     setDetailSection(null);
     setRunState({
       phase: 'running',
-      nodeStatuses: Object.fromEntries(nodes.map(n => [n.id, 'pending' as NodeRunStatus])),
+      nodeStatuses: {
+        ...Object.fromEntries(nodes.map(n => [n.id, 'pending' as NodeRunStatus])),
+        ...(order[0] ? { [order[0]]: 'running' as NodeRunStatus } : {}),
+      },
       startedAt: Date.now(),
       currentNodeLabel: nodes.find(n => n.id === order[0])?.label,
-    });
-
-    // Sweep a "running" indicator through nodes while the API call is in flight.
-    const orderedNodes = order.map(id => nodes.find(n => n.id === id)).filter(Boolean) as CanvasNode[];
-    orderedNodes.forEach((node, i) => {
-      const t = setTimeout(() => {
-        if (simCancelRef.current !== simId) return;
-        setRunState(prev => {
-          if (prev.phase !== 'running') return prev;
-          const next = { ...prev.nodeStatuses };
-          // Reset the previous node back to pending so only one node shows "running" at a time.
-          if (i > 0) {
-            const prevId = orderedNodes[i - 1].id;
-            if (next[prevId] === 'running') next[prevId] = 'pending';
-          }
-          next[node.id] = 'running';
-          return { ...prev, nodeStatuses: next, currentNodeLabel: node.label };
-        });
-      }, (i + 1) * 700);
-      simTimersRef.current.push(t);
     });
 
     const cancelSim = () => {
@@ -329,37 +331,69 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
     const inputs: Record<string, string> = { message: textInputNode?.inputValue ?? '' };
 
     try {
-      const result = await api.runs.trigger({ workflow_id: wfId, inputs });
+      const initialRun = await api.runs.trigger({ workflow_id: wfId, inputs });
       cancelSim();
       if (runIdRef.current !== runId) return;
 
-      // Map real trace statuses onto node IDs
-      const traceMap = Object.fromEntries(result.trace.map(s => [s.node, s.status]));
-      const finalStatuses = Object.fromEntries(
-        nodes.map(n => [n.id, (traceMap[n.id] === 'ok' ? 'done' : traceMap[n.id] ? 'error' : 'pending') as NodeRunStatus])
-      );
+      // Stream real node updates — each "step" event fires as a node completes
+      for await (const event of streamRun(initialRun.id)) {
+        if (runIdRef.current !== runId) break;
 
-      // Extract output text for output nodes to display inside the node card
-      const outputs: Record<string, string> = {};
-      for (const step of result.trace) {
-        const node = nodes.find(n => n.id === step.node);
-        if (node?.kind === 'output' && step.output) {
-          const o = step.output as Record<string, unknown>;
-          outputs[step.node] = typeof o.reply === 'string' ? o.reply
-            : typeof o.result === 'string' ? o.result
-            : JSON.stringify(o, null, 2);
+        if (event.event === 'step') {
+          setRunState(prev => {
+            const updated = { ...prev.nodeStatuses };
+            updated[event.node] = event.status === 'ok' ? 'done' : 'error';
+            // Advance the "running" highlight to the next pending node
+            const idx = order.indexOf(event.node);
+            let nextLabel: string | undefined;
+            if (idx !== -1 && idx + 1 < order.length) {
+              const nextId = order[idx + 1];
+              if (updated[nextId] === 'pending') {
+                updated[nextId] = 'running';
+                nextLabel = nodes.find(n => n.id === nextId)?.label;
+              }
+            }
+            return { ...prev, nodeStatuses: updated, currentNodeLabel: nextLabel ?? prev.currentNodeLabel };
+          });
+
+        } else if (event.event === 'done') {
+          // Fetch the full run for trace details and sources
+          try {
+            const result = await api.runs.get(initialRun.id);
+            const traceMap = Object.fromEntries(result.trace.map(s => [s.node, s.status]));
+            const finalStatuses = Object.fromEntries(
+              nodes.map(n => [n.id, (traceMap[n.id] === 'ok' ? 'done' : traceMap[n.id] ? 'error' : 'pending') as NodeRunStatus])
+            );
+            const outputs: Record<string, string> = {};
+            for (const step of result.trace) {
+              const stepNode = nodes.find(n => n.id === step.node);
+              if (stepNode?.kind === 'output' && step.output) {
+                const o = step.output as Record<string, unknown>;
+                outputs[step.node] = typeof o.reply === 'string' ? o.reply
+                  : typeof o.result === 'string' ? o.result
+                  : JSON.stringify(o, null, 2);
+              }
+            }
+            setNodeOutputs(outputs);
+            setRunSources((result.state?.sources as KnowledgeSource[]) ?? []);
+            setRunResult(result);
+            setRunState(prev => ({
+              ...prev,
+              phase: event.status === 'done' ? 'done' : 'error',
+              nodeStatuses: finalStatuses,
+              currentNodeLabel: undefined,
+              errorMessage: event.status !== 'done' ? (event.error ?? 'Workflow failed') : undefined,
+            }));
+          } catch {
+            setRunState(prev => ({
+              ...prev,
+              phase: event.status === 'done' ? 'done' : 'error',
+              currentNodeLabel: undefined,
+              errorMessage: event.status !== 'done' ? (event.error ?? 'Workflow failed') : undefined,
+            }));
+          }
         }
       }
-      setNodeOutputs(outputs);
-
-      setRunResult(result);
-      setRunState(prev => ({
-        ...prev,
-        phase: result.status === 'done' ? 'done' : 'error',
-        nodeStatuses: finalStatuses,
-        currentNodeLabel: undefined,
-        errorMessage: result.status !== 'done' ? (result.error ?? 'Workflow failed') : undefined,
-      }));
     } catch (err) {
       cancelSim();
       if (runIdRef.current !== runId) return;
@@ -376,6 +410,12 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   const loadLLMExample = useCallback(() => {
     setNodes(LLM_EXAMPLE_NODES);
     setEdges(LLM_EXAMPLE_EDGES);
+  }, []);
+
+  const loadKBExample = useCallback(async () => {
+    const kbs = await api.knowledgeBases.list().catch(() => [] as KnowledgeBaseOut[]);
+    setNodes(buildKbExampleNodes(kbs[0]?.id));
+    setEdges(KB_EXAMPLE_EDGES);
   }, []);
 
   // ── History (undo / redo) ─────────────────────────────────────────────────
@@ -453,6 +493,11 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   const updateModel = useCallback((id: string, model: string) => {
     hasContentChangeRef.current = true;
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, model } : n)));
+  }, []);
+
+  const updateKnowledgeBases = useCallback((id: string, kbIds: string[]) => {
+    hasContentChangeRef.current = true;
+    setNodes(prev => prev.map(n => (n.id === id ? { ...n, knowledgeBases: kbIds } : n)));
   }, []);
 
   const updateWorkflowName = useCallback((name: string) => {
@@ -576,6 +621,16 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   }, [isDragging]);
 
   // ── Ask AI panel ──────────────────────────────────────────────────────────
+  const [allKbs, setAllKbs] = useState<KnowledgeBaseOut[]>([]);
+  useEffect(() => { api.knowledgeBases.list().then(setAllKbs).catch(() => {}); }, []);
+
+  const removeKbFromNode = useCallback((nodeId: string, kbId: string) => {
+    hasContentChangeRef.current = true;
+    setNodes(prev => prev.map(n =>
+      n.id === nodeId ? { ...n, knowledgeBases: (n.knowledgeBases ?? []).filter(id => id !== kbId) } : n,
+    ));
+  }, []);
+
   const [askAIOpen, setAskAIOpen] = useState(false);
 
   // ── Checklist modal ───────────────────────────────────────────────────────
@@ -606,8 +661,9 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
         onTabChange={handleTabChange}
         onUpdateWorkflowName={updateWorkflowName}
         examples={[
-          { label: 'Code example', onLoad: loadExample },
-          { label: 'LLM example',  onLoad: loadLLMExample },
+          { label: 'Code example',   onLoad: loadExample },
+          { label: 'LLM example',    onLoad: loadLLMExample },
+          { label: 'KB Q&A example', onLoad: loadKBExample },
         ]}
       />
       {activeTab === 'export' ? (
@@ -663,6 +719,8 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
           lastSavedAt={lastSavedAt}
           focusRequest={focusRequest}
           onAskAI={() => setAskAIOpen(o => !o)}
+          allKbs={allKbs}
+          onRemoveKbFromNode={removeKbFromNode}
         />
         {/* ── Bottom-right: Run History + Checklist ──────────────────────── */}
         <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
@@ -707,11 +765,13 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
               onUpdateSystemPrompt={updateSystemPrompt}
               onUpdateLabel={updateLabel}
               onUpdateModel={updateModel}
+              onUpdateKnowledgeBases={updateKnowledgeBases}
               onRemoveNode={removeNode}
               onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
               onResizeMouseDown={handleResizeMouseDown}
               scrollToSection={detailSection}
               runOutput={nodeOutputs[panelNode.id]}
+              runSources={runSources.length > 0 ? runSources : undefined}
             />
           )}
         </div>

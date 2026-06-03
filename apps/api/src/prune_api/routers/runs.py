@@ -14,23 +14,35 @@ Canvas node kind → engine node type mapping:
   code                                                   → logic.code
   mpesa                                                  → payment.mpesa_stk
   (everything else)                                      → passthrough
+
+Async execution
+---------------
+POST /runs   — creates the Run record, fires _execute_run as a background
+               asyncio task, and returns 202 immediately with {id, status}.
+GET /runs/{id}/stream — SSE endpoint; polls the DB every 200 ms and streams
+               trace-step events as nodes complete, then a final "done" event.
+GET /runs/{id}        — fetch the full run result (use after stream closes).
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from prune_api.core.auth import CurrentUser, get_current_user
-from prune_api.db.base import get_session
+from prune_api.db.base import AsyncSessionLocal, get_session
 from prune_api.db.models import Run, TraceStep, Workflow
-from prune_api.engine.runner import RunStatus, run_workflow
+from prune_api.engine.runner import RunStatus, run_workflow_iter
 from prune_api.nodes.registry import NODE_REGISTRY
 
 router = APIRouter()
@@ -56,7 +68,7 @@ _KIND_TO_TYPE: dict[str, str] = {
     "loop-subflow":  "passthrough",
     "code":          "logic.code",
     "mpesa":         "payment.mpesa_stk",
-    "knowledge-base": "passthrough",
+    "knowledge-base": "knowledge.retrieve",
     "sticky-note":   "passthrough",
     "default-message": "passthrough",
     "delay":         "passthrough",
@@ -102,6 +114,43 @@ def _canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
         canvas_nodes[0]["id"],
     )
 
+    # For ai-agent nodes with knowledgeBases attached, auto-inject synthetic
+    # knowledge.retrieve nodes that run before the agent and populate state["context"].
+    synthetic_nodes: list[dict[str, Any]] = []
+    kb_chain_first: dict[str, str] = {}
+
+    for n in canvas_nodes:
+        if n.get("kind") not in ("ai-agent", "prune-ai"):
+            continue
+        kb_ids: list[str] = n.get("knowledgeBases") or []
+        if not kb_ids:
+            continue
+
+        agent_id = n["id"]
+        chain_ids = [f"__kb_{agent_id}_{i}" for i in range(len(kb_ids))]
+
+        for i, kb_id in enumerate(kb_ids):
+            next_id = chain_ids[i + 1] if i + 1 < len(kb_ids) else agent_id
+            synthetic_nodes.append({
+                "id": chain_ids[i],
+                "type": "knowledge.retrieve",
+                "config": {
+                    "knowledge_base_id": kb_id,
+                    "top_k": 5,
+                    "query_key": "message",
+                    "next": next_id,
+                },
+            })
+
+        kb_chain_first[agent_id] = chain_ids[0]
+
+    for nid in next_map:
+        if next_map[nid] in kb_chain_first:
+            next_map[nid] = kb_chain_first[next_map[nid]]
+
+    if entry_id in kb_chain_first:
+        entry_id = kb_chain_first[entry_id]
+
     engine_nodes: list[dict[str, Any]] = []
     for n in canvas_nodes:
         kind: str = n.get("kind", "")
@@ -129,12 +178,19 @@ def _canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
         elif node_type == "logic.code":
             config["code"] = n.get("code", "")
 
+        elif node_type == "knowledge.retrieve":
+            config["knowledge_base_id"] = n.get("inputValue", "")
+            config["top_k"] = n.get("topK", 5)
+            config["query_key"] = n.get("queryKey", "message")
+
         elif node_type == "payment.mpesa_stk":
             config["phone"] = n.get("phone", "{{state.message}}")
             config["amount"] = n.get("amount", 0)
             config["reference"] = n.get("reference", "Prune")
 
         engine_nodes.append({"id": n["id"], "type": node_type, "config": config})
+
+    engine_nodes.extend(synthetic_nodes)
 
     return {"entry": entry_id, "nodes": engine_nodes}
 
@@ -170,97 +226,301 @@ class RunOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Background execution
+# ---------------------------------------------------------------------------
+
+async def _execute_run(
+    run_id: uuid.UUID,
+    engine_graph: dict[str, Any],
+    inputs: dict[str, Any],
+    tenant_id: str,
+) -> None:
+    """Background coroutine: runs the workflow and writes each trace step to DB immediately."""
+    async with AsyncSessionLocal() as session:
+        run = await session.get(Run, run_id)
+        if run is None:
+            return
+        run.status = RunStatus.RUNNING
+        await session.commit()
+
+        try:
+            async for event in run_workflow_iter(
+                engine_graph,
+                inputs,
+                tenant_id=tenant_id,
+                conversation_id="",
+                run_id=str(run_id),
+                node_registry=NODE_REGISTRY,
+            ):
+                if event["event"] == "step":
+                    session.add(TraceStep(
+                        run_id=run_id,
+                        node_id=event["node"],
+                        node_type=event["node_type"],
+                        status=event["status"],
+                        input=event.get("input"),
+                        output=event.get("output"),
+                        error=event.get("error"),
+                        duration_ms=event.get("ms"),
+                    ))
+                    # Commit immediately so the SSE poller sees each step as it lands
+                    await session.commit()
+
+                elif event["event"] == "done":
+                    run = await session.get(Run, run_id)
+                    if run:
+                        run.status = event["status"]
+                        run.state = event.get("state", {})
+                        run.completed_at = datetime.now(UTC)
+                        if event["status"] == RunStatus.ERROR:
+                            run.error = event.get("error")
+                        elif event["status"] == RunStatus.WAITING:
+                            run.wait_token = event.get("wait_token")
+                            run.resume_node = event.get("next_node")
+                    await session.commit()
+
+        except Exception as exc:
+            try:
+                run = await session.get(Run, run_id)
+                if run and run.status == RunStatus.RUNNING:
+                    run.status = RunStatus.ERROR
+                    run.error = f"Internal error: {exc}"
+                    run.completed_at = datetime.now(UTC)
+                    await session.commit()
+            except Exception:
+                pass
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@router.post("/runs", response_model=RunOut, status_code=201)
+@router.post("/runs", response_model=RunOut, status_code=202)
 async def trigger_run(
     body: TriggerRunRequest,
     current_user: CurrentUser = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
 ) -> RunOut:
-    """Convert the saved canvas graph to engine format and execute it synchronously."""
+    """Create a run record, fire execution in the background, return 202 immediately."""
     try:
         wid = uuid.UUID(body.workflow_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid workflow_id")
 
-    row = await session.execute(
-        select(Workflow).where(
-            Workflow.id == wid,
-            Workflow.tenant_id == current_user.tenant_id,
-        )
-    )
-    workflow_obj = row.scalar_one_or_none()
-    if workflow_obj is None:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-
-    engine_graph = _canvas_to_engine(workflow_obj.graph)
-
-    run_id = uuid.uuid4()
-    run = Run(
-        id=run_id,
-        tenant_id=current_user.tenant_id,
-        workflow_id=workflow_obj.id,
-        status=RunStatus.RUNNING,
-        state={},
-        started_at=datetime.now(UTC),
-    )
-    session.add(run)
-    await session.flush()
-
-    engine_result = await run_workflow(
-        engine_graph,
-        inputs=body.inputs,
-        tenant_id=str(current_user.tenant_id),
-        conversation_id="",
-        run_id=str(run_id),
-        node_registry=NODE_REGISTRY,
-    )
-
-    run.status = engine_result["status"]
-    run.state = engine_result.get("state", {})
-    run.wait_token = engine_result.get("wait_token")
-    run.resume_node = engine_result.get("next_node")
-
-    if engine_result["status"] in (RunStatus.DONE, RunStatus.ERROR):
-        run.completed_at = datetime.now(UTC)
-    if engine_result["status"] == RunStatus.ERROR:
-        run.error = engine_result.get("error")
-
-    for step in engine_result.get("trace", []):
-        session.add(
-            TraceStep(
-                run_id=run_id,
-                node_id=step["node"],
-                node_type=step.get("node_type", ""),
-                status=step["status"],
-                input=step.get("input"),
-                output=step.get("output"),
-                duration_ms=step.get("ms"),
+    async with AsyncSessionLocal() as session:
+        row = await session.execute(
+            select(Workflow).where(
+                Workflow.id == wid,
+                Workflow.tenant_id == current_user.tenant_id,
             )
         )
+        workflow_obj = row.scalar_one_or_none()
+        if workflow_obj is None:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+
+        engine_graph = _canvas_to_engine(workflow_obj.graph)
+
+        run_id = uuid.uuid4()
+        run = Run(
+            id=run_id,
+            tenant_id=current_user.tenant_id,
+            workflow_id=workflow_obj.id,
+            status=RunStatus.PENDING,
+            state={},
+            started_at=datetime.now(UTC),
+        )
+        session.add(run)
+        # Commit before firing the task so _execute_run can read the row
+        await session.commit()
+
+    asyncio.create_task(
+        _execute_run(run_id, engine_graph, body.inputs, str(current_user.tenant_id))
+    )
 
     return RunOut(
         id=str(run_id),
-        workflow_id=str(workflow_obj.id),
-        status=engine_result["status"],
-        state=engine_result.get("state", {}),
-        error=engine_result.get("error"),
-        trace=[
-            TraceStepOut(
-                node=s["node"],
-                node_type=s.get("node_type", ""),
-                status=s["status"],
-                ms=s.get("ms", 0),
-                input=s.get("input"),
-                output=s.get("output"),
-                error=s.get("error"),
-            )
-            for s in engine_result.get("trace", [])
-        ],
+        workflow_id=str(wid),
+        status=RunStatus.PENDING,
+        state={},
+        error=None,
+        trace=[],
         started_at=run.started_at.isoformat() if run.started_at else None,
-        completed_at=run.completed_at.isoformat() if run.completed_at else None,
+        completed_at=None,
+    )
+
+
+class ResumeRunRequest(BaseModel):
+    wait_token: str
+    inputs: dict[str, Any] = {}
+
+
+@router.post("/runs/{run_id}/resume", response_model=RunOut, status_code=202)
+async def resume_run(
+    run_id: str,
+    body: ResumeRunRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> RunOut:
+    """Resume a waiting run.
+
+    Verifies the wait_token, patches the engine graph entry to resume_node,
+    merges saved state with any new inputs, and re-fires _execute_run.
+    """
+    try:
+        rid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    async with AsyncSessionLocal() as session:
+        run_row = await session.execute(
+            select(Run).where(Run.id == rid, Run.tenant_id == current_user.tenant_id)
+        )
+        run = run_row.scalar_one_or_none()
+        if run is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        if run.status != RunStatus.WAITING:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Run cannot be resumed (status: {run.status})",
+            )
+        if run.wait_token != body.wait_token:
+            raise HTTPException(status_code=403, detail="Invalid wait_token")
+        if run.wait_expires_at and run.wait_expires_at < datetime.now(UTC):
+            raise HTTPException(status_code=410, detail="Wait token has expired")
+        if not run.resume_node:
+            raise HTTPException(status_code=409, detail="Run has no resume_node recorded")
+
+        wf_row = await session.execute(
+            select(Workflow).where(Workflow.id == run.workflow_id)
+        )
+        workflow_obj = wf_row.scalar_one_or_none()
+        if workflow_obj is None:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+
+        engine_graph = _canvas_to_engine(workflow_obj.graph)
+        resume_graph = {**engine_graph, "entry": run.resume_node}
+        merged_inputs = {**(run.state or {}), **body.inputs}
+
+        # Capture scalars before session closes
+        saved_workflow_id = run.workflow_id
+        saved_state = run.state or {}
+        saved_started_at = run.started_at
+
+        run.status = RunStatus.PENDING
+        run.wait_token = None
+        run.resume_node = None
+        run.wait_expires_at = None
+        await session.commit()
+
+    asyncio.create_task(
+        _execute_run(rid, resume_graph, merged_inputs, str(current_user.tenant_id))
+    )
+
+    return RunOut(
+        id=str(rid),
+        workflow_id=str(saved_workflow_id) if saved_workflow_id else None,
+        status=RunStatus.PENDING,
+        state=saved_state,
+        error=None,
+        trace=[],
+        started_at=saved_started_at.isoformat() if saved_started_at else None,
+        completed_at=None,
+    )
+
+
+@router.get("/runs/{run_id}/stream")
+async def stream_run(
+    run_id: str,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> StreamingResponse:
+    """SSE stream: yields trace-step events as nodes complete, then a final done event.
+
+    The client connects immediately after POST /runs and stays connected until
+    the run finishes. Each event is a JSON-encoded dict with an "event" field.
+    """
+    try:
+        rid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    row = await session.execute(
+        select(Run).where(Run.id == rid, Run.tenant_id == current_user.tenant_id)
+    )
+    if row.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        seen_step_ids: set[str] = set()
+        # Safety cap: 10 minutes × 5 polls/sec = 3000 iterations
+        for _ in range(3000):
+            if await request.is_disconnected():
+                break
+
+            async with AsyncSessionLocal() as s:
+                steps = (
+                    await s.scalars(
+                        select(TraceStep)
+                        .where(TraceStep.run_id == rid)
+                        .order_by(TraceStep.created_at)
+                    )
+                ).all()
+
+                for step in steps:
+                    sid = str(step.id)
+                    if sid in seen_step_ids:
+                        continue
+                    seen_step_ids.add(sid)
+                    yield (
+                        "data: "
+                        + json.dumps({
+                            "event":     "step",
+                            "node":      step.node_id,
+                            "node_type": step.node_type,
+                            "status":    step.status,
+                            "ms":        step.duration_ms or 0,
+                            "output":    step.output,
+                            "error":     step.error,
+                        })
+                        + "\n\n"
+                    )
+
+                run_row = (
+                    await s.scalars(select(Run).where(Run.id == rid))
+                ).first()
+
+                if run_row and run_row.status in (
+                    RunStatus.DONE, RunStatus.ERROR, RunStatus.WAITING
+                ):
+                    yield (
+                        "data: "
+                        + json.dumps({
+                            "event":  "done",
+                            "status": run_row.status,
+                            "error":  run_row.error,
+                            "state":  run_row.state,
+                        })
+                        + "\n\n"
+                    )
+                    return
+
+            await asyncio.sleep(0.2)
+
+        # Timeout
+        yield (
+            "data: "
+            + json.dumps({
+                "event":  "done",
+                "status": RunStatus.ERROR,
+                "error":  "Stream timeout after 10 minutes",
+                "state":  {},
+            })
+            + "\n\n"
+        )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
@@ -270,7 +530,7 @@ async def get_run(
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> RunOut:
-    """Fetch a run's status and trace steps."""
+    """Fetch a completed run's status, final state, and full trace."""
     try:
         rid = uuid.UUID(run_id)
     except ValueError:

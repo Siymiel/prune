@@ -2,22 +2,27 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from prune_api.routers import auth, chat, health, runs, webhooks, workflows
+from prune_api.routers import auth, chat, health, knowledge, runs, schedules, webhooks, workflows
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Lazy import so the engine is only created after settings are loaded.
     from prune_api.db.base import engine
 
+    scheduler_task = asyncio.create_task(schedules.scheduler_loop())
     yield
-
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
 
 
@@ -41,4 +46,6 @@ app.include_router(auth.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
 app.include_router(workflows.router, prefix="/v1")
 app.include_router(runs.router, prefix="/v1")
+app.include_router(knowledge.router, prefix="/v1")
+app.include_router(schedules.router, prefix="/v1")
 app.include_router(webhooks.router, prefix="/v1/webhooks")

@@ -145,6 +145,7 @@ export interface CanvasNode {
   systemPrompt?: string;
   model?: string;
   code?: string;
+  knowledgeBases?: string[];
   stickyNote?: {
     visible: boolean;
     text: string;

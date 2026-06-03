@@ -14,15 +14,18 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Qdrant
-    qdrant_url: str = "http://localhost:6333"
-
     # Supabase Auth
     supabase_url: str = ""
     supabase_jwt_secret: str = ""
 
     # AI
     anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    voyage_api_key: str = ""
+
+    # Pinecone
+    pinecone_api_key: str = ""
+    pinecone_index: str = "prune"
 
     # WhatsApp Cloud API
     whatsapp_verify_token: str = ""

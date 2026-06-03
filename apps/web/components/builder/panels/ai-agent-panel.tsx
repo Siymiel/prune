@@ -20,7 +20,9 @@ import {
   Globe,
   Check,
   ChevronsUpDown,
+  X,
 } from "lucide-react";
+import { api, type KnowledgeBaseOut } from "@/lib/api";
 import {
   Section,
   SubLabel,
@@ -57,6 +59,11 @@ import {
   PROVIDER_LABELS,
 } from "./model-picker";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const MEMORY_TYPES = [
   {
@@ -89,6 +96,38 @@ const AI_PROVIDERS = Object.entries(PROVIDER_LABELS).map(([id, label]) => ({
   label,
 }));
 
+const AGENT_TEMPLATES = [
+  {
+    id: "investment-help-desk",
+    name: "Investment Help Desk",
+    description: "Answer investor questions using internal docs and web search",
+    systemPrompt:
+      "You are an expert Investments Help Desk AI Agent. Use the provided context from internal knowledge base, web search, and document repositories to answer the user's question. Be concise, cite sources, and clearly differentiate between product offerings. If eligibility is in question, explain the criteria.",
+    prompt:
+      "- Please provide a clear and concise answer to the user's question.\n- If the answer is not available, search the internal knowledge base for relevant information.\n- If necessary, supplement your response with information from the web search results.",
+  },
+  {
+    id: "kb-qa-agent",
+    name: "KB Q&A Agent",
+    description: "Answer questions strictly from your connected knowledge bases",
+    systemPrompt:
+      "You are a knowledgeable document assistant. Answer questions using only the provided knowledge base. Be concise and accurate. If the answer is not in the knowledge base, clearly state that you don't have that information — do not speculate or fabricate an answer.",
+    prompt:
+      "Search the connected knowledge base for relevant context, then answer the user's question. Quote directly from the source when helpful, and always indicate which document the information came from.",
+  },
+  {
+    id: "customer-support",
+    name: "Customer Support",
+    description: "Resolve customer issues with a friendly, empathetic tone",
+    systemPrompt:
+      "You are a customer support specialist. Help users resolve their issues quickly and professionally. Use the knowledge base to find accurate answers, maintain a polite and empathetic tone, and escalate complex issues when appropriate.",
+    prompt:
+      "Based on the available knowledge base and context, help resolve the user's request. If you cannot fully resolve the issue, acknowledge the limitation and suggest clear next steps.",
+  },
+] as const;
+
+type TemplateId = (typeof AGENT_TEMPLATES)[number]["id"];
+
 export function AIAgentPanelSections({
   node,
   def,
@@ -97,6 +136,7 @@ export function AIAgentPanelSections({
   onUpdateValue,
   onUpdateSystemPrompt,
   onUpdateModel,
+  onUpdateKnowledgeBases,
   scrollToSection,
 }: {
   node: CanvasNode;
@@ -106,6 +146,7 @@ export function AIAgentPanelSections({
   onUpdateValue: (id: string, value: string) => void;
   onUpdateSystemPrompt: (id: string, value: string) => void;
   onUpdateModel: (id: string, model: string) => void;
+  onUpdateKnowledgeBases: (id: string, kbIds: string[]) => void;
   scrollToSection?: {
     section: "tools" | "knowledge-sources";
     trigger: number;
@@ -136,6 +177,19 @@ export function AIAgentPanelSections({
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
   const [connectedAppsOpen, setConnectedAppsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [allKbs, setAllKbs] = useState<KnowledgeBaseOut[]>([]);
+
+  useEffect(() => {
+    api.knowledgeBases.list().then(setAllKbs).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!knowledgeBaseOpen) {
+      api.knowledgeBases.list().then(setAllKbs).catch(() => {});
+    }
+  }, [knowledgeBaseOpen]);
 
   const knowledgeSectionRef = useRef<HTMLDivElement>(null);
   const toolsSectionRef = useRef<HTMLDivElement>(null);
@@ -282,18 +336,69 @@ export function AIAgentPanelSections({
         </div>
 
         {/* Try agent templates */}
-        <button className="w-full flex justify-between items-center gap-2.5 px-4 py-3 mb-2 hover:bg-muted/30 transition-colors text-left">
-          <div className="flex items-center gap-2">
+        <button
+          onClick={() => setTemplatePickerOpen(true)}
+          className="w-full flex justify-between items-center gap-2.5 px-4 py-3 mb-2 hover:bg-muted/30 transition-colors text-left"
+        >
+          <div className="flex items-center gap-2 min-w-0">
             <Bot className="h-4 w-4 text-foreground/80 shrink-0" />
-            <span className="flex-1 text-[14px] font-medium text-foreground/80">
+            <span className="text-[14px] font-medium text-foreground/80 shrink-0">
               Try our agent templates
             </span>
-            <span className="text-[12px] px-2 py-1 bg-blue-100 text-blue-600 rounded-lg ml-1 font-semibold shrink-0">
-              New
-            </span>
+            {activeTemplateId ? (
+              <span className="text-[11px] px-2 py-0.5 bg-violet-100 text-violet-600 rounded-full font-semibold truncate">
+                {AGENT_TEMPLATES.find((t) => t.id === activeTemplateId)?.name}
+              </span>
+            ) : (
+              <span className="text-[12px] px-2 py-1 bg-blue-100 text-blue-600 rounded-lg font-semibold shrink-0">
+                New
+              </span>
+            )}
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
         </button>
+
+        {/* Template picker dialog */}
+        <Dialog open={templatePickerOpen} onOpenChange={setTemplatePickerOpen}>
+          <DialogContent className="max-w-sm p-0 overflow-hidden">
+            <DialogTitle className="px-4 pt-4 pb-0 text-[15px] font-semibold">
+              Agent Templates
+            </DialogTitle>
+            <div className="px-3 py-3 flex flex-col gap-2">
+              {AGENT_TEMPLATES.map((t) => {
+                const active = activeTemplateId === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      onUpdateSystemPrompt(node.id, t.systemPrompt);
+                      onUpdateValue(node.id, t.prompt);
+                      setActiveTemplateId(t.id);
+                      setTemplatePickerOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-3 rounded-lg border transition-colors ${
+                      active
+                        ? "border-violet-300 bg-violet-50"
+                        : "border-prune-borderGray bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="text-[14px] font-[450] text-foreground">
+                        {t.name}
+                      </span>
+                      {active && (
+                        <Check className="h-3.5 w-3.5 text-violet-600 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed">
+                      {t.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Prompting */}
@@ -358,6 +463,40 @@ export function AIAgentPanelSections({
           icon={<Database className="h-4 w-4" />}
           forceOpenTrigger={knowledgeForceTrigger}
         >
+          {(node.knowledgeBases ?? []).length > 0 && (
+            <div className="flex flex-col gap-1.5 mb-2">
+              {allKbs
+                .filter((kb) => (node.knowledgeBases ?? []).includes(kb.id))
+                .map((kb) => (
+                  <div
+                    key={kb.id}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-prune-borderGray bg-background"
+                  >
+                    <Database className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-[450] text-foreground truncate">
+                        {kb.name}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {kb.document_count} {kb.document_count === 1 ? "file" : "files"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const current = node.knowledgeBases ?? [];
+                        onUpdateKnowledgeBases(
+                          node.id,
+                          current.filter((id) => id !== kb.id),
+                        );
+                      }}
+                      className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="prune" className="w-full">
@@ -407,6 +546,16 @@ export function AIAgentPanelSections({
           <KnowledgeBaseDialog
             open={knowledgeBaseOpen}
             onOpenChange={setKnowledgeBaseOpen}
+            selectedIds={node.knowledgeBases ?? []}
+            onToggle={(kbId) => {
+              const current = node.knowledgeBases ?? [];
+              onUpdateKnowledgeBases(
+                node.id,
+                current.includes(kbId)
+                  ? current.filter((id) => id !== kbId)
+                  : [...current, kbId],
+              );
+            }}
           />
           <ConnectedAppsDialog
             open={connectedAppsOpen}

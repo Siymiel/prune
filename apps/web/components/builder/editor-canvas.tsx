@@ -28,6 +28,7 @@ import {
   type NodeRunStatus,
   type RunPhase,
 } from "@/lib/editor-nodes";
+import { type KnowledgeBaseOut } from "@/lib/api";
 import {
   NodeCard,
   NODE_WIDTH,
@@ -167,6 +168,8 @@ interface EditorCanvasProps {
   onToggleAllStickyNotes?: () => void;
   onUpdateLabel?: (id: string, label: string) => void;
   onOpenDetail?: (nodeId: string, section: "tools" | "knowledge-sources") => void;
+  allKbs?: KnowledgeBaseOut[];
+  onRemoveKbFromNode?: (nodeId: string, kbId: string) => void;
   nodeRunStatuses?: Record<string, NodeRunStatus>;
   nodeOutputs?: Record<string, string>;
   runPhase?: RunPhase;
@@ -237,6 +240,8 @@ export function EditorCanvas({
   onToggleAllStickyNotes,
   onUpdateLabel,
   onOpenDetail,
+  allKbs,
+  onRemoveKbFromNode,
   nodeRunStatuses,
   nodeOutputs,
   runPhase,
@@ -277,6 +282,8 @@ export function EditorCanvas({
   const [showMinimap, setShowMinimap] = useState(false);
   const [containerSize, setContainerSize] = useState({ w: 1200, h: 700 });
   const [isAnimating, setIsAnimating] = useState(false);
+  const [zoomVisible, setZoomVisible] = useState(false);
+  const zoomHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Refs for zero-lag direct DOM drag
   const nodeCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -313,6 +320,9 @@ export function EditorCanvas({
       setIsAnimating(false);
       setPan({ x: cx - (cx - p.x) * (nz / z), y: cy - (cy - p.y) * (nz / z) });
       setZoom(nz);
+      setZoomVisible(true);
+      if (zoomHideTimerRef.current) clearTimeout(zoomHideTimerRef.current);
+      zoomHideTimerRef.current = setTimeout(() => setZoomVisible(false), 1500);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -833,6 +843,8 @@ export function EditorCanvas({
             onUpdateStickyNoteColor={onUpdateStickyNoteColor}
             onUpdateLabel={onUpdateLabel}
             onOpenDetail={onOpenDetail}
+            allKbs={allKbs}
+            onRemoveKbFromNode={onRemoveKbFromNode}
             runStatus={nodeRunStatuses?.[node.id]}
             runOutput={nodeOutputs?.[node.id]}
           />
@@ -849,6 +861,18 @@ export function EditorCanvas({
           onClose={() => setPicker(null)}
         />
       )}
+
+      {/* Zoom indicator */}
+      <div
+        className={cn(
+          "absolute top-3 left-20 z-30 pointer-events-none transition-opacity duration-300",
+          zoomVisible ? "opacity-100" : "opacity-0",
+        )}
+      >
+        <div className="px-2 py-1 bg-background border rounded-md shadow-sm text-[13px] font-medium text-foreground tabular-nums select-none">
+          {Math.round(zoom * 100)}%
+        </div>
+      </div>
 
       {/* Run status pill */}
       {runPhase && runPhase !== "idle" && (
@@ -987,13 +1011,23 @@ export function EditorCanvas({
 
           <ToolBtn
             tooltip="Zoom in"
-            onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.1))}
+            onClick={() => {
+              setZoom((z) => Math.min(MAX_ZOOM, z + 0.1));
+              setZoomVisible(true);
+              if (zoomHideTimerRef.current) clearTimeout(zoomHideTimerRef.current);
+              zoomHideTimerRef.current = setTimeout(() => setZoomVisible(false), 1500);
+            }}
           >
             <ZoomIn className="h-4 w-4" />
           </ToolBtn>
           <ToolBtn
             tooltip="Zoom out"
-            onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.1))}
+            onClick={() => {
+              setZoom((z) => Math.max(MIN_ZOOM, z - 0.1));
+              setZoomVisible(true);
+              if (zoomHideTimerRef.current) clearTimeout(zoomHideTimerRef.current);
+              zoomHideTimerRef.current = setTimeout(() => setZoomVisible(false), 1500);
+            }}
           >
             <ZoomOut className="h-4 w-4" />
           </ToolBtn>
