@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle, Cloud, CloudOff, FlaskConical, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RunPhase } from '@/lib/editor-nodes';
+import { DeployModal } from '@/components/builder/deploy-modal';
 
 export type EditorTab = 'workflow' | 'export' | 'analytics' | 'manager';
 
@@ -32,6 +33,7 @@ export function EditorTopbar({ templateName, templateSlug, workflowId, saveState
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [examplesOpen, setExamplesOpen] = useState(false);
   const examplesRef = useRef<HTMLDivElement>(null);
+  const [deployOpen, setDeployOpen] = useState(false);
 
   useEffect(() => {
     if (!examplesOpen) return;
@@ -195,11 +197,23 @@ export function EditorTopbar({ templateName, templateSlug, workflowId, saveState
             {runPhase === 'running' ? 'Running…' : runPhase === 'done' ? 'Done' : runPhase === 'error' ? 'Failed' : 'Run'}
           </span>
         </button>
-        <button className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+        <button
+          onClick={() => setDeployOpen(true)}
+          className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium"
+        >
           <Rocket className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden sm:inline">Publish</span>
+          <span className="hidden sm:inline">Deploy</span>
         </button>
       </div>
+
+      {workflowId && (
+        <DeployModal
+          open={deployOpen}
+          onOpenChange={setDeployOpen}
+          workflowId={workflowId}
+          workflowName={localName}
+        />
+      )}
     </header>
   );
 }

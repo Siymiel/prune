@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     whatsapp_verify_token: str = ""
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
+    # Meta App Secret — used to validate X-Hub-Signature-256 on inbound webhooks
+    whatsapp_app_secret: str = ""
 
     # Safaricom Daraja (M-Pesa)
     daraja_consumer_key: str = ""

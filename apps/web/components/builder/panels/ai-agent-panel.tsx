@@ -137,6 +137,7 @@ export function AIAgentPanelSections({
   onUpdateSystemPrompt,
   onUpdateModel,
   onUpdateKnowledgeBases,
+  onUpdateSubflowTools,
   scrollToSection,
 }: {
   node: CanvasNode;
@@ -147,6 +148,7 @@ export function AIAgentPanelSections({
   onUpdateSystemPrompt: (id: string, value: string) => void;
   onUpdateModel: (id: string, model: string) => void;
   onUpdateKnowledgeBases: (id: string, kbIds: string[]) => void;
+  onUpdateSubflowTools?: (id: string, tools: import("@/lib/editor-nodes").SubflowTool[]) => void;
   scrollToSection?: {
     section: "tools" | "knowledge-sources";
     trigger: number;
@@ -174,6 +176,8 @@ export function AIAgentPanelSections({
   const [maxOutputLength, setMaxOutputLength] = useState(128000);
   const [retryOnFailure, setRetryOnFailure] = useState(false);
   const [llmFallbackMode, setLlmFallbackMode] = useState(false);
+  const [responseFormat, setResponseFormat] = useState<"text" | "json">("text");
+  const [jsonSchema, setJsonSchema] = useState("");
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
   const [connectedAppsOpen, setConnectedAppsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -195,6 +199,37 @@ export function AIAgentPanelSections({
   const toolsSectionRef = useRef<HTMLDivElement>(null);
   const [knowledgeForceTrigger, setKnowledgeForceTrigger] = useState(0);
   const [toolsForceTrigger, setToolsForceTrigger] = useState(0);
+
+  // Subflow tools
+  const [subflowTools, setSubflowTools] = useState<import("@/lib/editor-nodes").SubflowTool[]>(
+    () => node.subflowTools ?? []
+  );
+  const [editingToolId, setEditingToolId] = useState<string | null>(null);
+
+  const addSubflowTool = () => {
+    const newTool: import("@/lib/editor-nodes").SubflowTool = {
+      id: crypto.randomUUID(),
+      name: `Tool ${subflowTools.length + 1}`,
+      description: "",
+    };
+    const updated = [...subflowTools, newTool];
+    setSubflowTools(updated);
+    onUpdateSubflowTools?.(node.id, updated);
+    setEditingToolId(newTool.id);
+  };
+
+  const updateSubflowTool = (id: string, patch: Partial<import("@/lib/editor-nodes").SubflowTool>) => {
+    const updated = subflowTools.map(t => t.id === id ? { ...t, ...patch } : t);
+    setSubflowTools(updated);
+    onUpdateSubflowTools?.(node.id, updated);
+  };
+
+  const removeSubflowTool = (id: string) => {
+    const updated = subflowTools.filter(t => t.id !== id);
+    setSubflowTools(updated);
+    onUpdateSubflowTools?.(node.id, updated);
+    if (editingToolId === id) setEditingToolId(null);
+  };
 
   useEffect(() => {
     if (!scrollToSection) return;
@@ -410,6 +445,9 @@ export function AIAgentPanelSections({
         <div className="space-y-4 ml-2">
           <div className="mt-4">
             <SubLabel>Instructions</SubLabel>
+            <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
+              System prompt — your AI&apos;s persona, scope, and persistent rules across all runs
+            </p>
             <div className="border rounded-lg overflow-hidden">
               <Textarea
                 placeholder="You are a helpful assistant that…"
@@ -424,7 +462,7 @@ export function AIAgentPanelSections({
             </div>
           </div>
           <div className="mt-4">
-            <div className="flex items-center mb-2">
+            <div className="flex items-center mb-1">
               <SubLabel>Prompt</SubLabel>
               <ButtonGroup
                 className="ml-auto"
@@ -436,6 +474,9 @@ export function AIAgentPanelSections({
                 onChange={setPromptMode}
               />
             </div>
+            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
+              User prompt — dynamic task instructions executed on each run
+            </p>
             <div className="border rounded-lg overflow-hidden">
               <PromptEditor
                 value={
@@ -586,23 +627,93 @@ export function AIAgentPanelSections({
       </div>
 
       {/* Subflow Tools */}
-      {/* <Section title="Subflow Tools" icon={<GitBranch className="h-3.5 w-3.5" />}>
+      <Section title="Subflow Tools" icon={<GitBranch className="h-3.5 w-3.5" />}>
         <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-          Add subflow tools that the LLM can call. Connect each tool handle to a subflow that will
-          execute when the LLM calls that tool.
+          Define tools this agent can call dynamically. Each tool runs a connected sub-workflow.
+          The agent decides which tool to invoke based on the conversation context.
         </p>
-        <div className="text-[10px] text-muted-foreground mb-1.5">
-          Available variable in subflows:
-        </div>
-        <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border rounded-md text-xs font-mono text-foreground mb-3">
-          <Cpu className="h-3 w-3 text-muted-foreground shrink-0" />
-          {identifier}.subflow_tool_input
-        </div>
-        <Button variant="prune" className="w-full">
+
+        {subflowTools.length > 0 && (
+          <div className="space-y-2 mb-3">
+            {subflowTools.map((tool) => (
+              <div key={tool.id} className="rounded-lg border bg-muted/20 overflow-hidden">
+                {/* Tool header row */}
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <Cpu className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                  <span className="flex-1 text-[13px] font-medium text-foreground truncate">
+                    {tool.name || "Unnamed Tool"}
+                  </span>
+                  <button
+                    onClick={() => setEditingToolId(editingToolId === tool.id ? null : tool.id)}
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <PencilLineIcon className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => removeSubflowTool(tool.id)}
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+
+                {/* Inline edit form */}
+                {editingToolId === tool.id && (
+                  <div className="px-3 pb-3 space-y-2 border-t bg-background">
+                    <div className="pt-2">
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1">Name</p>
+                      <input
+                        className="w-full text-[13px] px-2 py-1.5 rounded-md border bg-muted/30 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                        value={tool.name}
+                        onChange={(e) => updateSubflowTool(tool.id, { name: e.target.value })}
+                        placeholder="e.g. Search Web"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1">
+                        Description <span className="font-normal">(tells the agent when to use it)</span>
+                      </p>
+                      <textarea
+                        rows={2}
+                        className="w-full text-[13px] px-2 py-1.5 rounded-md border bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
+                        value={tool.description}
+                        onChange={(e) => updateSubflowTool(tool.id, { description: e.target.value })}
+                        placeholder="e.g. Search the web for current information"
+                      />
+                    </div>
+                    {/* Variable reference */}
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1">Input variable in sub-workflow</p>
+                      <div className="flex items-center gap-2 px-2.5 py-2 bg-gray-900 rounded-md text-[11px] font-mono text-emerald-400">
+                        <Cpu className="h-3 w-3 shrink-0 text-gray-400" />
+                        {identifier}.subflow_tool_input
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Description preview when collapsed */}
+                {editingToolId !== tool.id && tool.description && (
+                  <p className="px-3 pb-2 text-[11px] text-muted-foreground leading-relaxed">
+                    {tool.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Button variant="prune" className="w-full" onClick={addSubflowTool}>
           <Plus className="h-4 w-4" />
           <span className="text-[14px] font-medium">Add Subflow Tool</span>
         </Button>
-      </Section> */}
+
+        {subflowTools.length > 0 && (
+          <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+            Connect a <span className="font-medium text-foreground">Subflow Tool</span> node to this agent on the canvas to wire each tool to its sub-workflow.
+          </p>
+        )}
+      </Section>
 
       <Separator />
 
@@ -745,12 +856,38 @@ export function AIAgentPanelSections({
           <SettingRow label="Reasoning">
             <Toggle checked={reasoning} onChange={setReasoning} />
           </SettingRow>
-          <SettingRow label="Response format">
-            <button className="flex items-center gap-2 px-3 py-1.5 border rounded-md text-xs hover:bg-muted/30 transition-colors">
-              <span>Text</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </SettingRow>
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[14px] font-medium text-gray-80 underline decoration-dashed underline-offset-4 mb-2">
+                Response format
+              </span>
+              <ButtonGroup
+                options={[
+                  { value: "text", label: "Text" },
+                  { value: "json", label: "JSON" },
+                ]}
+                value={responseFormat}
+                onChange={(v) => setResponseFormat(v as "text" | "json")}
+              />
+            </div>
+            {responseFormat === "json" && (
+              <div className="mt-2">
+                <p className="text-[11px] text-muted-foreground mb-1.5">
+                  JSON Schema <span className="font-normal">(optional — leave blank to let the AI decide)</span>
+                </p>
+                <textarea
+                  rows={4}
+                  value={jsonSchema}
+                  onChange={(e) => setJsonSchema(e.target.value)}
+                  placeholder={'{\n  "type": "object",\n  "properties": {\n    "answer": { "type": "string" }\n  }\n}'}
+                  className="w-full text-[12px] font-mono px-2.5 py-2 rounded-md border bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  The AI will return valid JSON matching this schema on every run.
+                </p>
+              </div>
+            )}
+          </div>
           <div>
             <div className="text-xs font-semibold text-foreground mb-2">
               Use your own credentials

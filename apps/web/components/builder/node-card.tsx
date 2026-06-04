@@ -714,6 +714,56 @@ function NodeContent({
     );
   }
 
+  if (def.kind === "subflow-tool") {
+    let toolName = "";
+    let toolDescription = "";
+    try {
+      const cfg = JSON.parse(node.inputValue ?? "{}");
+      toolName = cfg.toolName ?? "";
+      toolDescription = cfg.toolDescription ?? "";
+    } catch {}
+    return (
+      <div className="px-3 pb-3 space-y-2" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="px-2.5 py-2 rounded-md bg-violet-50 border border-violet-100 space-y-0.5">
+          <p className="text-[12px] font-medium text-violet-800 truncate">
+            {toolName || "Configure tool name…"}
+          </p>
+          {toolDescription && (
+            <p className="text-[11px] text-violet-600 line-clamp-2 leading-relaxed">{toolDescription}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-900 text-[10px] font-mono text-emerald-400">
+          <Database className="h-2.5 w-2.5 shrink-0 text-gray-400" />
+          <span className="truncate">subflow_tool_input</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (def.kind === "workflow") {
+    let wfName = "";
+    let wfId = "";
+    try {
+      const cfg = JSON.parse(node.inputValue ?? "{}");
+      wfName = cfg.workflowName ?? "";
+      wfId = cfg.workflowId ?? "";
+    } catch {}
+    return (
+      <div className="px-3 pb-3" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="px-2.5 py-2.5 rounded-md border bg-indigo-50 border-indigo-100">
+          {wfName ? (
+            <>
+              <p className="text-[12px] font-medium text-indigo-800 truncate">{wfName}</p>
+              <p className="text-[10px] font-mono text-indigo-500 truncate mt-0.5">{wfId}</p>
+            </>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">Select a workflow…</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (def.kind === "trigger") {
     return null;
   }

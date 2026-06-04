@@ -41,6 +41,7 @@ import {
   CircleArrowLeft,
   Eye,
   EyeOff,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
@@ -1698,70 +1699,62 @@ function ApiLangDropdown({ value, onChange }: { value: ApiLang; onChange: (v: Ap
   );
 }
 
-const API_ENDPOINT = "https://api.stackai.com/inference/v0/run/52331014-8b21-40d6-b84c-c25c51c7d54f/0";
+const PRUNE_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-function ApiConfigPreview() {
+function ApiConfigPreview({ workflowId }: { workflowId?: string | null }) {
   const [lang, setLang] = useState<ApiLang>("python");
   const [showToken, setShowToken] = useState(false);
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [outCopied, setOutCopied] = useState(false);
 
+  const API_ENDPOINT = `${PRUNE_API_URL}/v1/chat`;
+  const wfId = workflowId ?? "<your-workflow-id>";
   const token = showToken ? "sk-live-a1b2-c3d4-e5f6-7890abcdef12" : "XXXXXXXXXXXX";
 
   const pythonLines = [
     `import requests`,
     ``,
     `API_URL = "${API_ENDPOINT}"`,
-    `headers = {'Authorization':`,
-    `        'Bearer ${token}',`,
-    `        'Content-Type': 'application/json'`,
-    `    }`,
     ``,
-    `def query(payload):`,
-    `  response = requests.post(API_URL, headers=headers, json=payload)`,
+    `def query(message):`,
+    `  response = requests.post(API_URL, json={`,
+    `    "workflow_id": "${wfId}",`,
+    `    "message": message`,
+    `  })`,
     `  return response.json()`,
     ``,
-    `output = query({`,
-    `  "in-0": "",`,
-    `  "user_id": "",`,
-    `  "url-0": "https://example.com/"`,
-    `})`,
+    `result = query("Hello, what can you do?")`,
+    `print(result["reply"])`,
   ];
 
   const jsLines = [
     `const API_URL = "${API_ENDPOINT}";`,
-    `const headers = {`,
-    `  Authorization: 'Bearer ${token}',`,
-    `  'Content-Type': 'application/json'`,
-    `};`,
     ``,
-    `async function query(payload) {`,
-    `  const response = await fetch(API_URL, {`,
-    `    method: 'POST',`,
-    `    headers,`,
-    `    body: JSON.stringify(payload)`,
+    `async function query(message) {`,
+    `  const res = await fetch(API_URL, {`,
+    `    method: "POST",`,
+    `    headers: { "Content-Type": "application/json" },`,
+    `    body: JSON.stringify({`,
+    `      workflow_id: "${wfId}",`,
+    `      message`,
+    `    })`,
     `  });`,
-    `  return response.json();`,
+    `  return res.json();`,
     `}`,
     ``,
-    `query({`,
-    `  "in-0": "",`,
-    `  "user_id": "",`,
-    `  "url-0": "https://example.com/"`,
-    `});`,
+    `query("Hello, what can you do?").then(r => console.log(r.reply));`,
   ];
 
   const curlLines = [
     `curl -X POST \\`,
     `  "${API_ENDPOINT}" \\`,
-    `  -H "Authorization: Bearer ${token}" \\`,
     `  -H "Content-Type: application/json" \\`,
     `  -d '{`,
-    `    "in-0": "",`,
-    `    "user_id": "",`,
-    `    "url-0": "https://example.com/"`,
+    `    "workflow_id": "${wfId}",`,
+    `    "message": "Hello, what can you do?"`,
     `  }'`,
   ];
 
@@ -1774,13 +1767,28 @@ function ApiConfigPreview() {
     setTimeout(() => setCodeCopied(false), 2000);
   };
 
-  const handleRun = () => {
+  const handleRun = async () => {
+    if (!workflowId) {
+      setError("Save the workflow first (it needs a workflow ID).");
+      return;
+    }
     setRunning(true);
     setOutput(null);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const res = await fetch(`${PRUNE_API_URL}/v1/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflow_id: workflowId, message: "Hello, what can you do?" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? `HTTP ${res.status}`);
+      setOutput(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
+    } finally {
       setRunning(false);
-      setOutput(`{\n  "out-0": "Success",\n  "status": 200\n}`);
-    }, 1200);
+    }
   };
 
   const handleCopyOutput = () => {
@@ -1876,8 +1884,12 @@ function ApiConfigPreview() {
             <span className="text-gray-500">Running…</span>
           ) : output ? (
             <pre className="text-[#ce9178] whitespace-pre-wrap">{output}</pre>
+          ) : error ? (
+            <pre className="text-red-400 whitespace-pre-wrap">{error}</pre>
           ) : (
-            <span className="text-gray-500">Click Run to test your API</span>
+            <span className="text-gray-500">
+              {workflowId ? "Click Run to test your API" : "Save the workflow first to enable live testing"}
+            </span>
           )}
         </div>
       </div>
@@ -2127,7 +2139,7 @@ function CaOutputRow({
 
 // ─── Chat Assistant settings panel ────────────────────────────────────────────
 
-function ChatAssistantSettings() {
+function ChatAssistantSettings({ workflowId }: { workflowId?: string | null }) {
   const [generalOpen, setGeneralOpen] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(true);
   const [styleOpen, setStyleOpen] = useState(true);
@@ -2203,11 +2215,45 @@ function ChatAssistantSettings() {
     { label: "Hide welcome avatar", tip: "Hide the avatar icon on the welcome screen", value: hideWelcomeAvatar, set: setHideWelcomeAvatar },
   ];
 
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const chatUrl = workflowId ? `${APP_URL}/chat/${workflowId}` : null;
+  const [linkCopied, setLinkCopied] = useState(false);
+
   return (
     <>
       {showAvatarModal && <ImageUploadModal title="Upload Avatar" onClose={() => setShowAvatarModal(false)} />}
 
       <div className="flex-1 overflow-y-auto">
+        {/* Share link — most important for client delivery */}
+        <div className="px-5 py-4 border-b bg-emerald-50/50">
+          <p className="text-[13px] font-semibold text-foreground mb-2">Share Link</p>
+          {chatUrl ? (
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={chatUrl}
+                className="flex-1 text-[12px] font-mono px-2 py-1.5 rounded-md border bg-white text-foreground truncate"
+              />
+              <button
+                onClick={() => { navigator.clipboard.writeText(chatUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+              >
+                {linkCopied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                {linkCopied ? "Copied" : "Copy"}
+              </button>
+              <button
+                onClick={() => window.open(chatUrl, "_blank")}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Open
+              </button>
+            </div>
+          ) : (
+            <p className="text-[12px] text-muted-foreground">Save your workflow to get a shareable link.</p>
+          )}
+        </div>
+
         {/* General */}
         <AccordionSection title="General" open={generalOpen} onToggle={() => setGeneralOpen(!generalOpen)}>
           <div className="space-y-1.5">
@@ -2436,7 +2482,7 @@ const WCB_COLOR_PRESETS = [
   "#111827", // gray-900
 ];
 
-function WebsiteChatbotSettings() {
+function WebsiteChatbotSettings({ workflowId }: { workflowId?: string | null }) {
   const [generalOpen, setGeneralOpen] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(true);
   const [styleOpen, setStyleOpen] = useState(true);
@@ -2501,11 +2547,12 @@ function WebsiteChatbotSettings() {
   const [ssoEnabled, setSsoEnabled] = useState(false);
 
   // Embed
+  const APP_URL_WCB = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const chatSrc = workflowId ? `${APP_URL_WCB}/chat/${workflowId}` : `${APP_URL_WCB}/chat/YOUR_WORKFLOW_ID`;
+  const embedSnippet = `<script>\n(function(){\n  var open=false;\n  var iframe=document.createElement('iframe');\n  iframe.src='${chatSrc}';\n  iframe.style.cssText='display:none;position:fixed;bottom:90px;right:20px;width:380px;height:600px;border:none;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:9999';\n  document.body.appendChild(iframe);\n  var btn=document.createElement('button');\n  btn.style.cssText='position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;background:#7c3aed;border:none;cursor:pointer;z-index:9999';\n  btn.textContent='💬';\n  btn.onclick=function(){open=!open;iframe.style.display=open?'block':'none';};\n  document.body.appendChild(btn);\n})();\n</script>`;
   const [codeCopied, setCodeCopied] = useState(false);
   const handleCopyEmbed = () => {
-    navigator.clipboard.writeText(
-      `<script\n  src="https://cdn.pruneai.com/widget.js"\n  data-id="YOUR_BOT_ID"\n  async>\n</script>`,
-    );
+    navigator.clipboard.writeText(embedSnippet);
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
   };
@@ -2838,35 +2885,69 @@ function WebsiteChatbotSettings() {
 
         <Separator />
 
+        {/* Share link for chatbot standalone page */}
+        <div className="px-5 py-4 bg-emerald-50/50">
+          <p className="text-[13px] font-semibold text-foreground mb-2">Share Link</p>
+          {workflowId ? (
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={chatSrc}
+                className="flex-1 text-[12px] font-mono px-2 py-1.5 rounded-md border bg-white text-foreground truncate"
+              />
+              <button
+                onClick={() => { navigator.clipboard.writeText(chatSrc); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+              >
+                {codeCopied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                {codeCopied ? "Copied" : "Copy"}
+              </button>
+              <button
+                onClick={() => window.open(chatSrc, "_blank")}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Open
+              </button>
+            </div>
+          ) : (
+            <p className="text-[12px] text-muted-foreground">Save your workflow to get a shareable link.</p>
+          )}
+        </div>
+
+        <Separator />
+
         {/* Embed */}
         <AccordionSection title="Embed" open={embedOpen} onToggle={() => setEmbedOpen(!embedOpen)}>
           <div className="space-y-2">
-            <LabelWithInfo tip="Paste this snippet into the body of your webpage to embed the chatbot" className={sl}>
+            <LabelWithInfo tip="Paste this snippet into the body of your webpage to add a chat bubble" className={sl}>
               Embed code
             </LabelWithInfo>
-            <div className="relative">
-              <pre className="text-xs font-mono bg-gray-900 text-gray-100 px-4 py-3.5 rounded-lg overflow-x-auto leading-relaxed whitespace-pre">
-{`<script
-  src="https://cdn.pruneai.com/widget.js"
-  data-id="YOUR_BOT_ID"
-  async>
-</script>`}
-              </pre>
-              <button
-                onClick={handleCopyEmbed}
-                className="absolute top-2 right-2 h-7 w-7 flex items-center justify-center rounded-md bg-gray-700 hover:bg-gray-600 transition-colors text-gray-300"
-              >
-                {codeCopied ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </button>
-            </div>
+            {workflowId ? (
+              <div className="relative">
+                <pre className="text-xs font-mono bg-gray-900 text-gray-100 px-4 py-3.5 rounded-lg overflow-x-auto leading-relaxed whitespace-pre">
+                  {embedSnippet}
+                </pre>
+                <button
+                  onClick={handleCopyEmbed}
+                  className="absolute top-2 right-2 h-7 w-7 flex items-center justify-center rounded-md bg-gray-700 hover:bg-gray-600 transition-colors text-gray-300"
+                >
+                  {codeCopied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                Save your workflow first to generate the embed snippet.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground leading-relaxed">
               Add this before the closing{" "}
               <code className="font-mono bg-gray-100 px-1 rounded text-foreground">{"</body>"}</code>{" "}
-              tag of any webpage where you want the chatbot to appear.
+              tag of any webpage where you want the chatbot bubble to appear.
             </p>
           </div>
         </AccordionSection>
@@ -3316,7 +3397,7 @@ function BatchSettings() {
 
 // ─── Form config view ─────────────────────────────────────────────────────────
 
-function FormConfigView({ initialType = "form" }: { initialType?: InterfaceIdOrNone }) {
+function FormConfigView({ initialType = "form", workflowId }: { initialType?: InterfaceIdOrNone; workflowId?: string | null }) {
   const [generalOpen, setGeneralOpen] = useState(true);
   const [securityOpen, setSecurityOpen] = useState(true);
   const [subdomainOpen, setSubdomainOpen] = useState(true);
@@ -3351,6 +3432,12 @@ function FormConfigView({ initialType = "form" }: { initialType?: InterfaceIdOrN
   const [showCoverModal, setShowCoverModal] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);
+  const [formLinkCopied, setFormLinkCopied] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
+
+  const APP_URL_FORM = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const formUrl = workflowId ? `${APP_URL_FORM}/form/${workflowId}` : null;
+  const iframeEmbed = formUrl ? `<iframe\n  src="${formUrl}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  style="border-radius:12px;border:1px solid #e5e7eb"\n></iframe>` : null;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_FIELDS, JSON.stringify(fields));
@@ -3400,7 +3487,7 @@ function FormConfigView({ initialType = "form" }: { initialType?: InterfaceIdOrN
         <ImageUploadModal title="Upload Logo" onClose={() => setShowLogoModal(false)} />
       )}
       {showEmbedModal && (
-        <EmbedCodeModal onClose={() => setShowEmbedModal(false)} />
+        <EmbedCodeModal onClose={() => setShowEmbedModal(false)} workflowId={workflowId} />
       )}
 
       {/* Left — editable form preview */}
@@ -3447,7 +3534,7 @@ function FormConfigView({ initialType = "form" }: { initialType?: InterfaceIdOrN
           ) : interfaceType === "batch" ? (
             <BatchConfigPreview appName={appName} />
           ) : interfaceType === "api" ? (
-            <ApiConfigPreview />
+            <ApiConfigPreview workflowId={workflowId} />
           ) : (
             <InterfaceComingSoon id={interfaceType} />
           )}
@@ -3490,15 +3577,63 @@ function FormConfigView({ initialType = "form" }: { initialType?: InterfaceIdOrN
 
         <div className="flex-1 overflow-y-auto flex flex-col">
           {interfaceType === "chat-assistant" ? (
-            <ChatAssistantSettings />
+            <ChatAssistantSettings workflowId={workflowId} />
           ) : interfaceType === "website-chatbot" ? (
-            <WebsiteChatbotSettings />
+            <WebsiteChatbotSettings workflowId={workflowId} />
           ) : interfaceType === "batch" ? (
             <BatchSettings />
           ) : interfaceType === "api" ? (
             <ApiSettings />
           ) : (
             <>
+              {/* Share Link + Embed — form delivery */}
+              <div className="px-5 py-4 border-b bg-emerald-50/50">
+                <p className="text-[13px] font-semibold text-foreground mb-2">Share Link</p>
+                {formUrl ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={formUrl}
+                        className="flex-1 text-[12px] font-mono px-2 py-1.5 rounded-md border bg-white text-foreground truncate"
+                      />
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(formUrl); setFormLinkCopied(true); setTimeout(() => setFormLinkCopied(false), 2000); }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+                      >
+                        {formLinkCopied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                        {formLinkCopied ? "Copied" : "Copy"}
+                      </button>
+                      <button
+                        onClick={() => window.open(formUrl, "_blank")}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open
+                      </button>
+                    </div>
+                    {iframeEmbed && (
+                      <div>
+                        <p className="text-[12px] text-muted-foreground mb-1">Embed on your website</p>
+                        <div className="flex items-start gap-2">
+                          <code className="flex-1 text-[11px] font-mono px-2 py-1.5 rounded-md border bg-white text-foreground whitespace-pre-wrap break-all">
+                            {iframeEmbed}
+                          </code>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(iframeEmbed); setEmbedCopied(true); setTimeout(() => setEmbedCopied(false), 2000); }}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] border rounded-md hover:bg-muted transition-colors shrink-0"
+                          >
+                            {embedCopied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                            {embedCopied ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground">Save your workflow to get a shareable form link.</p>
+                )}
+              </div>
               <AccordionSection
                 title="General"
                 open={generalOpen}
@@ -3616,14 +3751,14 @@ function FormConfigView({ initialType = "form" }: { initialType?: InterfaceIdOrN
 
 const ALL_INTERFACES = [...USER_INTERFACES, ...API_INTERFACES];
 
-export function ExportView() {
+export function ExportView({ workflowId }: { workflowId?: string | null }) {
   const [selected, setSelected] = useState<InterfaceId | null>(null);
   const [configured, setConfigured] = useState(false);
 
   const selectedOption = ALL_INTERFACES.find((o) => o.id === selected) ?? null;
 
   if (configured && selected) {
-    return <FormConfigView initialType={selected} />;
+    return <FormConfigView initialType={selected} workflowId={workflowId} />;
   }
 
   return (

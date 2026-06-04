@@ -20,18 +20,24 @@ class TextInputNode(Node):
     """Reads a value from config or inputs and writes it to state.
 
     config.output_key  — state key to write (default: "message")
-    config.value       — static value; falls back to inputs[output_key]
+    config.value       — static default value; falls back to inputs[output_key]
+    config.required    — if True, returns an error when the resolved value is empty
     """
 
     type = "input.text"
 
     async def execute(self, ctx: NodeContext) -> NodeResult:
-        key: str = self.config.get("output_key", "message")
+        key: str = self.config.get("output_key") or "message"
         value: str = (
             self.config.get("value")
             or ctx["inputs"].get(key)
             or ctx["inputs"].get("message", "")
         )
+        if self.config.get("required") and not value.strip():
+            return {
+                "status": "error",
+                "error": f"Input field '{key}' is required but was not provided",
+            }
         return {
             "status": "ok",
             "output": {key: value},

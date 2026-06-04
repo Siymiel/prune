@@ -1,7 +1,7 @@
 import {
   Type, Files, Zap, Globe, Mic,
   Send, Play, Headphones, LayoutTemplate,
-  Bot, BookMarked, Leaf,
+  Bot, BookMarked, Leaf, Boxes, Network,
   Terminal, GitBranch, Shuffle, Repeat2,
   StickyNote, Timer, Brain, HardDrive, Table, SearchCode,
   CreditCard, MessageSquare, Database,
@@ -14,7 +14,7 @@ export type NodeBadge = 'Input' | 'Output' | 'Action' | 'Logic' | 'Util' | 'App'
 export type NodeKind =
   | 'text-input' | 'files' | 'trigger' | 'url' | 'audio-input'
   | 'output' | 'action' | 'audio-output' | 'template-out'
-  | 'ai-agent' | 'knowledge-base' | 'prune-ai'
+  | 'ai-agent' | 'knowledge-base' | 'prune-ai' | 'subflow-tool' | 'workflow'
   | 'whatsapp' | 'mpesa' | 'openai-app' | 'google-calendar-app'
   | 'google-drive-app' | 'gmail-app' | 'slack-app' | 'google-maps-app'
   | 'code' | 'if-else' | 'ai-routing' | 'loop-subflow'
@@ -60,6 +60,8 @@ export const NODE_DEFS: NodeDef[] = [
   { kind: 'ai-agent',       label: 'AI Agent',       description: 'Run an LLM with a custom system prompt',  icon: Bot,        category: 'core', badge: 'Action', badgeClass: 'bg-violet-500/10 text-violet-600', iconClass: 'text-violet-500'  },
   { kind: 'knowledge-base', label: 'Knowledge Base', description: 'Retrieve context from your documents',   icon: BookMarked, category: 'core', badge: 'Action', badgeClass: 'bg-sky-500/10 text-sky-600',       iconClass: 'text-sky-500'     },
   { kind: 'prune-ai',       label: 'PruneAI',         description: 'WhatsApp-native AI workflow engine',      icon: Leaf,       category: 'core', badge: 'Action', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
+  { kind: 'subflow-tool',   label: 'Subflow Tool',    description: 'A sub-workflow an AI Agent can call as a tool — the agent decides when to invoke it', icon: Boxes,   category: 'core', badge: 'Action', badgeClass: 'bg-violet-500/10 text-violet-600', iconClass: 'text-violet-500' },
+  { kind: 'workflow',       label: 'Workflow',         description: 'Call another saved PruneAI workflow and use its output in this flow', icon: Network, category: 'core', badge: 'Action', badgeClass: 'bg-indigo-500/10 text-indigo-600', iconClass: 'text-indigo-500' },
 
   // APPS
   { kind: 'whatsapp',            label: 'WhatsApp',        description: 'Send and receive WhatsApp messages',  icon: MessageSquare, category: 'apps', badge: 'App', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500', integrationId: 'whatsapp'         },
@@ -105,6 +107,8 @@ export const KIND_PREFIX: Record<string, string> = {
   'ai-agent':      'llm',
   'knowledge-base':'kb',
   'prune-ai':      'prune',
+  'subflow-tool':  'tool',
+  'workflow':      'wf',
   'whatsapp':      'wa',
   mpesa:           'mpesa',
   'openai-app':    'openai',
@@ -135,6 +139,12 @@ export function getNodesByCategory(category: NodeCategory): NodeDef[] {
   return NODE_DEFS.filter(n => n.category === category);
 }
 
+export interface SubflowTool {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface CanvasNode {
   id: string;
   kind: NodeKind;
@@ -146,11 +156,16 @@ export interface CanvasNode {
   model?: string;
   code?: string;
   knowledgeBases?: string[];
+  subflowTools?: SubflowTool[];
   stickyNote?: {
     visible: boolean;
     text: string;
     color: string;
   };
+  // text-input specific
+  outputKey?: string;
+  placeholder?: string;
+  required?: boolean;
 }
 
 export const LLM_MODELS = [

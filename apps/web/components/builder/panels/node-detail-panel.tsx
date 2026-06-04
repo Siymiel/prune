@@ -33,6 +33,8 @@ import { KnowledgeBasePanelSections } from "./knowledge-base-panel";
 import { FilesPanelSections } from "./files-panel";
 import { OutputPanelSections } from "./output-panel";
 import { GenericPanelSections } from "./generic-panel";
+import { SubflowToolPanelSections } from "./subflow-tool-panel";
+import { WorkflowNodePanelSections } from "./workflow-node-panel";
 
 export interface NodeDetailPanelProps {
   node: CanvasNode;
@@ -43,6 +45,8 @@ export interface NodeDetailPanelProps {
   onUpdateLabel: (id: string, label: string) => void;
   onUpdateModel: (id: string, model: string) => void;
   onUpdateKnowledgeBases: (id: string, kbIds: string[]) => void;
+  onUpdateSubflowTools?: (id: string, tools: import("@/lib/editor-nodes").SubflowTool[]) => void;
+  onUpdateNode?: (id: string, fields: Partial<CanvasNode>) => void;
   onRemoveNode: (id: string) => void;
   onFocusNode: (id: string) => void;
   onResizeMouseDown?: (e: React.MouseEvent) => void;
@@ -60,6 +64,8 @@ export function NodeDetailPanel({
   onUpdateLabel,
   onUpdateModel,
   onUpdateKnowledgeBases,
+  onUpdateSubflowTools,
+  onUpdateNode,
   onRemoveNode,
   onFocusNode,
   onResizeMouseDown,
@@ -236,9 +242,14 @@ export function NodeDetailPanel({
               onUpdateSystemPrompt={onUpdateSystemPrompt}
               onUpdateModel={onUpdateModel}
               onUpdateKnowledgeBases={onUpdateKnowledgeBases}
+              onUpdateSubflowTools={onUpdateSubflowTools}
               scrollToSection={scrollToSection}
             />
           </div>
+        ) : def.kind === "subflow-tool" ? (
+          <SubflowToolPanelSections node={node} identifier={identifier} onUpdateValue={onUpdateValue} />
+        ) : def.kind === "workflow" ? (
+          <WorkflowNodePanelSections node={node} onUpdateValue={onUpdateValue} />
         ) : def.kind === "action" ? (
           <div className="flex-1 overflow-hidden flex flex-col">
             <ActionCategoryPicker
@@ -272,7 +283,7 @@ export function NodeDetailPanel({
             {def.kind === "url" ? (
               <UrlPanelSections node={node} onUpdateValue={onUpdateValue} />
             ) : def.kind === "text-input" ? (
-              <TextInputPanelSections node={node} onUpdateValue={onUpdateValue} />
+              <TextInputPanelSections node={node} onUpdateValue={onUpdateValue} onUpdateNode={onUpdateNode} />
             ) : def.kind === "knowledge-base" ? (
               <KnowledgeBasePanelSections node={node} onUpdateValue={onUpdateValue} />
             ) : def.kind === "files" ? (

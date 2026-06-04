@@ -19,6 +19,10 @@ import {
   LogOut,
   Home,
   Moon,
+  Sparkles,
+  Globe,
+  Share2,
+  History,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuthStore } from "@/lib/auth-store"
@@ -54,12 +58,19 @@ interface NavItem {
 
 const WORKSPACE_NAV: NavItem[] = [
   { href: "/dashboard", label: "Projects", icon: LayoutDashboard },
-  { href: "/knowledge", label: "Knowledge Bases", icon: BookOpen },
-  { href: "/integrations", label: "Connections", icon: Puzzle },
-  { href: "/templates", label: "Skills", icon: Bot, badge: "6" },
-  { href: "/inbox", label: "Inbox", icon: Inbox, badge: "12" },
+  { href: "/dashboard/knowledge", label: "Knowledge Bases", icon: BookOpen },
+  { href: "/dashboard/skills", label: "Skills", icon: Sparkles },
+  { href: "/dashboard/connections", label: "Connections", icon: Puzzle },
+  { href: "/dashboard/inbox", label: "Inbox", icon: Inbox, badge: "12" },
+  { href: "/dashboard/runs", label: "Run History", icon: History },
   { href: "/builder", label: "Workflows", icon: Workflow },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/environments", label: "Environments", icon: Globe },
+  { href: "/dashboard/published-agents", label: "Published Agents", icon: Share2 },
+]
+
+const TEMPLATES_NAV: NavItem[] = [
+  { href: "/templates", label: "Templates", icon: Bot, badge: "6" },
 ]
 
 const SETTINGS_NAV: NavItem[] = [
@@ -125,6 +136,45 @@ export function AppSidebar() {
         <SidebarGroup className="group-data-[collapsible=icon]:py-1 p-1">
           <SidebarMenu>
             {WORKSPACE_NAV.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/")
+              const Icon = item.icon
+              return (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.label}
+                    className={cn(
+                      "h-8 text-[13px] font-medium rounded-md",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                    )}
+                  >
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    <Link href={item.href as any}>
+                      <Icon className="h-[15px] w-[15px] shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                  {item.badge && (
+                    <SidebarMenuBadge className="text-[10px] text-sidebar-foreground/40">
+                      {item.badge}
+                    </SidebarMenuBadge>
+                  )}
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup className="group-data-[collapsible=icon]:py-1 p-1">
+          <SidebarGroupLabel className="text-[10px] font-semibold tracking-widest text-sidebar-foreground/40 uppercase px-2 mb-0.5">
+            Templates
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {TEMPLATES_NAV.map((item) => {
               const isActive =
                 pathname === item.href || pathname.startsWith(item.href + "/")
               const Icon = item.icon

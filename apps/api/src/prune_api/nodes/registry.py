@@ -7,6 +7,7 @@ from prune_api.nodes.base import Node
 from prune_api.nodes.knowledge import KnowledgeBaseNode
 from prune_api.nodes.logic import CodeNode, IfElseNode, OutputNode, PassthroughNode, TextInputNode
 from prune_api.nodes.mpesa import MpesaSTKPushNode
+from prune_api.nodes.subflow import SubflowToolNode, WorkflowCallNode
 
 NODE_REGISTRY: dict[str, type[Node]] = {
     AIRespondNode.type: AIRespondNode,
@@ -17,4 +18,6 @@ NODE_REGISTRY: dict[str, type[Node]] = {
     IfElseNode.type: IfElseNode,
     CodeNode.type: CodeNode,
     OutputNode.type: OutputNode,
+    SubflowToolNode.type: SubflowToolNode,
+    WorkflowCallNode.type: WorkflowCallNode,
 }

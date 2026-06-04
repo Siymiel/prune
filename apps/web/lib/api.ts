@@ -200,10 +200,28 @@ export const api = {
     listDocuments: (kbId: string) =>
       apiFetch<KnowledgeDocumentOut[]>(`/v1/knowledge-bases/${kbId}/documents`),
 
-    uploadDocument: (kbId: string, file: File) => {
+    uploadDocument: (
+      kbId: string,
+      file: File,
+      opts?: {
+        chunkSize?: number;
+        chunkOverlapPct?: number;
+        chunkingMethod?: 'sentence' | 'naive';
+        embeddingModel?: string;
+      },
+    ) => {
       const form = new FormData();
       form.append('file', file);
-      return apiFetchForm<KnowledgeDocumentOut>(`/v1/knowledge-bases/${kbId}/documents`, form);
+      const params = new URLSearchParams();
+      if (opts?.chunkSize)        params.set('chunk_size', String(opts.chunkSize));
+      if (opts?.chunkOverlapPct != null) params.set('chunk_overlap_pct', String(opts.chunkOverlapPct));
+      if (opts?.chunkingMethod)   params.set('chunking_method', opts.chunkingMethod);
+      if (opts?.embeddingModel)   params.set('embedding_model', opts.embeddingModel);
+      const qs = params.toString();
+      return apiFetchForm<KnowledgeDocumentOut>(
+        `/v1/knowledge-bases/${kbId}/documents${qs ? `?${qs}` : ''}`,
+        form,
+      );
     },
 
     deleteDocument: (kbId: string, docId: string) =>
@@ -216,6 +234,39 @@ export const api = {
 
     get: (id: string) =>
       apiFetch<RunOut>(`/v1/runs/${id}`),
+
+    list: (params?: { workflow_id?: string; status?: string; page?: number; page_size?: number }) => {
+      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : '';
+      return apiFetch<RunOut[]>(`/v1/runs${qs}`);
+    },
+  },
+
+  channels: {
+    create: (body: { workflow_id: string; channel_type: string; config: Record<string, string> }) =>
+      apiFetch<{ id: string; workflow_id: string; channel_type: string; config: Record<string, unknown>; is_active: boolean; created_at: string }>(
+        '/v1/channels', { method: 'POST', body: JSON.stringify(body) }
+      ),
+
+    list: (workflow_id?: string) => {
+      const qs = workflow_id ? `?workflow_id=${workflow_id}` : '';
+      return apiFetch<{ id: string; workflow_id: string; channel_type: string; config: Record<string, unknown>; is_active: boolean; created_at: string }[]>(`/v1/channels${qs}`);
+    },
+
+    delete: (id: string) =>
+      apiFetch<void>(`/v1/channels/${id}`, { method: 'DELETE' }),
+  },
+
+  conversations: {
+    list: (params?: { page?: number; page_size?: number }) => {
+      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : '';
+      return apiFetch<{ id: string; contact_phone: string | null; channel: string; created_at: string; updated_at: string; last_message: string | null; message_count: number }[]>(`/v1/conversations${qs}`);
+    },
+
+    get: (id: string) =>
+      apiFetch<{ id: string; contact_phone: string | null; channel: string; created_at: string; updated_at: string }>(`/v1/conversations/${id}`),
+
+    messages: (id: string) =>
+      apiFetch<{ id: string; role: string; content: string; created_at: string }[]>(`/v1/conversations/${id}/messages`),
   },
 };
 

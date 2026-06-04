@@ -2,7 +2,7 @@
 
 import { AlignLeft, Settings2 } from "lucide-react";
 import { type CanvasNode } from "@/lib/editor-nodes";
-import { Section, FieldLabel } from "./panel-ui";
+import { Section, FieldLabel, SubLabel, Toggle } from "./panel-ui";
 
 const inputClass =
   "w-full px-3 py-2 text-xs bg-muted/30 border rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-prune-midGray";
@@ -11,14 +11,19 @@ const textareaClass = `${inputClass} resize-none font-medium text-[16px]`;
 export function TextInputPanelSections({
   node,
   onUpdateValue,
+  onUpdateNode,
 }: {
   node: CanvasNode;
   onUpdateValue: (id: string, value: string) => void;
+  onUpdateNode?: (id: string, fields: Partial<CanvasNode>) => void;
 }) {
   return (
     <>
       <Section title="Value" icon={<AlignLeft className="h-3.5 w-3.5" />} defaultOpen>
         <FieldLabel>Default value</FieldLabel>
+        <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
+          Pre-filled text — shown in the input field and used if the user submits without typing
+        </p>
         <textarea
           className={textareaClass}
           rows={4}
@@ -27,8 +32,54 @@ export function TextInputPanelSections({
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
         />
       </Section>
+
       <Section title="Options" icon={<Settings2 className="h-3.5 w-3.5" />}>
-        <p className="text-xs text-muted-foreground">No options configured.</p>
+        <div className="space-y-4">
+          <div>
+            <SubLabel>Variable name</SubLabel>
+            <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
+              State key this input writes to — referenced by downstream nodes
+            </p>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="message"
+              value={node.outputKey ?? ""}
+              onChange={(e) =>
+                onUpdateNode?.(node.id, { outputKey: e.target.value })
+              }
+            />
+          </div>
+
+          <div>
+            <SubLabel>Placeholder</SubLabel>
+            <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
+              Hint text shown inside the empty field in your interface
+            </p>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="Type your message…"
+              value={node.placeholder ?? ""}
+              onChange={(e) =>
+                onUpdateNode?.(node.id, { placeholder: e.target.value })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <SubLabel className="mb-0.5">Required</SubLabel>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Block workflow execution if this field is left empty
+              </p>
+            </div>
+            <Toggle
+              checked={node.required ?? false}
+              onChange={(v) => onUpdateNode?.(node.id, { required: v })}
+            />
+          </div>
+        </div>
       </Section>
     </>
   );

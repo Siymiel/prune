@@ -42,157 +42,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from prune_api.core.auth import CurrentUser, get_current_user
 from prune_api.db.base import AsyncSessionLocal, get_session
 from prune_api.db.models import Run, TraceStep, Workflow
+from prune_api.engine.graph import canvas_to_engine
 from prune_api.engine.runner import RunStatus, run_workflow_iter
 from prune_api.nodes.registry import NODE_REGISTRY
 
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
-# Canvas → Engine graph conversion
+# Canvas → Engine graph conversion  (logic lives in engine/graph.py)
 # ---------------------------------------------------------------------------
 
-_KIND_TO_TYPE: dict[str, str] = {
-    "text-input":    "input.text",
-    "files":         "passthrough",
-    "trigger":       "passthrough",
-    "url":           "passthrough",
-    "audio-input":   "passthrough",
-    "output":        "workflow.output",
-    "action":        "passthrough",
-    "audio-output":  "passthrough",
-    "template-out":  "passthrough",
-    "ai-agent":      "ai.respond",
-    "ai-routing":    "logic.if_else",
-    "prune-ai":      "ai.respond",
-    "if-else":       "logic.if_else",
-    "loop-subflow":  "passthrough",
-    "code":          "logic.code",
-    "mpesa":         "payment.mpesa_stk",
-    "knowledge-base": "knowledge.retrieve",
-    "sticky-note":   "passthrough",
-    "default-message": "passthrough",
-    "delay":         "passthrough",
-    "shared-memory": "passthrough",
-    "vector-store":  "passthrough",
-    "text-to-sql":   "passthrough",
-    "search-tables": "passthrough",
-    "search-data":   "passthrough",
-    # app integrations → passthrough until implemented
-    "whatsapp":           "passthrough",
-    "openai-app":         "passthrough",
-    "google-calendar-app": "passthrough",
-    "google-drive-app":   "passthrough",
-    "gmail-app":          "passthrough",
-    "slack-app":          "passthrough",
-    "google-maps-app":    "passthrough",
-}
-
-
 def _canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
-    """Convert builder canvas format to the engine's run format."""
-    canvas_nodes: list[dict[str, Any]] = graph.get("nodes", [])
-    canvas_edges: list[dict[str, Any]] = graph.get("edges", [])
-
-    if not canvas_nodes:
-        return {"entry": None, "nodes": []}
-
-    # Build sourceId → first targetId map (single successor per node for now)
-    next_map: dict[str, str | None] = {n["id"]: None for n in canvas_nodes}
-    for edge in canvas_edges:
-        src = edge.get("sourceId") or edge.get("source")
-        tgt = edge.get("targetId") or edge.get("target")
-        if src and tgt and next_map.get(src) is None:
-            next_map[src] = tgt
-
-    # Entry node = node with no incoming edges
-    has_incoming: set[str] = {
-        edge.get("targetId") or edge.get("target", "")
-        for edge in canvas_edges
-    }
-    entry_id: str = next(
-        (n["id"] for n in canvas_nodes if n["id"] not in has_incoming),
-        canvas_nodes[0]["id"],
-    )
-
-    # For ai-agent nodes with knowledgeBases attached, auto-inject synthetic
-    # knowledge.retrieve nodes that run before the agent and populate state["context"].
-    synthetic_nodes: list[dict[str, Any]] = []
-    kb_chain_first: dict[str, str] = {}
-
-    for n in canvas_nodes:
-        if n.get("kind") not in ("ai-agent", "prune-ai"):
-            continue
-        kb_ids: list[str] = n.get("knowledgeBases") or []
-        if not kb_ids:
-            continue
-
-        agent_id = n["id"]
-        chain_ids = [f"__kb_{agent_id}_{i}" for i in range(len(kb_ids))]
-
-        for i, kb_id in enumerate(kb_ids):
-            next_id = chain_ids[i + 1] if i + 1 < len(kb_ids) else agent_id
-            synthetic_nodes.append({
-                "id": chain_ids[i],
-                "type": "knowledge.retrieve",
-                "config": {
-                    "knowledge_base_id": kb_id,
-                    "top_k": 5,
-                    "query_key": "message",
-                    "next": next_id,
-                },
-            })
-
-        kb_chain_first[agent_id] = chain_ids[0]
-
-    for nid in next_map:
-        if next_map[nid] in kb_chain_first:
-            next_map[nid] = kb_chain_first[next_map[nid]]
-
-    if entry_id in kb_chain_first:
-        entry_id = kb_chain_first[entry_id]
-
-    engine_nodes: list[dict[str, Any]] = []
-    for n in canvas_nodes:
-        kind: str = n.get("kind", "")
-        node_type: str = _KIND_TO_TYPE.get(kind, "passthrough")
-
-        config: dict[str, Any] = {"next": next_map.get(n["id"])}
-
-        if node_type == "input.text":
-            config["output_key"] = "message"
-            config["value"] = n.get("inputValue", "")
-
-        elif node_type == "ai.respond":
-            config["system_prompt"] = n.get(
-                "systemPrompt", "You are a helpful AI assistant."
-            )
-            config["model"] = n.get("model", "claude-haiku-4-5-20251001")
-            config["max_tokens"] = n.get("maxTokens", 1024)
-            config["temperature"] = n.get("temperature", 0.7)
-
-        elif node_type == "logic.if_else":
-            config["condition"] = n.get("condition", "")
-            config["then_next"] = n.get("thenNext") or next_map.get(n["id"])
-            config["else_next"] = n.get("elseNext")
-
-        elif node_type == "logic.code":
-            config["code"] = n.get("code", "")
-
-        elif node_type == "knowledge.retrieve":
-            config["knowledge_base_id"] = n.get("inputValue", "")
-            config["top_k"] = n.get("topK", 5)
-            config["query_key"] = n.get("queryKey", "message")
-
-        elif node_type == "payment.mpesa_stk":
-            config["phone"] = n.get("phone", "{{state.message}}")
-            config["amount"] = n.get("amount", 0)
-            config["reference"] = n.get("reference", "Prune")
-
-        engine_nodes.append({"id": n["id"], "type": node_type, "config": config})
-
-    engine_nodes.extend(synthetic_nodes)
-
-    return {"entry": entry_id, "nodes": engine_nodes}
+    return canvas_to_engine(graph)
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +155,47 @@ async def _execute_run(
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.get("/runs", response_model=list[RunOut])
+async def list_runs(
+    workflow_id: str | None = None,
+    status: str | None = None,
+    page: int = 0,
+    page_size: int = 20,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[RunOut]:
+    """List runs for the tenant, newest first."""
+    q = (
+        select(Run)
+        .where(Run.tenant_id == current_user.tenant_id)
+        .order_by(Run.started_at.desc())
+    )
+    if workflow_id:
+        try:
+            q = q.where(Run.workflow_id == uuid.UUID(workflow_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid workflow_id")
+    if status:
+        q = q.where(Run.status == status)
+
+    q = q.offset(page * page_size).limit(page_size)
+    rows = (await session.execute(q)).scalars().all()
+
+    return [
+        RunOut(
+            id=str(r.id),
+            workflow_id=str(r.workflow_id) if r.workflow_id else None,
+            status=r.status,
+            state=r.state or {},
+            error=r.error,
+            trace=[],
+            started_at=r.started_at.isoformat() if r.started_at else None,
+            completed_at=r.completed_at.isoformat() if r.completed_at else None,
+        )
+        for r in rows
+    ]
+
 
 @router.post("/runs", response_model=RunOut, status_code=202)
 async def trigger_run(

@@ -42,15 +42,66 @@ def _extract_text(filename: str, content: bytes) -> str:
     return content.decode("utf-8", errors="replace")
 
 
-def _chunk_text(text: str, size: int = 1000, overlap: int = 200) -> list[str]:
+def _chunk_text(
+    text: str,
+    size: int = 500,
+    overlap_pct: int = 20,
+    method: str = "sentence",
+) -> list[str]:
+    """Split text into chunks using either naive (fixed-size) or sentence-based method.
+
+    Args:
+        size:        target chunk size in characters (naive) or approximate token-equivalent
+        overlap_pct: percentage of chunk to repeat in the next chunk (0-50)
+        method:      "naive" splits by character count; "sentence" splits at sentence boundaries
+    """
+    overlap = max(0, int(size * overlap_pct / 100))
+
+    if method == "sentence":
+        return _chunk_sentences(text, size, overlap)
+
+    # Naive fixed-length chunking
     chunks: list[str] = []
+    step = max(1, size - overlap)
     start = 0
     while start < len(text):
         chunk = text[start : start + size].strip()
         if chunk:
             chunks.append(chunk)
-        start += size - overlap
+        start += step
     return chunks
+
+
+def _chunk_sentences(text: str, target_size: int, overlap: int) -> list[str]:
+    """Sentence-aware chunker: accumulates sentences until reaching target_size chars."""
+    import re
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    chunks: list[str] = []
+    current_sentences: list[str] = []
+    current_len = 0
+
+    for sentence in sentences:
+        slen = len(sentence)
+        if current_len + slen > target_size and current_sentences:
+            chunk = " ".join(current_sentences).strip()
+            if chunk:
+                chunks.append(chunk)
+            # Seed next chunk with overlap characters from the end
+            overlap_text = chunk[-overlap:] if overlap > 0 else ""
+            current_sentences = [overlap_text, sentence] if overlap_text else [sentence]
+            current_len = len(overlap_text) + slen + (1 if overlap_text else 0)
+        else:
+            current_sentences.append(sentence)
+            current_len += slen + 1
+
+    if current_sentences:
+        chunk = " ".join(current_sentences).strip()
+        if chunk:
+            chunks.append(chunk)
+
+    return chunks or [text[:target_size].strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -93,13 +144,50 @@ async def _summarize_chunks(chunks: list[str]) -> list[str]:
     return list(await asyncio.gather(*[_one(c) for c in chunks]))
 
 
-async def _ingest(doc_id: str, kb_id: str, filename: str, tmp_path: str) -> None:
-    """Extract text, embed with Voyage AI, upsert chunks to Pinecone, update DB status.
+async def _embed_texts(texts: list[str], model: str) -> list[list[float]]:
+    """Embed a list of texts using the specified model.
+
+    Supports:
+      - Voyage AI models (voyage-3, voyage-3-lite, …)   — requires VOYAGE_API_KEY
+      - OpenAI embedding models (text-embedding-3-*)    — requires OPENAI_API_KEY
+      - Fallback for unknown models: Voyage AI voyage-3
+    """
+    model_lower = model.lower()
+
+    if model_lower.startswith("text-embedding") or model_lower in ("all-mpnet-base-v2", "bert-base-cased"):
+        # OpenAI-compatible or open-source model via OpenAI-compatible endpoint
+        if not settings.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is not configured for OpenAI embedding models")
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        resp = await client.embeddings.create(input=texts, model=model_lower if model_lower.startswith("text-embedding") else "text-embedding-3-small")
+        return [item.embedding for item in resp.data]
+
+    # Voyage AI (default)
+    if not settings.voyage_api_key:
+        raise RuntimeError("VOYAGE_API_KEY is not configured")
+    import voyageai
+    vo = voyageai.AsyncClient(api_key=settings.voyage_api_key)
+    voyage_model = model if model.startswith("voyage-") else "voyage-3"
+    embed_resp = await vo.embed(texts, model=voyage_model, input_type="document")
+    return embed_resp.embeddings
+
+
+async def _ingest(
+    doc_id: str,
+    kb_id: str,
+    filename: str,
+    tmp_path: str,
+    chunk_size: int = 500,
+    chunk_overlap_pct: int = 20,
+    chunking_method: str = "sentence",
+    embedding_model: str = "voyage-3",
+) -> None:
+    """Extract text, embed, upsert chunks to Pinecone, update DB status.
 
     tmp_path is a temporary file written during upload.  It is always deleted
     before this function returns, regardless of success or failure.
     """
-    import voyageai
     from pinecone import Pinecone
     from prune_api.db.base import AsyncSessionLocal
 
@@ -114,7 +202,7 @@ async def _ingest(doc_id: str, kb_id: str, filename: str, tmp_path: str) -> None
                 text = _extract_text(filename, content)
                 del content  # release upload bytes before the embedding calls
 
-                chunks = _chunk_text(text)
+                chunks = _chunk_text(text, size=chunk_size, overlap_pct=chunk_overlap_pct, method=chunking_method)
                 if not chunks:
                     row.status = "error"
                     row.error = "No text could be extracted from the file."
@@ -124,12 +212,10 @@ async def _ingest(doc_id: str, kb_id: str, filename: str, tmp_path: str) -> None
                 # Summarize chunks for token-efficient retrieval; keep originals for "show source"
                 summaries = await _summarize_chunks(chunks)
 
-                if not settings.voyage_api_key:
-                    raise RuntimeError("VOYAGE_API_KEY is not configured")
-                vo = voyageai.AsyncClient(api_key=settings.voyage_api_key)
-                embed_resp = await vo.embed(chunks, model="voyage-3", input_type="document")
-                vectors = embed_resp.embeddings
+                vectors = await _embed_texts(chunks, embedding_model)
 
+                if not settings.pinecone_api_key:
+                    raise RuntimeError("PINECONE_API_KEY is not configured")
                 pc = Pinecone(api_key=settings.pinecone_api_key)
                 index = pc.Index(settings.pinecone_index)
 
@@ -144,6 +230,7 @@ async def _ingest(doc_id: str, kb_id: str, filename: str, tmp_path: str) -> None
                             "kb_id": kb_id,
                             "filename": filename,
                             "chunk_index": i,
+                            "embedding_model": embedding_model,
                         },
                     }
                     for i in range(len(chunks))
@@ -360,6 +447,10 @@ async def upload_document(
     kb_id: str,
     file: UploadFile,
     background_tasks: BackgroundTasks,
+    chunk_size: int = Query(default=500, ge=100, le=4000, description="Chunk size in characters"),
+    chunk_overlap_pct: int = Query(default=20, ge=0, le=50, description="Overlap percentage between chunks"),
+    chunking_method: str = Query(default="sentence", description="'sentence' or 'naive'"),
+    embedding_model: str = Query(default="voyage-3", description="Embedding model to use"),
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> KnowledgeDocumentOut:
@@ -406,7 +497,17 @@ async def upload_document(
     await session.commit()
     await session.refresh(doc)
 
-    background_tasks.add_task(_ingest, str(doc.id), kb_id, filename, tmp_path)
+    background_tasks.add_task(
+        _ingest,
+        str(doc.id),
+        kb_id,
+        filename,
+        tmp_path,
+        chunk_size,
+        chunk_overlap_pct,
+        chunking_method,
+        embedding_model,
+    )
 
     return KnowledgeDocumentOut(
         id=str(doc.id),

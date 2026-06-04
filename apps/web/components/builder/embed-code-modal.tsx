@@ -87,20 +87,64 @@ function tokenizeJSLine(line: string): SyntaxToken[] {
   return tokens;
 }
 
-export function EmbedCodeModal({ onClose }: { onClose: () => void }) {
+export function EmbedCodeModal({ onClose, workflowId }: { onClose: () => void; workflowId?: string | null }) {
   const [mode, setMode] = useState<"html" | "react">("html");
   const [copied, setCopied] = useState(false);
 
-  const htmlCode = `<script
-  src="https://cdn.pruneai.com/widget.js"
-  data-id="YOUR_BOT_ID"
-  async>
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const chatSrc = workflowId ? `${APP_URL}/chat/${workflowId}` : `${APP_URL}/chat/YOUR_WORKFLOW_ID`;
+
+  const htmlCode = `<!-- PruneAI Chat Widget -->
+<script>
+(function() {
+  var open = false;
+  var iframe = document.createElement('iframe');
+  iframe.src = '${chatSrc}';
+  iframe.style.cssText = 'display:none;position:fixed;bottom:90px;right:20px;width:380px;height:600px;border:none;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:9999';
+  document.body.appendChild(iframe);
+  var btn = document.createElement('button');
+  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;background:#7c3aed;border:none;cursor:pointer;z-index:9999;box-shadow:0 4px 16px rgba(124,58,237,0.4);display:flex;align-items:center;justify-content:center';
+  btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+  btn.onclick = function() {
+    open = !open;
+    iframe.style.display = open ? 'block' : 'none';
+  };
+  document.body.appendChild(btn);
+})();
 </script>`;
 
-  const reactCode = `import { PruneWidget } from '@pruneai/react';
+  const reactCode = `import { useState } from 'react';
 
-export default function App() {
-  return <PruneWidget botId="YOUR_BOT_ID" />;
+export function PruneAIWidget() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          position: 'fixed', bottom: 20, right: 20,
+          width: 56, height: 56, borderRadius: '50%',
+          background: '#7c3aed', border: 'none',
+          cursor: 'pointer', zIndex: 9999,
+          boxShadow: '0 4px 16px rgba(124,58,237,0.4)',
+        }}
+      >
+        💬
+      </button>
+      {open && (
+        <iframe
+          src="${chatSrc}"
+          style={{
+            position: 'fixed', bottom: 90, right: 20,
+            width: 380, height: 600,
+            border: 'none', borderRadius: 16,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            zIndex: 9999,
+          }}
+        />
+      )}
+    </>
+  );
 }`;
 
   const code = mode === "html" ? htmlCode : reactCode;

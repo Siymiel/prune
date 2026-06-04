@@ -9,7 +9,19 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from prune_api.routers import auth, chat, health, knowledge, runs, schedules, webhooks, workflows
+from prune_api.routers import (
+    auth,
+    channels,
+    chat,
+    conversations,
+    environments,
+    health,
+    knowledge,
+    runs,
+    schedules,
+    webhooks,
+    workflows,
+)
 
 
 @asynccontextmanager
@@ -48,4 +60,7 @@ app.include_router(workflows.router, prefix="/v1")
 app.include_router(runs.router, prefix="/v1")
 app.include_router(knowledge.router, prefix="/v1")
 app.include_router(schedules.router, prefix="/v1")
+app.include_router(channels.router, prefix="/v1")
+app.include_router(conversations.router, prefix="/v1")
+app.include_router(environments.router, prefix="/v1")
 app.include_router(webhooks.router, prefix="/v1/webhooks")

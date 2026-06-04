@@ -298,3 +298,45 @@ class TraceStep(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     run: Mapped[Run] = relationship(back_populates="trace_steps")
+
+
+class Environment(Base):
+    """A named environment (e.g. Development, Staging, Production) belonging to a tenant."""
+
+    __tablename__ = "environments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    variables: Mapped[list[EnvironmentVariable]] = relationship(
+        back_populates="environment", cascade="all, delete-orphan"
+    )
+
+
+class EnvironmentVariable(Base):
+    """A key/value pair stored inside an environment."""
+
+    __tablename__ = "environment_variables"
+    __table_args__ = (UniqueConstraint("environment_id", "key", name="uq_env_var_key"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    environment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("environments.id", ondelete="CASCADE"), nullable=False
+    )
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Stored in plain text for now; encrypt at the application layer when needed
+    value: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    environment: Mapped[Environment] = relationship(back_populates="variables")

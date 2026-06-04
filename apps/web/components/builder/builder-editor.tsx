@@ -500,6 +500,16 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, knowledgeBases: kbIds } : n)));
   }, []);
 
+  const updateSubflowTools = useCallback((id: string, tools: import('@/lib/editor-nodes').SubflowTool[]) => {
+    hasContentChangeRef.current = true;
+    setNodes(prev => prev.map(n => (n.id === id ? { ...n, subflowTools: tools } : n)));
+  }, []);
+
+  const updateNodeFields = useCallback((id: string, fields: Partial<import('@/lib/editor-nodes').CanvasNode>) => {
+    hasContentChangeRef.current = true;
+    setNodes(prev => prev.map(n => (n.id === id ? { ...n, ...fields } : n)));
+  }, []);
+
   const updateWorkflowName = useCallback((name: string) => {
     hasContentChangeRef.current = true;
     setWorkflowName(name);
@@ -667,7 +677,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
         ]}
       />
       {activeTab === 'export' ? (
-        <ExportView />
+        <ExportView workflowId={apiWorkflowId} />
       ) : (
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar />
@@ -766,6 +776,8 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
               onUpdateLabel={updateLabel}
               onUpdateModel={updateModel}
               onUpdateKnowledgeBases={updateKnowledgeBases}
+              onUpdateSubflowTools={updateSubflowTools}
+              onUpdateNode={updateNodeFields}
               onRemoveNode={removeNode}
               onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
               onResizeMouseDown={handleResizeMouseDown}
