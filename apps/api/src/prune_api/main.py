@@ -15,6 +15,7 @@ from prune_api.routers import (
     chat,
     conversations,
     environments,
+    files,
     health,
     knowledge,
     runs,
@@ -55,6 +56,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/v1")
+app.include_router(files.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
 app.include_router(workflows.router, prefix="/v1")
 app.include_router(runs.router, prefix="/v1")

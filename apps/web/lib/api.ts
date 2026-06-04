@@ -228,6 +228,17 @@ export const api = {
       apiFetch<void>(`/v1/knowledge-bases/${kbId}/documents/${docId}`, { method: 'DELETE' }),
   },
 
+  files: {
+    extract: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return apiFetchForm<{ name: string; text: string; type: string; size: number }>(
+        '/v1/files/extract',
+        form,
+      );
+    },
+  },
+
   runs: {
     trigger: (body: TriggerRunRequest) =>
       apiFetch<RunOut>('/v1/runs', { method: 'POST', body: JSON.stringify(body) }),

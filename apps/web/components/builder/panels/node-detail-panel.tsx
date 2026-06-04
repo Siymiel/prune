@@ -24,8 +24,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { InlineEditableTextInput } from "../inline-editable-text-input";
 import { AIAgentPanelSections } from "./ai-agent-panel";
 import { ActionCategoryPicker, parseActionConfig } from "./action-panel";
-import { TriggerProviderPicker } from "./trigger-panel";
+import { TriggerPanelSections } from "./trigger-panel";
 import { AudioOutputPanelSections } from "./audio-output-panel";
+import { AudioInputPanelSections } from "./audio-input-panel";
 import { TemplatePanelSections } from "./template-panel";
 import { UrlPanelSections } from "./url-panel";
 import { TextInputPanelSections } from "./text-input-panel";
@@ -228,8 +229,8 @@ export function NodeDetailPanel({
 
         {/* Per-node-kind content */}
         {def.kind === "trigger" ? (
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <TriggerProviderPicker />
+          <div className="flex-1 overflow-y-auto py-[3px]">
+            <TriggerPanelSections node={node} onUpdateNode={onUpdateNode} />
           </div>
         ) : def.kind === "ai-agent" || def.kind === "prune-ai" || def.kind === "openai-app" ? (
           <div className="flex-1 overflow-y-auto">
@@ -258,6 +259,10 @@ export function NodeDetailPanel({
               onUpdateLabel={onUpdateLabel}
             />
           </div>
+        ) : def.kind === "audio-input" ? (
+          <div className="flex-1 overflow-y-auto py-[3px]">
+            <AudioInputPanelSections node={node} onUpdateNode={onUpdateNode} />
+          </div>
         ) : def.kind === "audio-output" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
             <AudioOutputPanelSections />
@@ -281,13 +286,13 @@ export function NodeDetailPanel({
         ) : (
           <div className="flex-1 overflow-y-auto py-[3px]">
             {def.kind === "url" ? (
-              <UrlPanelSections node={node} onUpdateValue={onUpdateValue} />
+              <UrlPanelSections node={node} onUpdateValue={onUpdateValue} onUpdateNode={onUpdateNode} />
             ) : def.kind === "text-input" ? (
               <TextInputPanelSections node={node} onUpdateValue={onUpdateValue} onUpdateNode={onUpdateNode} />
             ) : def.kind === "knowledge-base" ? (
               <KnowledgeBasePanelSections node={node} onUpdateValue={onUpdateValue} />
             ) : def.kind === "files" ? (
-              <FilesPanelSections />
+              <FilesPanelSections node={node} onUpdateNode={onUpdateNode} />
             ) : (
               <GenericPanelSections node={node} def={def} onUpdateValue={onUpdateValue} />
             )}

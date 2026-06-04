@@ -23,10 +23,10 @@ from typing import Any
 
 _KIND_TO_TYPE: dict[str, str] = {
     "text-input":    "input.text",
-    "files":         "passthrough",
-    "trigger":       "passthrough",
-    "url":           "passthrough",
-    "audio-input":   "passthrough",
+    "files":         "files.parse",
+    "trigger":       "input.trigger",
+    "url":           "web.scrape",
+    "audio-input":   "audio.transcribe",
     "output":        "workflow.output",
     "action":        "passthrough",
     "audio-output":  "passthrough",
@@ -134,6 +134,40 @@ def canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
             config["output_key"] = n.get("outputKey") or "message"
             config["value"] = n.get("inputValue", "")
             config["required"] = bool(n.get("required", False))
+
+        elif node_type == "files.parse":
+            config["enable_parsing"] = bool(n.get("enableParsing", True))
+            config["chunk_size"] = int(n.get("fileChunkSize") or 500)
+            config["chunk_overlap_pct"] = int(n.get("fileChunkOverlap") or 20)
+            config["chunking_method"] = n.get("fileChunkingMethod") or "sentence"
+            config["files"] = [
+                {"name": f["name"], "text": f["text"], "type": f["type"], "size": f["size"]}
+                for f in (n.get("preloadedFiles") or [])
+            ]
+
+        elif node_type == "audio.transcribe":
+            config["provider"] = n.get("audioProvider", "deepgram")
+            config["model"] = n.get("audioModel", "nova-2")
+            config["submodel"] = n.get("audioSubmodel", "general")
+            config["api_key"] = n.get("audioApiKey", "")
+            config["source"] = n.get("audioSource", "recording")
+            config["source_url"] = n.get("audioSourceUrl", "")
+
+        elif node_type == "web.scrape":
+            config["url"] = n.get("inputValue", "")
+            config["extraction_mode"] = n.get("urlExtractionMode", "html")
+            config["enable_subpage_crawl"] = bool(n.get("urlEnableSubpageCrawl", False))
+            config["enable_as_input"] = bool(n.get("urlEnableAsInput", False))
+            config["chunk_size"] = int(n.get("urlChunkSize") or 500)
+            config["chunk_overlap_pct"] = int(n.get("urlChunkOverlapPct") or 20)
+            config["chunking_method"] = n.get("urlChunkingMethod") or "sentence"
+            config["enable_ocr"] = bool(n.get("urlEnableOcr", False))
+
+        elif node_type == "input.trigger":
+            config["trigger_type"] = n.get("triggerType", "manual")
+            config["schedule_cron"] = n.get("triggerScheduleCron", "")
+            config["integration_id"] = n.get("triggerIntegrationId", "")
+            config["integration_event"] = n.get("triggerIntegrationEvent", "")
 
         elif node_type == "ai.respond":
             config["system_prompt"] = n.get("systemPrompt", "You are a helpful AI assistant.")

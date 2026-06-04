@@ -166,6 +166,35 @@ export interface CanvasNode {
   outputKey?: string;
   placeholder?: string;
   required?: boolean;
+  // files node specific
+  exposeAsInput?: boolean;
+  enableParsing?: boolean;
+  enableOcr?: boolean;
+  fileChunkSize?: number;
+  fileChunkOverlap?: number;
+  fileChunkingMethod?: 'naive' | 'sentence';
+  preloadedFiles?: Array<{ id: string; name: string; type: string; text: string; size: number }>;
+  // trigger node specific
+  triggerType?: 'manual' | 'scheduled' | 'webhook' | 'integration';
+  triggerScheduleCron?: string;
+  triggerIntegrationId?: string;
+  triggerIntegrationEvent?: string;
+  triggerSampleInput?: string;
+  // audio-input node specific
+  audioSource?: 'url' | 'upload' | 'recording';
+  audioSourceUrl?: string;
+  audioProvider?: 'deepgram' | 'whisper-1';
+  audioModel?: 'nova-2' | 'nova' | 'enhanced' | 'base';
+  audioSubmodel?: string;
+  audioApiKey?: string;
+  // url node specific
+  urlExtractionMode?: 'html' | 'metadata';
+  urlEnableSubpageCrawl?: boolean;
+  urlEnableAsInput?: boolean;
+  urlChunkSize?: number;
+  urlChunkOverlapPct?: number;
+  urlChunkingMethod?: 'naive' | 'sentence';
+  urlEnableOcr?: boolean;
 }
 
 export const LLM_MODELS = [

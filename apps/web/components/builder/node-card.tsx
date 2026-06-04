@@ -32,6 +32,9 @@ import {
   X,
   AlertTriangle,
   User,
+  FileText,
+  Zap,
+  Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InlineEditableTextInput } from "./inline-editable-text-input";
@@ -580,28 +583,63 @@ function NodeContent({
     );
   }
 
-  if (def.kind === "url") {
+  if (def.kind === "files") {
+    const exposeAsInput = node.exposeAsInput ?? true;
+    const fileCount = (node.preloadedFiles ?? []).length;
     return (
-      <div className="px-3 pb-3 space-y-2.5">
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border text-xs text-muted-foreground"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <Link2 className="h-3 w-3 shrink-0" />
-          <span className="truncate">{node.inputValue || "Add a URL…"}</span>
-        </div>
-        <div>
-          <div className="text-[10px] font-medium text-muted-foreground/70 mb-1.5">
-            Settings
+      <div className="px-3 pb-3 space-y-1.5" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-prune-lightGray border border-prune-borderGray text-xs">
+          <div className={cn(
+            "h-4 w-4 rounded flex items-center justify-center border shrink-0",
+            exposeAsInput ? "bg-gray-900 border-gray-900" : "border-gray-300 bg-white",
+          )}>
+            {exposeAsInput && <Check className="h-2.5 w-2.5 text-white" />}
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
-              <Check className="h-3 w-3 text-foreground shrink-0" />
-              <span>Scrape subpages on</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-muted/30 border text-xs text-muted-foreground">
-              Website URL
-            </div>
+          <span className="font-[450] text-foreground">Exposed as input</span>
+        </div>
+        {!exposeAsInput && (
+          <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-prune-lightGray border border-prune-borderGray text-xs text-muted-foreground">
+            {fileCount > 0 ? (
+              <>
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span>{fileCount} file{fileCount !== 1 ? "s" : ""} uploaded</span>
+              </>
+            ) : (
+              <>
+                <div className="h-3.5 w-3.5 rounded-full border border-dashed border-muted-foreground shrink-0" />
+                <span>No test files uploaded</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (def.kind === "url") {
+    const urlMode = node.urlExtractionMode ?? "html";
+    const urlSubpages = node.urlEnableSubpageCrawl ?? false;
+    const urlAsInput = node.urlEnableAsInput ?? false;
+    return (
+      <div className="px-3 pb-3 space-y-1.5" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-prune-lightGray border border-prune-borderGray text-xs text-muted-foreground">
+          <Link2 className="h-3 w-3 shrink-0" />
+          <span className="truncate">
+            {urlAsInput ? "From upstream node" : (node.inputValue || "Add a URL…")}
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          <div className="flex-1 px-2.5 py-1.5 rounded-lg bg-prune-lightGray border border-prune-borderGray text-[10px] font-[450] text-foreground">
+            {urlMode === "html" ? "Page HTML" : "Metadata"}
+          </div>
+          <div className={cn(
+            "flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] text-muted-foreground",
+            urlSubpages
+              ? "bg-prune-lightGray border-prune-borderGray"
+              : "bg-muted/20 border-border",
+          )}>
+            {urlSubpages && <Check className="h-2.5 w-2.5 text-foreground shrink-0" />}
+            <span>Subpages</span>
           </div>
         </div>
       </div>
@@ -765,11 +803,62 @@ function NodeContent({
   }
 
   if (def.kind === "trigger") {
-    return null;
+    const type = node.triggerType ?? "manual";
+    const typeLabels: Record<string, string> = {
+      manual: "Manual / Chat",
+      scheduled: "Scheduled",
+      webhook: "Webhook",
+      integration: "Integration",
+    };
+    return (
+      <div className="px-3 pb-3 space-y-1.5" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-prune-lightGray border border-prune-borderGray text-xs">
+          <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <span className="font-[450] text-foreground">{typeLabels[type]}</span>
+        </div>
+        {type === "scheduled" && node.triggerScheduleCron && (
+          <div className="px-2.5 py-1.5 rounded-lg bg-prune-lightGray border border-prune-borderGray text-[10px] font-mono text-muted-foreground truncate">
+            {node.triggerScheduleCron}
+          </div>
+        )}
+        {type === "webhook" && (
+          <div className="px-2.5 py-1.5 rounded-lg bg-prune-lightGray border border-prune-borderGray text-[10px] font-mono text-muted-foreground">
+            POST /v1/runs
+          </div>
+        )}
+        {type === "integration" && node.triggerIntegrationId && (
+          <div className="px-2.5 py-1.5 rounded-lg bg-prune-lightGray border border-prune-borderGray text-xs text-muted-foreground capitalize">
+            {node.triggerIntegrationId.replace(/-/g, " ")}
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (def.kind === "output") {
     return <OutputNodeContent node={node} runOutput={runOutput} />;
+  }
+
+  if (def.kind === "audio-input") {
+    const provider = node.audioProvider ?? "deepgram";
+    const model = node.audioModel ?? "nova-2";
+    const providerLabels: Record<string, string> = {
+      deepgram: "Deepgram",
+      "whisper-1": "Whisper-1",
+    };
+    return (
+      <div className="px-3 pb-3 space-y-1.5" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-prune-lightGray border border-prune-borderGray text-xs">
+          <Mic className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+          <span className="font-[450] text-foreground">{providerLabels[provider]}</span>
+        </div>
+        {provider === "deepgram" && (
+          <div className="px-2.5 py-1.5 rounded-lg bg-prune-lightGray border border-prune-borderGray text-[10px] font-mono text-muted-foreground">
+            {model}
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (def.kind === "audio-output") {
