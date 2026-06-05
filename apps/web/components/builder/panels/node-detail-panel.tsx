@@ -254,7 +254,7 @@ export function NodeDetailPanel({
         ) : def.kind === "subflow-tool" ? (
           <SubflowToolPanelSections node={node} identifier={identifier} onUpdateValue={onUpdateValue} />
         ) : def.kind === "workflow" ? (
-          <WorkflowNodePanelSections node={node} onUpdateValue={onUpdateValue} />
+          <WorkflowNodePanelSections node={node} onUpdateValue={onUpdateValue} onUpdateNode={onUpdateNode} />
         ) : def.kind === "action" ? (
           <div className="flex-1 overflow-hidden flex flex-col">
             <ActionCategoryPicker

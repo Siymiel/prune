@@ -21,6 +21,11 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uni
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+# Deployment target types
+DEPLOYMENT_TYPES = ("chat", "form", "api", "widget")
+# Deployment status values
+DEPLOYMENT_STATUSES = ("active", "inactive", "archived")
+
 from prune_api.db.base import Base
 
 
@@ -92,6 +97,12 @@ class Workflow(Base):
     conversations: Mapped[list[Conversation]] = relationship(back_populates="workflow")
     runs: Mapped[list[Run]] = relationship(back_populates="workflow")
     schedules: Mapped[list[WorkflowSchedule]] = relationship(
+        back_populates="workflow", cascade="all, delete-orphan"
+    )
+    versions: Mapped[list[WorkflowVersion]] = relationship(
+        back_populates="workflow", cascade="all, delete-orphan", order_by="WorkflowVersion.version_number"
+    )
+    deployments: Mapped[list[Deployment]] = relationship(
         back_populates="workflow", cascade="all, delete-orphan"
     )
 
@@ -172,6 +183,7 @@ class Run(Base):
     Lifecycle: pending → running → (waiting | done | error)
     wait_token links to an external callback (M-Pesa CheckoutRequestID, etc.)
     so the webhook can resume the run from resume_node.
+    parent_run_id links child runs created by WorkflowCallNode back to their parent.
     """
 
     __tablename__ = "runs"
@@ -185,6 +197,10 @@ class Run(Base):
     )
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    # Links child runs (created by WorkflowCallNode) back to the parent run
+    parent_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("runs.id", ondelete="SET NULL"), nullable=True, index=True
     )
     # pending | running | waiting | done | error
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
@@ -206,6 +222,18 @@ class Run(Base):
         back_populates="run",
         cascade="all, delete-orphan",
         order_by="TraceStep.created_at",
+    )
+    child_runs: Mapped[list[Run]] = relationship(
+        "Run",
+        foreign_keys="[Run.parent_run_id]",
+        back_populates="parent_run",
+        cascade="all, delete-orphan",
+    )
+    parent_run: Mapped[Run | None] = relationship(
+        "Run",
+        foreign_keys="[Run.parent_run_id]",
+        back_populates="child_runs",
+        remote_side="Run.id",
     )
 
 
@@ -340,3 +368,76 @@ class EnvironmentVariable(Base):
     )
 
     environment: Mapped[Environment] = relationship(back_populates="variables")
+
+
+class WorkflowVersion(Base):
+    """Immutable snapshot of a workflow graph created when a workflow is published.
+
+    Once created, the graph field must never be mutated — it represents the exact
+    state that was deployed to production at publish time.
+    """
+
+    __tablename__ = "workflow_versions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    # Monotonically increasing per workflow (1, 2, 3 …)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Full graph snapshot — never mutated after insert
+    graph: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default="{}")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    workflow: Mapped[Workflow] = relationship(back_populates="versions")
+
+
+class Deployment(Base):
+    """A production deployment that makes a workflow version publicly accessible.
+
+    Each deployment has a unique slug used to construct its public URL.
+    status lifecycle: active → inactive | archived
+    """
+
+    __tablename__ = "deployments"
+    __table_args__ = (UniqueConstraint("slug", name="uq_deployment_slug"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workflow_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False
+    )
+    version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    # chat | form | api | widget
+    deployment_type: Mapped[str] = mapped_column(String(50), nullable=False, server_default="chat")
+    # active | inactive | archived
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
+    # URL-safe identifier — used to build the public URL
+    slug: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Pre-computed public URL stored for quick lookup
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Arbitrary extra config: custom_domain, embed_theme, access_control, etc.
+    metadata_: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, server_default="{}"
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    workflow: Mapped[Workflow] = relationship(back_populates="deployments")
+    version: Mapped[WorkflowVersion] = relationship()

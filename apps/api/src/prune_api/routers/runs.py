@@ -84,6 +84,7 @@ class RunOut(BaseModel):
     trace: list[TraceStepOut]
     started_at: str | None
     completed_at: str | None
+    parent_run_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -160,12 +161,17 @@ async def _execute_run(
 async def list_runs(
     workflow_id: str | None = None,
     status: str | None = None,
+    parent_run_id: str | None = None,
     page: int = 0,
     page_size: int = 20,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[RunOut]:
-    """List runs for the tenant, newest first."""
+    """List runs for the tenant, newest first.
+
+    Pass parent_run_id to list child runs spawned by a WorkflowCallNode.
+    Pass parent_run_id=none to list only top-level runs (no parent).
+    """
     q = (
         select(Run)
         .where(Run.tenant_id == current_user.tenant_id)
@@ -178,6 +184,13 @@ async def list_runs(
             raise HTTPException(status_code=400, detail="Invalid workflow_id")
     if status:
         q = q.where(Run.status == status)
+    if parent_run_id == "none":
+        q = q.where(Run.parent_run_id.is_(None))
+    elif parent_run_id:
+        try:
+            q = q.where(Run.parent_run_id == uuid.UUID(parent_run_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid parent_run_id")
 
     q = q.offset(page * page_size).limit(page_size)
     rows = (await session.execute(q)).scalars().all()
@@ -192,6 +205,7 @@ async def list_runs(
             trace=[],
             started_at=r.started_at.isoformat() if r.started_at else None,
             completed_at=r.completed_at.isoformat() if r.completed_at else None,
+            parent_run_id=str(r.parent_run_id) if r.parent_run_id else None,
         )
         for r in rows
     ]
@@ -247,6 +261,7 @@ async def trigger_run(
         trace=[],
         started_at=run.started_at.isoformat() if run.started_at else None,
         completed_at=None,
+        parent_run_id=None,
     )
 
 
@@ -325,6 +340,7 @@ async def resume_run(
         trace=[],
         started_at=saved_started_at.isoformat() if saved_started_at else None,
         completed_at=None,
+        parent_run_id=None,
     )
 
 
@@ -475,4 +491,5 @@ async def get_run(
         ],
         started_at=run.started_at.isoformat() if run.started_at else None,
         completed_at=run.completed_at.isoformat() if run.completed_at else None,
+        parent_run_id=str(run.parent_run_id) if run.parent_run_id else None,
     )

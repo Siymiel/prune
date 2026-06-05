@@ -120,6 +120,7 @@ export interface RunOut {
   trace: TraceStep[];
   started_at: string | null;
   completed_at: string | null;
+  parent_run_id: string | null;
 }
 
 export interface TriggerRunRequest {
@@ -151,6 +152,40 @@ export interface KnowledgeSource {
   score: number;
   chunk_index: number;
   kb_id: string;
+}
+
+export type DeploymentType = 'chat' | 'form' | 'api' | 'widget';
+export type DeploymentStatus = 'active' | 'inactive' | 'archived';
+
+export interface DeploymentOut {
+  id: string;
+  workflow_id: string;
+  version_id: string;
+  deployment_type: DeploymentType;
+  status: DeploymentStatus;
+  slug: string;
+  url: string | null;
+  created_by: string | null;
+  published_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  version_number: number | null;
+}
+
+export interface WorkflowVersionOut {
+  id: string;
+  workflow_id: string;
+  version_number: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PublishRequest {
+  workflow_id: string;
+  deployment_type: DeploymentType;
+  slug?: string;
+  metadata?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,10 +281,32 @@ export const api = {
     get: (id: string) =>
       apiFetch<RunOut>(`/v1/runs/${id}`),
 
-    list: (params?: { workflow_id?: string; status?: string; page?: number; page_size?: number }) => {
+    list: (params?: { workflow_id?: string; status?: string; parent_run_id?: string; page?: number; page_size?: number }) => {
       const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : '';
       return apiFetch<RunOut[]>(`/v1/runs${qs}`);
     },
+  },
+
+  deployments: {
+    publish: (body: PublishRequest) =>
+      apiFetch<DeploymentOut>('/v1/deployments', { method: 'POST', body: JSON.stringify(body) }),
+
+    list: (params?: { workflow_id?: string; status?: string; limit?: number; offset?: number }) => {
+      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : '';
+      return apiFetch<DeploymentOut[]>(`/v1/deployments${qs}`);
+    },
+
+    get: (id: string) =>
+      apiFetch<DeploymentOut>(`/v1/deployments/${id}`),
+
+    update: (id: string, body: { status?: string; metadata?: Record<string, unknown> }) =>
+      apiFetch<DeploymentOut>(`/v1/deployments/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    archive: (id: string) =>
+      apiFetch<void>(`/v1/deployments/${id}`, { method: 'DELETE' }),
+
+    versions: (workflowId: string) =>
+      apiFetch<WorkflowVersionOut[]>(`/v1/workflows/${workflowId}/versions`),
   },
 
   channels: {

@@ -208,6 +208,10 @@ def canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
                 wf_cfg = {}
             config["workflow_id"] = wf_cfg.get("workflowId", "")
             config["workflow_name"] = wf_cfg.get("workflowName", "")
+            config["input_mappings"] = n.get("workflowCallInputMappings") or []
+            config["output_mappings"] = n.get("workflowCallOutputMappings") or []
+            config["timeout_seconds"] = int(n.get("workflowCallTimeout") or 30)
+            config["on_error"] = n.get("workflowCallOnError") or "fail"
 
         # Extract template-out content so the formatted template is available in trace/logs
         if kind == "template-out":

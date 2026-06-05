@@ -209,6 +209,11 @@ export interface CanvasNode {
   urlChunkOverlapPct?: number;
   urlChunkingMethod?: 'naive' | 'sentence';
   urlEnableOcr?: boolean;
+  // workflow call node specific
+  workflowCallInputMappings?: Array<{ key: string; value: string }>;
+  workflowCallOutputMappings?: Array<{ key: string; outputKey: string }>;
+  workflowCallTimeout?: number;
+  workflowCallOnError?: 'fail' | 'continue';
 }
 
 export const LLM_MODELS = [

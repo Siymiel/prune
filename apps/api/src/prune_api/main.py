@@ -14,6 +14,7 @@ from prune_api.routers import (
     channels,
     chat,
     conversations,
+    deployments,
     environments,
     files,
     health,
@@ -68,3 +69,4 @@ app.include_router(conversations.router, prefix="/v1")
 app.include_router(environments.router, prefix="/v1")
 app.include_router(webhooks.router, prefix="/v1/webhooks")
 app.include_router(integrations.router, prefix="/v1/integrations")
+app.include_router(deployments.router, prefix="/v1")
