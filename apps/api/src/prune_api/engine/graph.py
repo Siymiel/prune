@@ -168,6 +168,7 @@ def canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
             config["schedule_cron"] = n.get("triggerScheduleCron", "")
             config["integration_id"] = n.get("triggerIntegrationId", "")
             config["integration_event"] = n.get("triggerIntegrationEvent", "")
+            config["trigger_filters"] = n.get("triggerFilters") or {}
 
         elif node_type == "ai.respond":
             config["system_prompt"] = n.get("systemPrompt", "You are a helpful AI assistant.")

@@ -180,6 +180,10 @@ export interface CanvasNode {
   triggerIntegrationId?: string;
   triggerIntegrationEvent?: string;
   triggerSampleInput?: string;
+  /** User-configured event filters, e.g. { channel: '#general', contains: 'urgent' } */
+  triggerFilters?: Record<string, string>;
+  /** Human-readable event label stored for display, e.g. "Message Received" */
+  triggerEventLabel?: string;
   // audio-input node specific
   audioSource?: 'url' | 'upload' | 'recording';
   audioSourceUrl?: string;

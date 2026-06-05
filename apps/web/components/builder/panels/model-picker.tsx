@@ -882,7 +882,7 @@ function ModelDetailCard({ model }: { model: ModelInfo }) {
   ];
 
   return (
-    <div className="w-96 bg-background border font-inter rounded-xl shadow-xl p-4 space-y-3">
+    <div className="w-96 bg-background font-inter rounded-xl shadow-xl p-4 space-y-3">
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="shrink-0">
@@ -974,7 +974,7 @@ export function ModelPickerDialog({
     >
       <DialogContent
         hideCloseButton
-        className="max-w-sm p-0"
+        className="max-w-lg p-0"
         style={{
           right: "calc(var(--panel-width, 0px) + 8px)",
           left: "auto",

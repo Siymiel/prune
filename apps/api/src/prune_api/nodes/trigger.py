@@ -11,10 +11,13 @@ class TriggerNode(Node):
     config.trigger_type: "manual" | "scheduled" | "webhook" | "integration"
 
     Outputs by type:
-      manual:      message  → state["message"]
-      scheduled:   triggered_at + message → state
-      webhook:     payload dict → state["payload"]
-      integration: event dict  → state["event"]
+      manual:      message           → state["message"]
+      scheduled:   triggered_at      → state["triggered_at"], state["message"]
+      webhook:     payload dict      → state["payload"]
+      integration: normalized event  → state["event"]
+                   Fields from state["event"] are also hoisted to the top-level
+                   state so templates like {{state.event.from}} work alongside
+                   direct {{state.event}} access.
     """
 
     type = "input.trigger"
@@ -43,10 +46,15 @@ class TriggerNode(Node):
             }
 
         if trigger_type == "integration":
-            event = inputs.get("event") or dict(inputs)
+            # Accept a pre-normalized event dict (from the router) or raw inputs
+            event: dict = inputs.get("event") or dict(inputs)
             return {
                 "status": "ok",
-                "output": {"event": event},
+                "output": {
+                    "event": event,
+                    # Hoist all event fields to top-level for convenient template access
+                    **{k: v for k, v in event.items() if k not in ("event",)},
+                },
                 "next": next_node,
             }
 
