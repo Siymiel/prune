@@ -15,7 +15,6 @@ import {
   FileSearch,
   CopyPlus,
   Copy,
-  Download,
   Replace,
   SkipForward,
   Pin,
@@ -23,6 +22,7 @@ import {
   CircleHelp,
   ExternalLink,
   Trash2,
+  Download,
   Bold,
   Italic,
   Underline,
@@ -439,107 +439,142 @@ function StickyNoteEditor({
   );
 }
 
-function OutputNodeContent({ node, runOutput }: { node: CanvasNode; runOutput?: string }) {
+function OutputNodeContent({ node: _node, runOutput }: { node: CanvasNode; runOutput?: string }) {
   const [tab, setTab] = useState<"formatted" | "text">("formatted");
-  const content = runOutput ?? node.inputValue ?? "";
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  const downloadRef = useRef<HTMLDivElement>(null);
+  const content = (!cleared && runOutput) ? runOutput : "";
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(content);
-  };
+  useEffect(() => {
+    if (!downloadOpen) return;
+    const handle = (e: MouseEvent) => {
+      if (downloadRef.current && !downloadRef.current.contains(e.target as Node))
+        setDownloadOpen(false);
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [downloadOpen]);
 
-  const handleDownloadPDF = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const escaped = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    win.document.write(
-      `<!DOCTYPE html><html><head><title>Output</title><style>body{font-family:inter;padding:2rem;max-width:800px;margin:0 auto;line-height:1.6}pre{white-space:pre-wrap;font-family:inherit}</style></head><body><pre>${escaped}</pre></body></html>`,
-    );
-    win.document.close();
-    win.focus();
-    win.print();
+  useEffect(() => { if (runOutput) setCleared(false); }, [runOutput]);
+
+  const handleDownload = (ext: "txt" | "csv") => {
+    if (!content) return;
+    const text = ext === "csv" ? `"${content.replace(/"/g, '""')}"` : content;
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `output.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setDownloadOpen(false);
   };
 
   return (
-    <div className="px-3 pb-3">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex items-center border rounded-md overflow-hidden text-[11px]">
-          <button
-            className={cn(
-              "px-2.5 py-1 font-medium transition-colors",
-              tab === "formatted"
-                ? "bg-gray-900 text-white"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              setTab("formatted");
-            }}
-          >
-            Formatted
-          </button>
-          <button
-            className={cn(
-              "px-2.5 py-1 transition-colors",
-              tab === "text"
-                ? "bg-gray-900 text-white"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              setTab("text");
-            }}
-          >
-            Text
-          </button>
+    <div className="px-3 pb-2" onMouseDown={stop}>
+      {/* Tab bar + action buttons row */}
+      <div className="flex items-center gap-1 mb-2">
+        <div className="flex items-center p-0.5 bg-muted/30 border border-prune-borderGray rounded-md">
+          {(["Formatted", "Text"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={(e) => { stop(e); setTab(t.toLowerCase() as "formatted" | "text"); }}
+              className={cn(
+                "px-2.5 py-0.5 text-[11px] rounded transition-colors",
+                tab === t.toLowerCase()
+                  ? "bg-gray-900 text-white font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t}
+            </button>
+          ))}
         </div>
+
         <div className="ml-auto flex items-center gap-0.5">
-          <button
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={handleCopy}
-            title="Copy to clipboard"
-          >
-            <Copy className="h-3 w-3" />
-          </button>
-          <button
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={handleDownloadPDF}
-            title="Download as PDF"
-          >
-            <Download className="h-3 w-3" />
-          </button>
-          <button
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-colors"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-3 w-3" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => { stop(e); if (content) navigator.clipboard.writeText(content); }}
+                onMouseDown={stop}
+                className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Copy</TooltipContent>
+          </Tooltip>
+
+          <div ref={downloadRef} className="relative">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => { stop(e); setDownloadOpen(v => !v); }}
+                  onMouseDown={stop}
+                  className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Download className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Download</TooltipContent>
+            </Tooltip>
+            {downloadOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 z-50 w-44 bg-white rounded-xl shadow-lg border px-1 py-1.5"
+                onMouseDown={stop}
+              >
+                <button
+                  onClick={(e) => { stop(e); handleDownload("txt"); }}
+                  className="flex items-center w-full text-left px-2 py-1.5 text-[12px] text-foreground hover:bg-prune-lightGray rounded-md transition-colors"
+                >
+                  Plain text (.txt)
+                </button>
+                <button
+                  onClick={(e) => { stop(e); handleDownload("csv"); }}
+                  className="flex items-center w-full text-left px-2 py-1.5 text-[12px] text-foreground hover:bg-prune-lightGray rounded-md transition-colors"
+                >
+                  CSV (.csv)
+                </button>
+              </div>
+            )}
+          </div>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => { stop(e); setCleared(true); }}
+                onMouseDown={stop}
+                className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Clear</TooltipContent>
+          </Tooltip>
         </div>
       </div>
-      <div
-        className={cn(
-          "min-h-[72px] max-h-[160px] overflow-y-auto rounded-md border bg-background",
-          content && "p-2",
-        )}
-        onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopPropagation(); }}
-      >
-        {content ? (
-          tab === "formatted" ? (
+
+      {/* Content area */}
+      {content ? (
+        <div
+          className="min-h-[60px] max-h-[140px] overflow-y-auto rounded-md border bg-background p-2"
+          onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopPropagation(); }}
+        >
+          {tab === "formatted" ? (
             <div className="prose prose-sm max-w-none">
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
           ) : (
-            <pre className="text-xs text-foreground font-mono whitespace-pre-wrap leading-relaxed">
-              {content}
-            </pre>
-          )
-        ) : null}
-      </div>
+            <pre className="text-xs text-foreground font-mono whitespace-pre-wrap leading-relaxed">{content}</pre>
+          )}
+        </div>
+      ) : (
+        <div className="min-h-[64px] rounded-md border border-dashed flex items-center justify-center">
+          <p className="text-[11px] text-muted-foreground/40 select-none">Run to see output</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -641,6 +676,18 @@ function NodeContent({
             {urlSubpages && <Check className="h-2.5 w-2.5 text-foreground shrink-0" />}
             <span>Subpages</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ai-agent with no provider selected yet — show minimal placeholder
+  if (def.kind === "ai-agent" && !node.model) {
+    return (
+      <div className="px-3 pb-3">
+        <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-100 text-[11px] text-amber-700 font-[450]">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          No AI provider selected
         </div>
       </div>
     );
@@ -1165,10 +1212,14 @@ export function NodeCard({
                 </span>
               )
             ) : isLLMNode ? (
-              getLLMIcon(
-                node.model ??
-                  (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6"),
-                14,
+              def.kind === "ai-agent" && !node.model ? (
+                <Icon className={cn("h-3.5 w-3.5", def.iconClass)} />
+              ) : (
+                getLLMIcon(
+                  node.model ??
+                    (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6"),
+                  14,
+                )
               )
             ) : def.integrationId ? (
               renderIntegrationIcon(def.integrationId, 14)
@@ -1319,11 +1370,20 @@ export function NodeCard({
             <ChevronDown className="h-3 w-3" />
             View Results
           </button>
-          <span className="ml-auto">0 tokens</span>
-          <span className="flex items-center gap-0.5">
-            <MoreHorizontal className="h-3 w-3 rotate-90 opacity-40" />
-            0.0 sec
-          </span>
+          {def.kind === "ai-agent" && !node.model ? (
+            <span className="ml-auto flex items-center gap-0.5 text-amber-500">
+              <AlertTriangle className="h-3 w-3" />
+              0.00 sec
+            </span>
+          ) : (
+            <>
+              <span className="ml-auto">0 tokens</span>
+              <span className="flex items-center gap-0.5">
+                <MoreHorizontal className="h-3 w-3 rotate-90 opacity-40" />
+                0.0 sec
+              </span>
+            </>
+          )}
         </div>
       )}
     </div>

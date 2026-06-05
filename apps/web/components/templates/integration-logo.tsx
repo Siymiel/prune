@@ -1,7 +1,12 @@
+"use client";
+
 import {
   SiWhatsapp,
   SiOpenai,
   SiAnthropic,
+  SiGoogle,
+  SiMistralai,
+  SiPerplexity,
   SiGooglecalendar,
   SiGoogledrive,
   SiGmail,
@@ -16,9 +21,6 @@ type IntegrationMeta = {
   render: (size: number) => React.ReactNode;
 };
 
-// M-Pesa is not in simple-icons — custom SVG using brand green #00A550.
-// Shape: filled rectangle with a triangular notch cut from the top (evenodd),
-// producing a bold M letterform.
 function MpesaLogo({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="#00A550" aria-label="M-Pesa">
@@ -27,7 +29,7 @@ function MpesaLogo({ size }: { size: number }) {
   );
 }
 
-const INTEGRATIONS: Record<IntegrationId, IntegrationMeta> = {
+const INTEGRATIONS: Partial<Record<IntegrationId, IntegrationMeta>> = {
   whatsapp: {
     label: 'WhatsApp',
     color: '#25D366',
@@ -47,6 +49,21 @@ const INTEGRATIONS: Record<IntegrationId, IntegrationMeta> = {
     label: 'Anthropic',
     color: '#C96442',
     render: (s) => <SiAnthropic size={s} color="#C96442" />,
+  },
+  google: {
+    label: 'Google',
+    color: '#4285F4',
+    render: (s) => <SiGoogle size={s} color="#4285F4" />,
+  },
+  mistral: {
+    label: 'Mistral',
+    color: '#FF6B35',
+    render: (s) => <SiMistralai size={s} color="#FF6B35" />,
+  },
+  perplexity: {
+    label: 'Perplexity',
+    color: '#20b2aa',
+    render: (s) => <SiPerplexity size={s} color="#20b2aa" />,
   },
   'google-calendar': {
     label: 'Google Calendar',
@@ -75,14 +92,15 @@ const INTEGRATIONS: Record<IntegrationId, IntegrationMeta> = {
   },
 };
 
-/** Render just the brand icon at a given pixel size */
-export function renderIntegrationIcon(id: IntegrationId, size: number): React.ReactNode {
-  return INTEGRATIONS[id]?.render(size) ?? null;
+/** Render just the brand icon at a given pixel size. Returns null for unknown IDs. */
+export function renderIntegrationIcon(id: string, size: number): React.ReactNode {
+  return INTEGRATIONS[id as IntegrationId]?.render(size) ?? null;
 }
 
 /** Small icon-only badge — used on template cards */
 export function IntegrationLogo({ id }: { id: IntegrationId }) {
   const meta = INTEGRATIONS[id];
+  if (!meta) return null;
   return (
     <span
       title={meta.label}
@@ -96,6 +114,7 @@ export function IntegrationLogo({ id }: { id: IntegrationId }) {
 /** Logo + label pill — used in the template detail page */
 export function IntegrationBadge({ id }: { id: IntegrationId }) {
   const meta = INTEGRATIONS[id];
+  if (!meta) return null;
   return (
     <div className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border text-sm">
       {meta.render(15)}

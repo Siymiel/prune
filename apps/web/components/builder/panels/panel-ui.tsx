@@ -41,21 +41,23 @@ export function Section({
 
   return (
     <div className="border-b last:border-b-0 ml-2 bg-white">
-      <button
-        className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/30 transition-colors"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {icon && <span className="text-prune-commonGray shrink-0">{icon}</span>}
-        <span className="text-left text-[15px] font-medium text-prune-commonGray">
-          {title}
-        </span>
-        {extra}
-        {open ? (
-          <ChevronUp className="ml-auto h-4 w-4 text-prune-commonGray shrink-0" />
-        ) : (
-          <ChevronDown className="ml-auto h-4 w-4 text-prune-commonGray shrink-0" />
-        )}
-      </button>
+      <div className="flex items-center w-full">
+        <button
+          className="flex-1 flex items-center gap-2.5 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+          onClick={() => setOpen((o) => !o)}
+        >
+          {icon && <span className="text-prune-commonGray shrink-0">{icon}</span>}
+          <span className="text-[15px] font-medium text-prune-commonGray">
+            {title}
+          </span>
+          {open ? (
+            <ChevronUp className="ml-auto h-4 w-4 text-prune-commonGray shrink-0" />
+          ) : (
+            <ChevronDown className="ml-auto h-4 w-4 text-prune-commonGray shrink-0" />
+          )}
+        </button>
+        {extra && <div className="pr-3 shrink-0">{extra}</div>}
+      </div>
       {open && <div className="px-4 pb-4">{children}</div>}
     </div>
   );

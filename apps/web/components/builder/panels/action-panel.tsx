@@ -88,6 +88,10 @@ type ActionConfig = {
   toolId: string;
   toolName: string;
   toolDescription: string;
+  inputValues?: Record<string, unknown>;
+  useEndUser?: boolean;
+  retryOnFailure?: boolean;
+  onError?: string;
 };
 
 /* ── Static data ────────────────────────────────────────────────────────────── */
@@ -866,13 +870,30 @@ function InputFieldRow({
   );
 }
 
-function ActionInputsForm({ toolId }: { toolId: string }) {
+function ActionInputsForm({
+  toolId,
+  defaultValues,
+  onValuesChange,
+}: {
+  toolId: string;
+  defaultValues?: Record<string, unknown>;
+  onValuesChange?: (v: Record<string, unknown>) => void;
+}) {
   const schema = TOOL_SCHEMAS[toolId];
   const [viewMode, setViewMode] = useState<"tree" | "json">("tree");
-  const [values, setValues] = useState<Record<string, unknown>>(() =>
-    schema ? buildDefaultValues(schema) : {},
-  );
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    const base = schema ? buildDefaultValues(schema) : {};
+    return defaultValues ? { ...base, ...defaultValues } : base;
+  });
   const [jsonEditor, setJsonEditor] = useState(JSON.stringify(values, null, 2));
+
+  const updateValue = (key: string, val: unknown) => {
+    setValues((prev) => {
+      const next = { ...prev, [key]: val };
+      onValuesChange?.(next);
+      return next;
+    });
+  };
 
   if (!schema) {
     return (
@@ -917,7 +938,7 @@ function ActionInputsForm({ toolId }: { toolId: string }) {
               key={field.key}
               field={field}
               value={values[field.key]}
-              onChange={(v) => setValues((prev) => ({ ...prev, [field.key]: v }))}
+              onChange={(v) => updateValue(field.key, v)}
             />
           ))}
         </div>
@@ -931,7 +952,11 @@ function ActionInputsForm({ toolId }: { toolId: string }) {
               onChange={(value) => {
                 if (!value) return;
                 setJsonEditor(value);
-                try { setValues(JSON.parse(value)); } catch {}
+                try {
+                  const parsed = JSON.parse(value);
+                  setValues(parsed);
+                  onValuesChange?.(parsed);
+                } catch {}
               }}
               theme="light"
               options={{
@@ -967,11 +992,17 @@ export function ActionCategoryPicker({
 }) {
   const [nav, setNav] = useState<ActionNavStep>({ step: "categories" });
   const [search, setSearch] = useState("");
-  const [useEndUser, setUseEndUser] = useState(false);
-  const [retryOnFailure, setRetryOnFailure] = useState(false);
-  const [onError, setOnError] = useState("stop");
 
   const config = parseActionConfig(node.inputValue);
+
+  const [useEndUser, setUseEndUser] = useState(config?.useEndUser ?? false);
+  const [retryOnFailure, setRetryOnFailure] = useState(config?.retryOnFailure ?? false);
+  const [onError, setOnError] = useState(config?.onError ?? "stop");
+
+  const saveConfig = (updates: Partial<ActionConfig>) => {
+    if (!config) return;
+    onUpdateValue(node.id, JSON.stringify({ ...config, ...updates }));
+  };
 
   if (config) {
     return (
@@ -1014,7 +1045,7 @@ export function ActionCategoryPicker({
               <span className="text-[14px] font-medium text-prune-commonGray">
                 Use end-user connection
               </span>
-              <Toggle checked={useEndUser} onChange={setUseEndUser} />
+              <Toggle checked={useEndUser} onChange={(v) => { setUseEndUser(v); saveConfig({ useEndUser: v }); }} />
             </div>
             <p className="text-[12px] text-muted-foreground">
               Require end-users to authenticate at runtime
@@ -1045,7 +1076,11 @@ export function ActionCategoryPicker({
               </span>
             }
           >
-            <ActionInputsForm toolId={config.toolId} />
+            <ActionInputsForm
+              toolId={config.toolId}
+              defaultValues={config.inputValues}
+              onValuesChange={(v) => saveConfig({ inputValues: v })}
+            />
           </Section>
 
           <Section title="Outputs" icon={<FileText className="h-4 w-4" />}>
@@ -1083,11 +1118,11 @@ export function ActionCategoryPicker({
           <Section title="Advanced Settings" icon={<Rocket className="h-3.5 w-3.5" />}>
             <div className="space-y-4">
               <SettingRow label="Retry on Failure">
-                <Toggle checked={retryOnFailure} onChange={setRetryOnFailure} />
+                <Toggle checked={retryOnFailure} onChange={(v) => { setRetryOnFailure(v); saveConfig({ retryOnFailure: v }); }} />
               </SettingRow>
               <div>
                 <SubLabel>On Error</SubLabel>
-                <OnErrorSelect value={onError} onChange={setOnError} />
+                <OnErrorSelect value={onError} onChange={(v) => { setOnError(v); saveConfig({ onError: v }); }} />
               </div>
             </div>
           </Section>

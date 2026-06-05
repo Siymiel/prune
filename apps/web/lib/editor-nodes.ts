@@ -187,6 +187,16 @@ export interface CanvasNode {
   audioModel?: 'nova-2' | 'nova' | 'enhanced' | 'base';
   audioSubmodel?: string;
   audioApiKey?: string;
+  // template-out node specific
+  templateContent?: string;
+  templateContentDoc?: Record<string, unknown>;
+  // audio-output (TTS) node specific
+  ttsModel?: string;
+  ttsVoice?: string;
+  ttsApiKey?: string;
+  // output node specific
+  outputTemplate?: string;
+  outputTemplateDoc?: Record<string, unknown>;
   // url node specific
   urlExtractionMode?: 'html' | 'metadata';
   urlEnableSubpageCrawl?: boolean;
@@ -210,9 +220,17 @@ export const LLM_MODELS = [
 export type NodeRunStatus = 'pending' | 'running' | 'done' | 'error';
 export type RunPhase = 'idle' | 'running' | 'done' | 'error';
 
-export function getModelProvider(modelId: string): 'anthropic' | 'openai' {
+export function getModelProvider(modelId: string): string {
   const m = modelId.toLowerCase();
   if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai';
+  if (m.startsWith('claude')) return 'anthropic';
+  if (m.startsWith('gemini')) return 'google';
+  if (m.startsWith('together-')) return 'togetherai';
+  if (m.startsWith('cerebras-')) return 'cerebras';
+  if (m.startsWith('llama')) return 'meta';
+  if (m.startsWith('grok')) return 'xai';
+  if (m.startsWith('sonar')) return 'perplexity';
+  if (m.startsWith('mistral') || m.startsWith('codestral') || m.startsWith('mixtral')) return 'mistral';
   return 'anthropic';
 }
 

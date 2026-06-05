@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils';
 import type { RunOut, KnowledgeSource } from '@/lib/api';
 import { streamRun } from '@/lib/api';
 import type { NodeType } from '@/lib/types';
+import { useAuthStore } from '@/lib/auth-store';
+import { useWorkspaceVariablesStore } from '@/lib/workspace-variables-store';
 
 const MAX_HISTORY = 50;
 
@@ -160,6 +162,9 @@ function getMinPanelWidth() {
 export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditorProps) {
   const template = templateSlug ? getTemplate(templateSlug) : null;
   const init = buildInitialState(templateSlug);
+
+  const { user } = useAuthStore();
+  const { variables: workspaceVariables } = useWorkspaceVariablesStore();
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -328,7 +333,15 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
 
     // Collect inputs from any text-input node
     const textInputNode = nodes.find(n => n.kind === 'text-input');
-    const inputs: Record<string, string> = { message: textInputNode?.inputValue ?? '' };
+    const inputs: Record<string, unknown> = {
+      message: textInputNode?.inputValue ?? '',
+      __user__: {
+        id:    user?.id    ?? '',
+        email: user?.email ?? '',
+        name:  (user?.user_metadata?.['full_name'] as string | undefined) ?? (user?.user_metadata?.['name'] as string | undefined) ?? '',
+      },
+      __vars__: Object.fromEntries(workspaceVariables.map((v) => [v.key, v.value])),
+    };
 
     try {
       const initialRun = await api.runs.trigger({ workflow_id: wfId, inputs });

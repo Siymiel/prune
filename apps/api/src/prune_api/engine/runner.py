@@ -38,6 +38,7 @@ async def run_workflow_iter(
       "done" — workflow terminal; fields: status, state, and optionally error / wait fields
     """
     state: dict[str, Any] = {**inputs}
+    node_outputs: dict[str, Any] = {}
     current: str | None = workflow.get("entry")
     if not current and workflow.get("nodes"):
         current = workflow["nodes"][0]["id"]
@@ -74,6 +75,7 @@ async def run_workflow_iter(
             "conversation_id": conversation_id,
             "inputs": inputs,
             "state": state,
+            "node_outputs": node_outputs,
             "workflow": workflow,
         }
         input_snapshot = dict(state)
@@ -109,6 +111,7 @@ async def run_workflow_iter(
             case "ok":
                 if output := result.get("output"):
                     state.update(output)
+                    node_outputs[current] = output
                 current = result.get("next")  # type: ignore[assignment]
             case "wait":
                 yield {

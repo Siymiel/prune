@@ -5,6 +5,7 @@ import {
   AlignLeft,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Settings2,
   Database,
   Wrench,
@@ -21,6 +22,11 @@ import {
   Check,
   ChevronsUpDown,
   X,
+  BarChart2,
+  FileSearch2,
+  Headphones,
+  PenLine,
+  TrendingUp,
 } from "lucide-react";
 import { api, type KnowledgeBaseOut } from "@/lib/api";
 import {
@@ -59,11 +65,6 @@ import {
   PROVIDER_LABELS,
 } from "./model-picker";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 const MEMORY_TYPES = [
   {
@@ -96,37 +97,67 @@ const AI_PROVIDERS = Object.entries(PROVIDER_LABELS).map(([id, label]) => ({
   label,
 }));
 
+const PROVIDER_DESCRIPTIONS: Record<string, string> = {
+  openai: "AI provider for OpenAI",
+  anthropic: "AI provider for Anthropic",
+  google: "AI provider for Google",
+  meta: "AI provider for Meta",
+  mistral: "AI provider for Mistral",
+  xai: "AI provider for XAI",
+  perplexity: "AI provider for Perplexity",
+  togetherai: "AI provider for TogetherAI",
+  cerebras: "AI provider for Cerebras",
+};
+
 const AGENT_TEMPLATES = [
   {
-    id: "investment-help-desk",
-    name: "Investment Help Desk",
-    description: "Answer investor questions using internal docs and web search",
-    systemPrompt:
-      "You are an expert Investments Help Desk AI Agent. Use the provided context from internal knowledge base, web search, and document repositories to answer the user's question. Be concise, cite sources, and clearly differentiate between product offerings. If eligibility is in question, explain the criteria.",
-    prompt:
-      "- Please provide a clear and concise answer to the user's question.\n- If the answer is not available, search the internal knowledge base for relevant information.\n- If necessary, supplement your response with information from the web search results.",
+    id: "data-analyst",
+    name: "Data Analyst",
+    toolCount: 9,
+    icon: BarChart2,
+    description: "Analyzes data, runs code, and generates visualizations from your files and databases.",
+    systemPrompt: "You are an expert Data Analyst AI. You have access to code execution, file analysis, and data visualization tools. Help users analyze their data by writing and running code, creating charts, and providing clear insights from the data.",
+    prompt: "Analyze the provided data and answer the user's question. Use code execution when needed to process or visualize data. Explain your findings clearly.",
   },
   {
     id: "kb-qa-agent",
-    name: "KB Q&A Agent",
-    description: "Answer questions strictly from your connected knowledge bases",
-    systemPrompt:
-      "You are a knowledgeable document assistant. Answer questions using only the provided knowledge base. Be concise and accurate. If the answer is not in the knowledge base, clearly state that you don't have that information — do not speculate or fabricate an answer.",
-    prompt:
-      "Search the connected knowledge base for relevant context, then answer the user's question. Quote directly from the source when helpful, and always indicate which document the information came from.",
+    name: "Document Q&A",
+    toolCount: 3,
+    icon: FileSearch2,
+    description: "Answer questions strictly from your connected knowledge bases and uploaded documents.",
+    systemPrompt: "You are a knowledgeable document assistant. Answer questions using only the provided knowledge base. Be concise and accurate. If the answer is not in the knowledge base, clearly state that you don't have that information — do not speculate or fabricate an answer.",
+    prompt: "Search the connected knowledge base for relevant context, then answer the user's question. Quote directly from the source when helpful, and always indicate which document the information came from.",
   },
   {
     id: "customer-support",
     name: "Customer Support",
-    description: "Resolve customer issues with a friendly, empathetic tone",
-    systemPrompt:
-      "You are a customer support specialist. Help users resolve their issues quickly and professionally. Use the knowledge base to find accurate answers, maintain a polite and empathetic tone, and escalate complex issues when appropriate.",
-    prompt:
-      "Based on the available knowledge base and context, help resolve the user's request. If you cannot fully resolve the issue, acknowledge the limitation and suggest clear next steps.",
+    toolCount: 3,
+    icon: Headphones,
+    description: "Resolve customer issues with a friendly, empathetic tone using your knowledge base.",
+    systemPrompt: "You are a customer support specialist. Help users resolve their issues quickly and professionally. Use the knowledge base to find accurate answers, maintain a polite and empathetic tone, and escalate complex issues when appropriate.",
+    prompt: "Based on the available knowledge base and context, help resolve the user's request. If you cannot fully resolve the issue, acknowledge the limitation and suggest clear next steps.",
   },
-] as const;
+  {
+    id: "content-writer",
+    name: "Content Writer",
+    toolCount: 3,
+    icon: PenLine,
+    description: "Writes blog posts, articles, and marketing copy with web research for accuracy and SEO.",
+    systemPrompt: "You are an expert content writer and SEO specialist. Create high-quality, engaging content that is both informative and optimized for search engines. Research topics thoroughly and produce well-structured content.",
+    prompt: "Write high-quality content based on the user's request. Research the topic thoroughly and create engaging, well-structured content with proper formatting.",
+  },
+  {
+    id: "investment-help-desk",
+    name: "Investment Help Desk",
+    toolCount: 5,
+    icon: TrendingUp,
+    description: "Answer investor questions using internal docs and web search with cited sources.",
+    systemPrompt: "You are an expert Investments Help Desk AI Agent. Use the provided context from internal knowledge base, web search, and document repositories to answer the user's question. Be concise, cite sources, and clearly differentiate between product offerings.",
+    prompt: "Please provide a clear and concise answer to the user's question. If the answer is not available, search the internal knowledge base for relevant information. If necessary, supplement your response with information from the web search results.",
+  },
+];
 
-type TemplateId = (typeof AGENT_TEMPLATES)[number]["id"];
+type TemplateId = string;
 
 export function AIAgentPanelSections({
   node,
@@ -181,9 +212,15 @@ export function AIAgentPanelSections({
   const [knowledgeBaseOpen, setKnowledgeBaseOpen] = useState(false);
   const [connectedAppsOpen, setConnectedAppsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [allKbs, setAllKbs] = useState<KnowledgeBaseOut[]>([]);
+
+  // View state: provider-select → shown for ai-agent nodes with no model yet
+  const isGenericAgent = def.kind === "ai-agent";
+  const [view, setView] = useState<"provider-select" | "template-picker" | "config">(
+    () => isGenericAgent && !node.model ? "provider-select" : "config"
+  );
+  const [pickerProviderQuery, setPickerProviderQuery] = useState("");
 
   useEffect(() => {
     api.knowledgeBases.list().then(setAllKbs).catch(() => {});
@@ -257,7 +294,6 @@ export function AIAgentPanelSections({
   const model =
     node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6");
   const provider = getModelProvider(model);
-  const providerLabel = provider === "openai" ? "OpenAI" : "Anthropic";
 
   const [providerQuery, setProviderQuery] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>(provider);
@@ -268,8 +304,130 @@ export function AIAgentPanelSections({
   useEffect(() => {
     setSelectedModelId(model);
     setSelectedProvider(getModelProvider(model));
+    // When model is set externally (e.g., undo), transition to config view
+    if (isGenericAgent && node.model && view === "provider-select") setView("config");
+    if (isGenericAgent && !node.model && view === "config") setView("provider-select");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.model]);
+
+  // ── Provider selection view ────────────────────────────────────────────────
+  if (view === "provider-select") {
+    const filtered = AI_PROVIDERS.filter((p) =>
+      p.label.toLowerCase().includes(pickerProviderQuery.toLowerCase())
+    );
+    return (
+      <div className="bg-prune-lightGray min-h-full">
+        {/* Use a template */}
+        <div className="px-4 pt-4 pb-3 border-b">
+          <button
+            onClick={() => setView("template-picker")}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-prune-borderGray bg-white text-[14px] font-[450] hover:bg-muted/30 transition-colors"
+          >
+            <Bot className="h-4 w-4 text-foreground/70" />
+            Use a template
+          </button>
+        </div>
+
+        {/* Provider list */}
+        <div className="px-4 py-4">
+          <p className="text-[15px] font-semibold mb-3">Select an AI provider</p>
+          <div className="relative mb-3">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={pickerProviderQuery}
+              onChange={(e) => setPickerProviderQuery(e.target.value)}
+              placeholder="Search for a provider"
+              className="pl-8"
+            />
+          </div>
+          <div className="space-y-1.5">
+            {filtered.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  const first =
+                    MODELS.find((m) => m.provider === p.id && !m.locked) ??
+                    MODELS.find((m) => m.provider === p.id);
+                  if (first) {
+                    onUpdateModel(node.id, first.id);
+                    setSelectedModelId(first.id);
+                    setSelectedProvider(p.id);
+                  }
+                  setView("config");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-white border border-prune-borderGray hover:border-gray-400 hover:shadow-sm transition-all text-left"
+              >
+                <div className="shrink-0">
+                  <ProviderIcon id={p.id} size={32} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-foreground">{p.label}</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {PROVIDER_DESCRIPTIONS[p.id] ?? `AI provider for ${p.label}`}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Template picker view ───────────────────────────────────────────────────
+  if (view === "template-picker") {
+    return (
+      <div className="bg-prune-lightGray min-h-full">
+        {/* Header */}
+        <div className="flex items-center gap-1 px-3 py-3 border-b bg-white">
+          <button
+            onClick={() => setView(node.model ? "config" : "provider-select")}
+            className="flex items-center gap-1 text-[14px] font-medium text-foreground hover:text-muted-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Choose a template
+          </button>
+        </div>
+        {/* Template cards */}
+        <div className="p-3 space-y-2.5">
+          {AGENT_TEMPLATES.map((t) => {
+            const TIcon = t.icon;
+            const active = activeTemplateId === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => {
+                  onUpdateSystemPrompt(node.id, t.systemPrompt);
+                  onUpdateValue(node.id, t.prompt);
+                  setActiveTemplateId(t.id);
+                  setView(node.model ? "config" : "provider-select");
+                }}
+                className={`w-full text-left rounded-xl border p-4 transition-all hover:shadow-sm ${
+                  active
+                    ? "border-violet-300 bg-violet-50"
+                    : "border-prune-borderGray bg-white hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="h-9 w-9 rounded-lg border bg-muted/50 flex items-center justify-center shrink-0">
+                    <TIcon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <span className="text-[11px] font-medium px-2 py-0.5 bg-muted/50 border rounded-full text-muted-foreground">
+                    {t.toolCount} tools
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-[14px] font-semibold text-foreground">{t.name}</span>
+                  {active && <Check className="h-3.5 w-3.5 text-violet-600 shrink-0" />}
+                </div>
+                <p className="text-[12px] text-muted-foreground leading-relaxed">{t.description}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-prune-lightGray">
@@ -290,7 +448,7 @@ export function AIAgentPanelSections({
                 <ProviderIcon id={selectedProvider} size={18} />
                 <span className="flex-1 text-left font-medium">
                   {AI_PROVIDERS.find((p) => p.id === selectedProvider)?.label ??
-                    providerLabel}
+                    selectedProvider}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-auto" />
               </Button>
@@ -372,7 +530,7 @@ export function AIAgentPanelSections({
 
         {/* Try agent templates */}
         <button
-          onClick={() => setTemplatePickerOpen(true)}
+          onClick={() => setView("template-picker")}
           className="w-full flex justify-between items-center gap-2.5 px-4 py-3 mb-2 hover:bg-muted/30 transition-colors text-left"
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -392,48 +550,6 @@ export function AIAgentPanelSections({
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
         </button>
-
-        {/* Template picker dialog */}
-        <Dialog open={templatePickerOpen} onOpenChange={setTemplatePickerOpen}>
-          <DialogContent className="max-w-sm p-0 overflow-hidden">
-            <DialogTitle className="px-4 pt-4 pb-0 text-[15px] font-semibold">
-              Agent Templates
-            </DialogTitle>
-            <div className="px-3 py-3 flex flex-col gap-2">
-              {AGENT_TEMPLATES.map((t) => {
-                const active = activeTemplateId === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      onUpdateSystemPrompt(node.id, t.systemPrompt);
-                      onUpdateValue(node.id, t.prompt);
-                      setActiveTemplateId(t.id);
-                      setTemplatePickerOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-3 rounded-lg border transition-colors ${
-                      active
-                        ? "border-violet-300 bg-violet-50"
-                        : "border-prune-borderGray bg-background hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-[14px] font-[450] text-foreground">
-                        {t.name}
-                      </span>
-                      {active && (
-                        <Check className="h-3.5 w-3.5 text-violet-600 shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-[12px] text-muted-foreground leading-relaxed">
-                      {t.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Prompting */}

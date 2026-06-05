@@ -161,9 +161,74 @@ class CodeNode(Node):
 
 
 class OutputNode(Node):
-    """Terminal output node — surfaces the accumulated workflow state as its output."""
+    """Terminal output node — surfaces workflow state, optionally via a template.
+
+    config.template — optional string with {{state.key}} expressions.
+                      When provided, evaluates each expression against the run
+                      state and returns {"reply": <rendered>}.
+                      When blank, returns the full state dict (legacy behaviour).
+    """
 
     type = "workflow.output"
 
     async def execute(self, ctx: NodeContext) -> NodeResult:
-        return {"status": "ok", "output": dict(ctx["state"]), "next": self.config.get("next")}
+        import re
+        import datetime
+        template: str = (self.config.get("template") or "").strip()
+        state = ctx["state"]
+        node_outputs: dict[str, Any] = ctx.get("node_outputs", {})  # type: ignore[call-overload]
+        inputs: dict[str, Any] = ctx.get("inputs", {})              # type: ignore[call-overload]
+        next_node = self.config.get("next")
+
+        if template:
+            # Pre-build namespaced lookup dicts once
+            sys_vars: dict[str, str] = {
+                "run_id":          ctx.get("run_id", ""),          # type: ignore[call-overload]
+                "conversation_id": ctx.get("conversation_id", ""), # type: ignore[call-overload]
+                "tenant_id":       ctx.get("tenant_id", ""),       # type: ignore[call-overload]
+                "now":             datetime.datetime.utcnow().isoformat(),
+            }
+            user_vars: dict[str, str] = inputs.get("__user__", {})
+            workspace_vars: dict[str, str] = inputs.get("__vars__", {})
+
+            def _resolve(match: re.Match) -> str:
+                expr = match.group(1).strip()
+
+                # {{sys.key}} — runtime metadata
+                if expr.startswith("sys."):
+                    return str(sys_vars.get(expr.removeprefix("sys."), ""))
+
+                # {{user.key}} — authenticated user context
+                if expr.startswith("user."):
+                    return str(user_vars.get(expr.removeprefix("user."), ""))
+
+                # {{vars.key}} — workspace variables
+                if expr.startswith("vars."):
+                    return str(workspace_vars.get(expr.removeprefix("vars."), ""))
+
+                # {{state.key}} — legacy flat state reference
+                if expr.startswith("state."):
+                    key = expr.removeprefix("state.").strip()
+                    val: Any = state
+                    for part in key.split("."):
+                        val = val.get(part) if isinstance(val, dict) else None
+                    return str(val) if val is not None else ""
+
+                # {{node-id.field}} — namespaced node output
+                parts = expr.split(".", 1)
+                if len(parts) == 2:
+                    node_id, field_path = parts
+                    val = node_outputs.get(node_id, {})
+                    for part in field_path.split("."):
+                        val = val.get(part) if isinstance(val, dict) else None
+                    return str(val) if val is not None else ""
+
+                return ""
+
+            rendered = re.sub(r"\{\{(.+?)\}\}", _resolve, template)
+            return {"status": "ok", "output": {"reply": rendered}, "next": next_node}
+
+        # No template — prefer "reply" key (set by AI nodes), else full state
+        reply = state.get("reply") or state.get("result") or state.get("message", "")
+        output = {"reply": reply} if reply else dict(state)
+        return {"status": "ok", "output": output, "next": next_node}

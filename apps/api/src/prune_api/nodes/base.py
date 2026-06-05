@@ -22,8 +22,9 @@ class NodeContext(TypedDict):
     tenant_id: str
     conversation_id: str
     inputs: dict[str, Any]
-    state: dict[str, Any]          # mutable shared state for this run
-    workflow: dict[str, Any]       # full workflow definition
+    state: dict[str, Any]                       # mutable flat state for this run
+    node_outputs: dict[str, dict[str, Any]]     # namespaced outputs: node_id → output dict
+    workflow: dict[str, Any]                    # full workflow definition
 
 
 class NodeResult(TypedDict, total=False):

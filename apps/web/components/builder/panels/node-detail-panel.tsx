@@ -130,9 +130,13 @@ export function NodeDetailPanel({
         <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
           <div className="h-8 w-8 rounded-md bg-muted/50 border flex items-center justify-center shrink-0">
             {def.kind === "ai-agent" || def.kind === "prune-ai" || def.kind === "openai-app" ? (
-              renderIntegrationIcon(
-                getModelProvider(node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6")),
-                14,
+              def.kind === "ai-agent" && !node.model ? (
+                <Icon className={cn("h-4 w-4", def.iconClass)} />
+              ) : (
+                renderIntegrationIcon(
+                  getModelProvider(node.model ?? (def.kind === "openai-app" ? "gpt-4o" : "claude-sonnet-4-6")),
+                  14,
+                )
               )
             ) : def.integrationId ? (
               renderIntegrationIcon(def.integrationId, 14)
@@ -265,23 +269,39 @@ export function NodeDetailPanel({
           </div>
         ) : def.kind === "audio-output" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
-            <AudioOutputPanelSections />
+            <AudioOutputPanelSections node={node} onUpdateNode={onUpdateNode} runOutput={runOutput} />
           </div>
         ) : def.kind === "template-out" ? (
           <>
             <div className="flex-1 overflow-y-auto py-[3px]">
-              <TemplatePanelSections />
+              <TemplatePanelSections node={node} nodes={nodes} onUpdateNode={onUpdateNode} runOutput={runOutput} />
             </div>
             <div className="px-4 py-3 border-t shrink-0">
-              <button className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border rounded-md text-sm text-foreground hover:bg-muted/30 transition-colors">
+              <label className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-prune-borderGray rounded-md text-[13px] font-[450] text-foreground hover:bg-muted/30 transition-colors cursor-pointer">
                 <Upload className="h-4 w-4" />
                 Upload Template
-              </button>
+                <input
+                  type="file"
+                  accept=".txt,.md,.markdown"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const text = ev.target?.result as string;
+                      if (text) onUpdateNode?.(node.id, { templateContent: text, templateContentDoc: undefined });
+                    };
+                    reader.readAsText(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             </div>
           </>
         ) : def.kind === "output" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
-            <OutputPanelSections runOutput={runOutput} sources={runSources} />
+            <OutputPanelSections node={node} nodes={nodes} onUpdateNode={onUpdateNode} runOutput={runOutput} sources={runSources} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto py-[3px]">

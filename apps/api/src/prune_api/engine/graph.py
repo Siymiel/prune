@@ -196,6 +196,9 @@ def canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
             config["amount"] = n.get("amount", 0)
             config["reference"] = n.get("reference", "Prune")
 
+        elif node_type == "workflow.output":
+            config["template"] = n.get("outputTemplate", "")
+
         elif node_type == "workflow.call":
             import json as _json
             try:
@@ -204,6 +207,32 @@ def canvas_to_engine(graph: dict[str, Any]) -> dict[str, Any]:
                 wf_cfg = {}
             config["workflow_id"] = wf_cfg.get("workflowId", "")
             config["workflow_name"] = wf_cfg.get("workflowName", "")
+
+        # Extract template-out content so the formatted template is available in trace/logs
+        if kind == "template-out":
+            config["template"] = n.get("templateContent", "")
+
+        # Extract audio-output (TTS) config so settings are visible in trace/logs
+        if kind == "audio-output":
+            config["tts_model"] = n.get("ttsModel", "eleven_multilingual_v2")
+            config["tts_voice"] = n.get("ttsVoice", "sarah")
+            config["tts_api_key"] = n.get("ttsApiKey", "")
+
+        # Extract action node config so tool details are visible in trace/logs
+        # and ready for future integration dispatch
+        if kind == "action":
+            import json as _json
+            try:
+                action_cfg = _json.loads(n.get("inputValue") or "{}")
+                config["tool_id"] = action_cfg.get("toolId", "")
+                config["provider_id"] = action_cfg.get("providerId", "")
+                config["tool_name"] = action_cfg.get("toolName", "")
+                config["input_values"] = action_cfg.get("inputValues") or {}
+                config["use_end_user"] = bool(action_cfg.get("useEndUser", False))
+                config["retry_on_failure"] = bool(action_cfg.get("retryOnFailure", False))
+                config["on_error"] = action_cfg.get("onError", "stop")
+            except Exception:
+                pass
 
         engine_nodes.append({"id": n["id"], "type": node_type, "config": config})
 
