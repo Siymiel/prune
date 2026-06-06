@@ -1,23 +1,23 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, LayoutGrid, List, BookOpen } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Plus, LayoutGrid, List, BookOpen, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useKnowledgeStore } from "@/lib/knowledge-store"
 import { KnowledgeCard } from "@/components/knowledge/knowledge-card"
 import { KBListView } from "@/components/knowledge/kb-list-view"
 import { NewKBDialog } from "@/components/knowledge/new-kb-dialog"
 import { DeleteKBDialog } from "@/components/knowledge/delete-kb-dialog"
 import { KBFiltersPanel } from "@/components/knowledge/kb-filters-panel"
 import { cn } from "@/lib/utils"
-import type { KnowledgeBase } from "@/lib/knowledge-store"
+import { api, type KnowledgeBaseOut } from "@/lib/api"
 
 const PAGE_SIZES = [15, 30, 100]
 
 export default function KnowledgeBasesPage() {
-  const { bases, addBase, removeBase } = useKnowledgeStore()
+  const [bases, setBases] = useState<KnowledgeBaseOut[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [view, setView] = useState<"grid" | "list">("list")
   const [createOpen, setCreateOpen] = useState(false)
@@ -25,12 +25,36 @@ export default function KnowledgeBasesPage() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(15)
 
+  useEffect(() => {
+    setLoading(true)
+    api.knowledgeBases.list()
+      .then(setBases)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
   const filtered = bases.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()))
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice(page * pageSize, (page + 1) * pageSize)
 
-  function handleDelete(kb: KnowledgeBase) {
+  function handleCreated(kb: KnowledgeBaseOut) {
+    setBases((prev) => [kb, ...prev])
+  }
+
+  function handleDelete(kb: KnowledgeBaseOut) {
     setDeleteTarget({ id: kb.id, name: kb.name })
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    try {
+      await api.knowledgeBases.delete(deleteTarget.id)
+      setBases((prev) => prev.filter((b) => b.id !== deleteTarget.id))
+    } catch {
+      // surface error in future
+    } finally {
+      setDeleteTarget(null)
+    }
   }
 
   function handleSearch(value: string) {
@@ -40,12 +64,12 @@ export default function KnowledgeBasesPage() {
 
   return (
     <TooltipProvider>
-      <NewKBDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={addBase} />
+      <NewKBDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={handleCreated} />
       <DeleteKBDialog
         open={!!deleteTarget}
         onOpenChange={(v) => !v && setDeleteTarget(null)}
         kbName={deleteTarget?.name ?? ""}
-        onConfirm={() => deleteTarget && removeBase(deleteTarget.id)}
+        onConfirm={handleConfirmDelete}
       />
 
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -67,12 +91,7 @@ export default function KnowledgeBasesPage() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <Input
               placeholder="Search knowledge bases"
@@ -81,27 +100,21 @@ export default function KnowledgeBasesPage() {
               className="pl-9 h-8 text-[13px]"
             />
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("h-8 w-8", view === "grid" && "bg-muted")}
-            onClick={() => setView("grid")}
-          >
+          <Button variant="ghost" size="icon" className={cn("h-8 w-8", view === "grid" && "bg-muted")} onClick={() => setView("grid")}>
             <LayoutGrid className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn("h-8 w-8", view === "list" && "bg-muted")}
-            onClick={() => setView("list")}
-          >
+          <Button variant="ghost" size="icon" className={cn("h-8 w-8", view === "list" && "bg-muted")} onClick={() => setView("list")}>
             <List className="h-4 w-4" />
           </Button>
           <KBFiltersPanel />
         </div>
 
         {/* Content */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center -mt-8">
             <BookOpen className="h-10 w-10 text-muted-foreground/30" strokeWidth={1.5} />
             <p className="text-[15px] font-medium text-muted-foreground">No knowledge bases yet</p>
@@ -114,11 +127,7 @@ export default function KnowledgeBasesPage() {
           <div className="flex-1 overflow-y-auto p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {paginated.map((kb) => (
-                <KnowledgeCard
-                  key={kb.id}
-                  kb={kb}
-                  onDelete={() => handleDelete(kb)}
-                />
+                <KnowledgeCard key={kb.id} kb={kb} onDelete={() => handleDelete(kb)} />
               ))}
             </div>
           </div>
@@ -131,22 +140,10 @@ export default function KnowledgeBasesPage() {
             {/* Pagination */}
             <div className="flex items-center justify-between px-4 py-2.5 border-t text-[13px]">
               <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-0.5 text-[12px]"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                >
+                <Button variant="ghost" size="sm" className="h-7 gap-0.5 text-[12px]" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
                   ‹ Prev
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-0.5 text-[12px]"
-                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                  disabled={page >= pageCount - 1}
-                >
+                <Button variant="ghost" size="sm" className="h-7 gap-0.5 text-[12px]" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>
                   Next ›
                 </Button>
               </div>
@@ -157,9 +154,7 @@ export default function KnowledgeBasesPage() {
                     onClick={() => { setPageSize(size); setPage(0) }}
                     className={cn(
                       "px-2.5 py-1 rounded text-[12px] transition-colors",
-                      pageSize === size
-                        ? "bg-muted font-medium text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      pageSize === size ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     )}
                   >
                     {size === 15 ? "15 rows" : size}

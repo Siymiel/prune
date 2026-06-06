@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from prune_api.core.auth import CurrentUser, get_current_user
 from prune_api.core.settings import settings
 from prune_api.db.base import get_session
-from prune_api.db.models import KnowledgeBase, KnowledgeDocument
+from prune_api.db.models import KnowledgeBase, KnowledgeDocument, Workflow
 
 router = APIRouter()
 
@@ -557,3 +557,196 @@ async def delete_document(
 
     await session.delete(doc)
     await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Single knowledge base fetch
+# ---------------------------------------------------------------------------
+
+@router.get("/knowledge-bases/{kb_id}", response_model=KnowledgeBaseOut)
+async def get_knowledge_base(
+    kb_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> KnowledgeBaseOut:
+    try:
+        kid = uuid.UUID(kb_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid kb_id")
+
+    row = await session.execute(
+        select(KnowledgeBase).where(
+            KnowledgeBase.id == kid,
+            KnowledgeBase.tenant_id == current_user.tenant_id,
+        )
+    )
+    kb = row.scalar_one_or_none()
+    if kb is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+    doc_count = (await session.scalar(
+        select(func.count()).select_from(KnowledgeDocument)
+        .where(KnowledgeDocument.knowledge_base_id == kb.id)
+    )) or 0
+    return KnowledgeBaseOut(
+        id=str(kb.id),
+        name=kb.name,
+        description=kb.description,
+        created_at=kb.created_at.isoformat(),
+        document_count=doc_count,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Evaluate / query endpoint — semantic search over indexed documents
+# ---------------------------------------------------------------------------
+
+class KnowledgeQueryRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    embedding_model: str = "voyage-3"
+
+
+class KnowledgeChunkResult(BaseModel):
+    doc_id: str
+    filename: str
+    chunk_index: int
+    score: float
+    text: str
+    summary: str | None = None
+
+
+class KnowledgeQueryResult(BaseModel):
+    chunks: list[KnowledgeChunkResult]
+    query: str
+    kb_id: str
+
+
+@router.post("/knowledge-bases/{kb_id}/query", response_model=KnowledgeQueryResult)
+async def query_knowledge_base(
+    kb_id: str,
+    body: KnowledgeQueryRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> KnowledgeQueryResult:
+    """Semantic search over a knowledge base — used by the Evaluate tab."""
+    try:
+        kid = uuid.UUID(kb_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid kb_id")
+
+    kb_row = await session.execute(
+        select(KnowledgeBase).where(
+            KnowledgeBase.id == kid,
+            KnowledgeBase.tenant_id == current_user.tenant_id,
+        )
+    )
+    if kb_row.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+    if not body.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    if not settings.pinecone_api_key:
+        raise HTTPException(status_code=503, detail="Vector store not configured")
+
+    query_vector: list[float]
+    model_lower = body.embedding_model.lower()
+    if model_lower.startswith("text-embedding"):
+        if not settings.openai_api_key:
+            raise HTTPException(status_code=503, detail="OpenAI API key not configured")
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        resp = await client.embeddings.create(input=[body.query], model=model_lower)
+        query_vector = resp.data[0].embedding
+    else:
+        if not settings.voyage_api_key:
+            raise HTTPException(status_code=503, detail="Voyage API key not configured")
+        import voyageai
+        vo = voyageai.AsyncClient(api_key=settings.voyage_api_key)
+        voyage_model = body.embedding_model if body.embedding_model.startswith("voyage-") else "voyage-3"
+        embed_resp = await vo.embed([body.query], model=voyage_model, input_type="query")
+        query_vector = embed_resp.embeddings[0]
+
+    from pinecone import Pinecone
+    pc = Pinecone(api_key=settings.pinecone_api_key)
+    index = pc.Index(settings.pinecone_index)
+
+    results = await asyncio.to_thread(
+        index.query,
+        namespace=kb_id,
+        vector=query_vector,
+        top_k=min(body.top_k, 20),
+        include_metadata=True,
+    )
+
+    matches = results.matches if hasattr(results, "matches") else results.get("matches", [])
+    chunks: list[KnowledgeChunkResult] = []
+    for m in matches:
+        meta = m.metadata if hasattr(m, "metadata") else (m.get("metadata") or {})
+        score = m.score if hasattr(m, "score") else (m.get("score", 0) if isinstance(m, dict) else 0)
+        chunks.append(KnowledgeChunkResult(
+            doc_id=meta.get("doc_id", ""),
+            filename=meta.get("filename", "Unknown"),
+            chunk_index=int(meta.get("chunk_index", 0)),
+            score=round(float(score), 4) if score else 0.0,
+            text=meta.get("text", ""),
+            summary=meta.get("summary"),
+        ))
+
+    return KnowledgeQueryResult(chunks=chunks, query=body.query, kb_id=kb_id)
+
+
+# ---------------------------------------------------------------------------
+# Workflow references — which workflows use this knowledge base
+# ---------------------------------------------------------------------------
+
+class WorkflowReferenceOut(BaseModel):
+    workflow_id: str
+    workflow_name: str
+    node_id: str
+    node_label: str
+
+
+@router.get("/knowledge-bases/{kb_id}/references", response_model=list[WorkflowReferenceOut])
+async def list_kb_references(
+    kb_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[WorkflowReferenceOut]:
+    """Return all workflows whose canvas graph contains a node referencing this knowledge base."""
+    try:
+        uuid.UUID(kb_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid kb_id")
+
+    rows = await session.execute(
+        select(Workflow).where(Workflow.tenant_id == current_user.tenant_id)
+    )
+    workflows = rows.scalars().all()
+
+    refs: list[WorkflowReferenceOut] = []
+    for wf in workflows:
+        graph = wf.graph or {}
+        nodes = graph.get("nodes", [])
+        for node in nodes:
+            data = node.get("data", {})
+            kind = data.get("kind", "")
+            # KB nodes store selected KB id in inputValue
+            if kind == "knowledge-base" and data.get("inputValue") == kb_id:
+                refs.append(WorkflowReferenceOut(
+                    workflow_id=str(wf.id),
+                    workflow_name=wf.name,
+                    node_id=node.get("id", ""),
+                    node_label=data.get("label", "Knowledge Base"),
+                ))
+            # AI-agent nodes store KB ids in knowledgeBaseIds list
+            kb_ids: list[str] = data.get("knowledgeBaseIds") or []
+            if kind in ("ai-agent", "prune-ai", "openai-app") and kb_id in kb_ids:
+                refs.append(WorkflowReferenceOut(
+                    workflow_id=str(wf.id),
+                    workflow_name=wf.name,
+                    node_id=node.get("id", ""),
+                    node_label=data.get("label", "AI Agent"),
+                ))
+    return refs

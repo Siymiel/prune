@@ -436,6 +436,7 @@ export function AIAgentPanelSections({
         <div className="px-4 py-2 border-b">
           <SubLabel>AI Provider</SubLabel>
           <DropdownMenu
+            modal={false}
             onOpenChange={(open) => {
               if (!open) setProviderQuery("");
             }}
@@ -444,6 +445,7 @@ export function AIAgentPanelSections({
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2.5 rounded-lg bg-white px-3 hover:bg-muted/30 hover:text-foreground"
+                onPointerDown={(e) => e.stopPropagation()}
               >
                 <ProviderIcon id={selectedProvider} size={18} />
                 <span className="flex-1 text-left font-medium">
@@ -456,8 +458,12 @@ export function AIAgentPanelSections({
             <DropdownMenuContent
               align="start"
               style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+              onCloseAutoFocus={(e) => e.preventDefault()}
             >
-              <div className="px-2 py-1.5 border-b">
+              <div
+                className="px-2 py-1.5 border-b"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
@@ -503,7 +509,8 @@ export function AIAgentPanelSections({
           <Button
             variant="outline"
             className="w-full justify-start gap-2.5 rounded-lg bg-white px-3 hover:bg-muted/30 hover:text-foreground"
-            onClick={() => setModelPickerOpen(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setModelPickerOpen(true); }}
           >
             <span className="shrink-0">
               <ProviderIcon

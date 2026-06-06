@@ -28,6 +28,7 @@ import {
   Brain,
   Database,
   ScanLine,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Section, SubLabel, SettingRow, Toggle } from "./panel-ui";
@@ -78,7 +79,7 @@ type ActionProviderDef = {
 
 type ActionToolGroup = {
   name: string;
-  tools: { id: string; name: string; description: string }[];
+  tools: { id: string; name: string; description: string; isTrigger?: boolean }[];
 };
 
 type ActionConfig = {
@@ -192,17 +193,29 @@ const PROVIDER_TOOLS: Record<string, ActionToolGroup[]> = {
     { id: "mcp-list", name: "List MCP Tools", description: "List available tools from a connected MCP server." },
   ]}],
   slack: [
+    { name: "Mention Tools", tools: [
+      { id: "slack-on-app-mention",   name: "On App Mention",   description: "Trigger a workflow execution every time your app is mentioned in a channel.", isTrigger: true },
+      { id: "slack-on-user-mention",  name: "On User Mentioned",description: "Fires when a specific user is @mentioned in any channel.",                     isTrigger: true },
+    ]},
+    { name: "Message Tools", tools: [
+      { id: "slack-on-new-message",         name: "On New Message",          description: "Fires when a new message is posted in a channel or DM.",                isTrigger: true },
+      { id: "slack-on-new-message-polling", name: "On New Message (Polling)", description: "Fires when a new message is posted in a channel (polling).",            isTrigger: true },
+      { id: "slack-add-reaction",           name: "Add Reaction",             description: "Add an emoji reaction to a Slack message."                                            },
+      { id: "slack-delete-message",         name: "Delete Message",           description: "Delete a message from a Slack channel."                                              },
+      { id: "slack-get-reactions",          name: "Get Reactions",            description: "Get all reactions on a Slack message."                                               },
+      { id: "slack-get-thread-context",     name: "Get Thread Context",       description: "Get all messages from a Slack thread including replies."                             },
+    ]},
     { name: "Messaging", tools: [
-      { id: "slack-send-message", name: "Send Message",   description: "Send a message to a Slack channel with optional file attachments." },
-      { id: "slack-search",       name: "Search Messages",description: "Search for messages across the Slack workspace." },
-      { id: "slack-send-wait",    name: "Send and Wait",  description: "Send a message and wait for an approval or free-text response." },
-      { id: "slack-query",        name: "Query Channel",  description: "Retrieve messages from a configured Slack channel." },
+      { id: "slack-send-message", name: "Send Message",    description: "Send a message to a Slack channel with optional file attachments." },
+      { id: "slack-search",       name: "Search Messages", description: "Search for messages across the Slack workspace."                    },
+      { id: "slack-send-wait",    name: "Send and Wait",   description: "Send a message and wait for an approval or free-text response."    },
+      { id: "slack-query",        name: "Query Channel",   description: "Retrieve messages from a configured Slack channel."                 },
     ]},
     { name: "Files", tools: [
       { id: "slack-upload-file", name: "Upload File",   description: "Upload files to Slack from URL, base64, or text content." },
-      { id: "slack-delete-file", name: "Delete File",   description: "Delete a file from the Slack workspace permanently." },
-      { id: "slack-get-file",    name: "Get File Info", description: "Get detailed information about a specific Slack file." },
-      { id: "slack-list-files",  name: "List Files",    description: "List files in the Slack workspace with filtering options." },
+      { id: "slack-delete-file", name: "Delete File",   description: "Delete a file from the Slack workspace permanently."      },
+      { id: "slack-get-file",    name: "Get File Info", description: "Get detailed information about a specific Slack file."    },
+      { id: "slack-list-files",  name: "List Files",    description: "List files in the Slack workspace with filtering options."},
     ]},
   ],
   gmail: [{ name: "Email", tools: [
@@ -1263,42 +1276,58 @@ export function ActionCategoryPicker({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-3 pb-2 flex items-center gap-1 shrink-0">
+      {/* Provider dropdown */}
+      <div className="px-4 pt-3 pb-3 shrink-0 border-b border-prune-borderGray">
+        <div className="text-[11px] font-medium text-muted-foreground mb-1.5">Provider</div>
         <button
           onClick={() => { setNav({ step: "providers", catId: nav.catId, catLabel: nav.catLabel, catHeader: nav.catHeader }); setSearch(""); }}
-          className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-prune-borderGray bg-white hover:bg-muted/20 transition-colors text-left"
         >
-          TOOLS IN {nav.catHeader}
+          <div
+            className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 border overflow-hidden"
+            style={providerDef?.icon.type === "letter" ? { backgroundColor: providerDef.icon.bg } : {}}
+          >
+            {providerDef && renderProviderIcon(providerDef.icon, 14)}
+          </div>
+          <span className="flex-1 text-[13px] font-medium text-foreground">{nav.providerName}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         </button>
-        <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-          {nav.providerName.toUpperCase()}
-        </span>
       </div>
-      <div className="px-4 pb-2 shrink-0">
+
+      {/* Search */}
+      <div className="px-4 py-2.5 shrink-0">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             autoFocus
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-prune-midGray placeholder:text-muted-foreground/50"
+            className="w-full pl-8 pr-3 py-1.5 text-[13px] bg-background border border-prune-borderGray rounded-lg focus:outline-none focus:ring-1 focus:ring-prune-midGray placeholder:text-muted-foreground/50"
             placeholder={`Search for a tool in ${nav.providerName}`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
+
+      {/* Tool list */}
       <div className="flex-1 overflow-y-auto">
+        {search && (
+          <div className="px-4 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Search results for tools
+          </div>
+        )}
         {filteredGroups.length > 0 ? (
           filteredGroups.map((group) => (
             <div key={group.name}>
-              <div className="px-4 py-1.5 text-[11px] font-semibold text-muted-foreground bg-muted/10">
-                {group.name}
-              </div>
+              {!search && (
+                <div className="px-4 py-1.5 text-[12px] font-semibold text-foreground/70">
+                  {group.name}
+                </div>
+              )}
               {group.tools.map((tool) => (
                 <button
                   key={tool.id}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 text-left transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 text-left transition-colors"
                   onClick={() => {
                     if (!providerDef) return;
                     const cfg: ActionConfig = {
@@ -1313,18 +1342,26 @@ export function ActionCategoryPicker({
                     onUpdateLabel(node.id, tool.name);
                   }}
                 >
+                  {/* Icon with trigger/action badge */}
                   <div
-                    className="relative h-10 w-10 rounded-lg flex items-center justify-center shrink-0 border overflow-hidden"
+                    className="relative h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border overflow-hidden"
                     style={providerDef?.icon.type === "letter" ? { backgroundColor: providerDef.icon.bg } : {}}
                   >
                     {providerDef && renderProviderIcon(providerDef.icon)}
-                    <div className="absolute bottom-0 right-0 h-4 w-4 bg-white border-t border-l rounded-tl flex items-center justify-center">
-                      <Play className="h-2 w-2 fill-foreground text-foreground" />
+                    <div
+                      className={cn(
+                        "absolute bottom-0 right-0 h-4 w-4 border-t border-l rounded-tl flex items-center justify-center",
+                        tool.isTrigger ? "bg-amber-400" : "bg-white",
+                      )}
+                    >
+                      {tool.isTrigger
+                        ? <Zap className="h-2.5 w-2.5 text-white fill-white" />
+                        : <Play className="h-2 w-2 fill-foreground text-foreground" />}
                     </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground">{tool.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{tool.description}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-foreground">{tool.name}</div>
+                    <div className="text-[12px] text-muted-foreground line-clamp-1">{tool.description}</div>
                   </div>
                 </button>
               ))}

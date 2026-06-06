@@ -34,6 +34,7 @@ import {
   Boxes,
   Group,
   EllipsisVertical,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { WorkflowOut } from "@/lib/api";
 import { Separator } from "@/components/ui/separator";
+import { GoalDialog } from "@/components/goals/goal-dialog";
 
 interface ProjectFolder {
   id: string;
@@ -371,6 +373,8 @@ export default function DashboardPage() {
   const [deleteTarget, setDeleteTarget] = useState<WorkflowOut | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [goalOpen, setGoalOpen] = useState(false);
+
   const displayName = user?.email?.split("@")[0] ?? "My Workspace";
   const orgTitle = `${displayName.charAt(0).toUpperCase() + displayName.slice(1)}'s Workspace`;
   const activeFolder = folders.find((f) => f.id === selectedFolder);
@@ -475,6 +479,16 @@ export default function DashboardPage() {
 
   return (
     <TooltipProvider>
+      <GoalDialog
+        open={goalOpen}
+        onOpenChange={setGoalOpen}
+        onCreated={(workflowId) => {
+          api.workflows.get(workflowId).then((wf) => {
+            setWorkflows((prev) => [wf, ...prev]);
+          }).catch(() => {});
+        }}
+      />
+
       {/* New Folder dialog */}
       <Dialog
         open={newFolderOpen}
@@ -745,6 +759,20 @@ export default function DashboardPage() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Export projects</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 h-8 border-dashed"
+                    onClick={() => setGoalOpen(true)}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    From Goal
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Describe a goal — Prune AI builds the workflow</TooltipContent>
               </Tooltip>
               <Button
                 size="sm"

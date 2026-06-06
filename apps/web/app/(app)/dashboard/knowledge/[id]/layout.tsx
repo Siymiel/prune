@@ -1,9 +1,9 @@
 "use client"
 
-import { use } from "react"
+import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Folder, Pencil, FileText, Search, GitFork, Share2, MoreHorizontal, ChevronRight } from "lucide-react"
+import { Folder, Pencil, FileText, Search, GitFork, Share2, MoreHorizontal, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -12,8 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useKnowledgeStore } from "@/lib/knowledge-store"
 import { cn } from "@/lib/utils"
+import { api, type KnowledgeBaseOut } from "@/lib/api"
 
 const NAV = [
   { label: "Documents", path: "documents", icon: FileText },
@@ -31,14 +31,27 @@ export default function KBDetailLayout({
   const { id } = use(params)
   const pathname = usePathname()
   const router = useRouter()
-  const kb = useKnowledgeStore((s) => s.bases.find((b) => b.id === id))
+  const [kb, setKb] = useState<KnowledgeBaseOut | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.knowledgeBases.get(id)
+      .then(setKb)
+      .catch(() => router.replace("/dashboard/knowledge"))
+      .finally(() => setLoading(false))
+  }, [id, router])
 
   const activeTab = NAV.find((n) => pathname.endsWith(n.path))?.label ?? "Documents"
 
-  if (!kb) {
-    router.replace("/dashboard/knowledge")
-    return null
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
+
+  if (!kb) return null
 
   return (
     <TooltipProvider>
@@ -61,7 +74,12 @@ export default function KBDetailLayout({
 
           <div className="px-4 py-3 border-b">
             <p className="text-[13px] font-semibold leading-tight">{kb.name}</p>
-            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{kb.description}</p>
+            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+              {kb.description ?? "No description"}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {kb.document_count} document{kb.document_count !== 1 ? "s" : ""}
+            </p>
           </div>
 
           <nav className="p-2 flex flex-col gap-0.5">
@@ -111,7 +129,17 @@ export default function KBDetailLayout({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="text-[13px]">
                   <DropdownMenuItem className="cursor-pointer">Settings</DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">Delete</DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    onClick={async () => {
+                      try {
+                        await api.knowledgeBases.delete(id)
+                        router.push("/dashboard/knowledge")
+                      } catch {/* ignore */}
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

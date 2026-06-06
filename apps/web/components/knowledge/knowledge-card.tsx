@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Folder, Settings, MoreHorizontal, Pencil, Trash } from "lucide-react"
+import { Folder, MoreHorizontal, Pencil, Trash } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
@@ -11,27 +11,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import type { KnowledgeBase } from "@/lib/knowledge-store"
+import type { KnowledgeBaseOut } from "@/lib/api"
 
-function formatBytes(bytes: number) {
-  return `${(bytes / 1024).toFixed(2)} KB`
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
 interface Props {
-  kb: KnowledgeBase
+  kb: KnowledgeBaseOut
   onDelete: () => void
 }
 
 export function KnowledgeCard({ kb, onDelete }: Props) {
   const router = useRouter()
-  const totalBytes = kb.documents.reduce((s, d) => s + d.sizeBytes, 0)
-  const subtitle = kb.connection ? `Connected to ${kb.connection}` : "This knowledge base has no connection"
 
   return (
     <div
       className="relative rounded-xl border border-prune-borderGray bg-white hover:bg-prune-lightGray transition-colors p-4 cursor-pointer h-[160px] flex flex-col justify-between"
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onClick={() => router.push(`/dashboard/knowledge/${kb.id}/documents` as any)}
+      onClick={() => router.push(`/dashboard/knowledge/${kb.id}/documents` as never)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
@@ -40,7 +37,9 @@ export function KnowledgeCard({ kb, onDelete }: Props) {
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-[500] leading-tight truncate">{kb.name}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{subtitle}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+              {kb.description ?? "No description"}
+            </p>
           </div>
         </div>
 
@@ -48,10 +47,10 @@ export function KnowledgeCard({ kb, onDelete }: Props) {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                <Settings className="h-3.5 w-3.5" />
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">{subtitle}</TooltipContent>
+            <TooltipContent side="top">Rename</TooltipContent>
           </Tooltip>
 
           <DropdownMenu>
@@ -79,7 +78,7 @@ export function KnowledgeCard({ kb, onDelete }: Props) {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        {totalBytes > 0 ? formatBytes(totalBytes) : "0 KB"}
+        {kb.document_count} document{kb.document_count !== 1 ? "s" : ""} &nbsp;·&nbsp; Created {formatDate(kb.created_at)}
       </p>
     </div>
   )

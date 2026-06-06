@@ -16,7 +16,10 @@ from prune_api.routers import (
     conversations,
     deployments,
     environments,
+    explain,
     files,
+    goals,
+    heal,
     health,
     integrations,
     knowledge,
@@ -70,3 +73,6 @@ app.include_router(environments.router, prefix="/v1")
 app.include_router(webhooks.router, prefix="/v1/webhooks")
 app.include_router(integrations.router, prefix="/v1/integrations")
 app.include_router(deployments.router, prefix="/v1")
+app.include_router(explain.router, prefix="/v1")
+app.include_router(goals.router, prefix="/v1")
+app.include_router(heal.router, prefix="/v1")

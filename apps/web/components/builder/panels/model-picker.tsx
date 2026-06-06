@@ -964,6 +964,7 @@ export function ModelPickerDialog({
   return (
     <Dialog
       open={open}
+      modal={false}
       onOpenChange={(v) => {
         onOpenChange(v);
         if (!v) {
@@ -974,12 +975,20 @@ export function ModelPickerDialog({
     >
       <DialogContent
         hideCloseButton
-        className="max-w-lg p-0"
+        className="max-w-lg p-0 [--tw-enter-translate-x:0px] [--tw-enter-translate-y:0px]"
         style={{
           right: "calc(var(--panel-width, 0px) + 8px)",
           left: "auto",
           top: "50%",
           transform: "translateY(-50%)",
+        }}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          const target = e.target as Element | null;
+          if (target?.closest("[data-radix-popper-content-wrapper]")) return;
+          onOpenChange(false);
+          setQuery("");
+          setHoveredModel(null);
         }}
       >
         <DialogTitle className="sr-only">Select Model</DialogTitle>

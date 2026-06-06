@@ -128,6 +128,25 @@ export interface TriggerRunRequest {
   inputs?: Record<string, unknown>;
 }
 
+export interface HealPatch {
+  node_id: string;
+  node_kind: string;
+  node_label: string;
+  field: string;
+  old_value: string;
+  new_value: string;
+}
+
+export interface HealResponse {
+  status: 'healed' | 'no_fix' | 'error';
+  diagnosis: string;
+  fix_description: string;
+  patch: HealPatch | null;
+  applied: boolean;
+  test_run_id: string | null;
+  workflow_updated: boolean;
+}
+
 export interface KnowledgeBaseOut {
   id: string;
   name: string;
@@ -144,6 +163,28 @@ export interface KnowledgeDocumentOut {
   status: 'processing' | 'ready' | 'error';
   error: string | null;
   created_at: string;
+}
+
+export interface KnowledgeChunkResult {
+  doc_id: string;
+  filename: string;
+  chunk_index: number;
+  score: number;
+  text: string;
+  summary: string | null;
+}
+
+export interface KnowledgeQueryResult {
+  chunks: KnowledgeChunkResult[];
+  query: string;
+  kb_id: string;
+}
+
+export interface WorkflowReferenceOut {
+  workflow_id: string;
+  workflow_name: string;
+  node_id: string;
+  node_label: string;
 }
 
 export interface KnowledgeSource {
@@ -188,6 +229,43 @@ export interface PublishRequest {
   metadata?: Record<string, unknown>;
 }
 
+export interface StoryBeat {
+  step: number;
+  node_id: string;
+  node_label: string;
+  node_kind: string;
+  icon_type: string;
+  status: string;
+  duration_ms: number;
+  summary: string;
+  key_outputs: Record<string, string>;
+  ai_reply: string | null;
+  error: string | null;
+}
+
+export interface ExplainResponse {
+  run_id: string;
+  workflow_name: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  beats: StoryBeat[];
+}
+
+export interface GoalNodeSummary {
+  kind: string;
+  label: string;
+  role: string;
+}
+
+export interface GoalGenerateResponse {
+  workflow_id: string;
+  workflow_name: string;
+  explanation: string[];
+  nodes_summary: GoalNodeSummary[];
+  workflow: WorkflowOut;
+}
+
 // ---------------------------------------------------------------------------
 // API surface
 // ---------------------------------------------------------------------------
@@ -200,6 +278,19 @@ export const api = {
   chat: {
     send: (body: ChatRequest) =>
       apiFetch<ChatResponse>('/v1/chat', { method: 'POST', body: JSON.stringify(body) }),
+  },
+
+  goals: {
+    generate: (goal: string) =>
+      apiFetch<GoalGenerateResponse>('/v1/goals/generate', {
+        method: 'POST',
+        body: JSON.stringify({ goal }),
+      }),
+  },
+
+  heal: {
+    run: (runId: string) =>
+      apiFetch<HealResponse>(`/v1/runs/${runId}/heal`, { method: 'POST' }),
   },
 
   workflows: {
@@ -261,6 +352,18 @@ export const api = {
 
     deleteDocument: (kbId: string, docId: string) =>
       apiFetch<void>(`/v1/knowledge-bases/${kbId}/documents/${docId}`, { method: 'DELETE' }),
+
+    get: (id: string) =>
+      apiFetch<KnowledgeBaseOut>(`/v1/knowledge-bases/${id}`),
+
+    query: (id: string, query: string, topK = 5, embeddingModel = 'voyage-3') =>
+      apiFetch<KnowledgeQueryResult>(`/v1/knowledge-bases/${id}/query`, {
+        method: 'POST',
+        body: JSON.stringify({ query, top_k: topK, embedding_model: embeddingModel }),
+      }),
+
+    references: (id: string) =>
+      apiFetch<WorkflowReferenceOut[]>(`/v1/knowledge-bases/${id}/references`),
   },
 
   files: {
@@ -285,6 +388,9 @@ export const api = {
       const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : '';
       return apiFetch<RunOut[]>(`/v1/runs${qs}`);
     },
+
+    explain: (runId: string) =>
+      apiFetch<ExplainResponse>(`/v1/runs/${runId}/explain`),
   },
 
   deployments: {

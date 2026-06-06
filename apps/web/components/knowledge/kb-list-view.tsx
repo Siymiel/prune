@@ -11,25 +11,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { KnowledgeBase } from "@/lib/knowledge-store"
+import type { KnowledgeBaseOut } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
-type SortKey = "sizeBytes" | "createdAt" | "updatedAt"
+type SortKey = "document_count" | "created_at"
 
 interface Props {
-  bases: KnowledgeBase[]
-  onDelete: (kb: KnowledgeBase) => void
+  bases: KnowledgeBaseOut[]
+  onDelete: (kb: KnowledgeBaseOut) => void
 }
 
-function formatBytes(bytes: number) {
-  if (bytes === 0) return "0 KB"
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-    : `${(bytes / 1024).toFixed(2)} KB`
-}
-
-function formatRelative(date: Date) {
-  const sec = Math.floor((Date.now() - date.getTime()) / 1000)
+function formatRelative(iso: string) {
+  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
   if (sec < 60) return "just now"
   const min = Math.floor(sec / 60)
   if (min < 60) return `${min} min ago`
@@ -43,7 +36,7 @@ export function KBListView({ bases, onDelete }: Props) {
   const router = useRouter()
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
-    key: "createdAt",
+    key: "created_at",
     dir: "desc",
   })
 
@@ -62,15 +55,12 @@ export function KBListView({ bases, onDelete }: Props) {
   const sorted = [...bases].sort((a, b) => {
     let av: number
     let bv: number
-    if (sort.key === "sizeBytes") {
-      av = a.documents.reduce((s, d) => s + d.sizeBytes, 0)
-      bv = b.documents.reduce((s, d) => s + d.sizeBytes, 0)
-    } else if (sort.key === "createdAt") {
-      av = a.createdAt.getTime()
-      bv = b.createdAt.getTime()
+    if (sort.key === "document_count") {
+      av = a.document_count
+      bv = b.document_count
     } else {
-      av = a.updatedAt.getTime()
-      bv = b.updatedAt.getTime()
+      av = new Date(a.created_at).getTime()
+      bv = new Date(b.created_at).getTime()
     }
     return sort.dir === "asc" ? av - bv : bv - av
   })
@@ -103,30 +93,20 @@ export function KBListView({ bases, onDelete }: Props) {
           </th>
           <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Name</th>
           <th className="px-4 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap">
-            Total Size
-            <SortBtn k="sizeBytes" />
+            Documents
+            <SortBtn k="document_count" />
           </th>
-          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Connections</th>
-          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Health</th>
-          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Visible To</th>
-          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">General Access</th>
+          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Description</th>
+          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Access</th>
           <th className="px-4 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap">
             Created
-            <SortBtn k="createdAt" />
-          </th>
-          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap">
-            Last Modified
-            <SortBtn k="updatedAt" />
-          </th>
-          <th className="px-4 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap">
-            Last synced
+            <SortBtn k="created_at" />
           </th>
           <th className="w-10" />
         </tr>
       </thead>
       <tbody>
         {sorted.map((kb) => {
-          const totalBytes = kb.documents.reduce((s, d) => s + d.sizeBytes, 0)
           const isChecked = checked.has(kb.id)
           return (
             <tr
@@ -135,8 +115,7 @@ export function KBListView({ bases, onDelete }: Props) {
                 "border-b hover:bg-muted/30 cursor-pointer transition-colors",
                 isChecked && "bg-muted/20"
               )}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onClick={() => router.push(`/dashboard/knowledge/${kb.id}/documents` as any)}
+              onClick={() => router.push(`/dashboard/knowledge/${kb.id}/documents` as never)}
             >
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <input
@@ -160,18 +139,9 @@ export function KBListView({ bases, onDelete }: Props) {
                   <span className="font-[450] truncate max-w-[200px]">{kb.name}</span>
                 </div>
               </td>
-              <td className="px-4 py-3 text-muted-foreground">{formatBytes(totalBytes)}</td>
-              <td className="px-4 py-3 text-muted-foreground">{kb.connection ?? "No connection"}</td>
-              <td className="px-4 py-3">
-                <div className="h-3 w-3 rounded-full border-2 border-muted-foreground/25" />
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-semibold text-primary shrink-0">
-                    SK
-                  </div>
-                  <span className="text-muted-foreground truncate">Samuel Kinuthia</span>
-                </div>
+              <td className="px-4 py-3 text-muted-foreground">{kb.document_count}</td>
+              <td className="px-4 py-3 text-muted-foreground truncate max-w-[240px]">
+                {kb.description ?? "—"}
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -180,12 +150,8 @@ export function KBListView({ bases, onDelete }: Props) {
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                {formatRelative(kb.createdAt)}
+                {formatRelative(kb.created_at)}
               </td>
-              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                {formatRelative(kb.updatedAt)}
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">—</td>
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
