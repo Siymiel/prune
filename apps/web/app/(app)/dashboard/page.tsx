@@ -796,10 +796,10 @@ export default function DashboardPage() {
           {/* Search + filters row */}
           <div className="flex items-center gap-2 px-5 pb-2.5 shrink-0 border-t bg-[#FBFBFB]">
             <div className="relative flex-1 mt-4">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-2.5 font-[450] top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               <Input
                 placeholder="Search projects"
-                className="pl-8 h-10 text-sm w-full rounded-xl"
+                className="pl-8 py-2 text-[15px] font-[450] placeholder:text-gray-400 w-full rounded-xl"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -811,7 +811,7 @@ export default function DashboardPage() {
                   <button
                     onClick={() => setViewMode("grid")}
                     className={cn(
-                      "p-2.5 transition-colors rounded-xl",
+                      "px-2.5 py-2 transition-colors rounded-xl",
                       viewMode === "grid"
                         ? "bg-white border border-prune-borderGray"
                         : "hover:bg-prune-lightGray bg-prune-lightGray text-prune-commonGray",
@@ -827,7 +827,7 @@ export default function DashboardPage() {
                   <button
                     onClick={() => setViewMode("list")}
                     className={cn(
-                      "p-2.5 transition-colors rounded-xl",
+                      "px-2.5 py-2 transition-colors rounded-xl",
                       viewMode === "list"
                         ? "bg-white border border-prune-borderGray"
                         : "hover:bg-prune-lightGray bg-prune-lightGray text-prune-commonGray",
@@ -845,7 +845,7 @@ export default function DashboardPage() {
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
-                    className="py-5 rounded-xl font-sans font-[450] text-[15px] gap-4 px-3"
+                    className="py-4 rounded-xl font-sans font-[450] text-[15px] gap-4 px-3"
                   >
                     Last Viewed <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -857,7 +857,7 @@ export default function DashboardPage() {
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
-                    className="py-5 rounded-xl font-sans font-[450] text-[15px] gap-4 px-3"
+                    className="py-4 rounded-xl font-sans font-[450] text-[15px] gap-4 px-3"
                   >
                     All <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -869,7 +869,7 @@ export default function DashboardPage() {
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
-                    className="py-5 rounded-xl font-sans font-[450] text-[15px] gap-4 px-3"
+                    className="py-4 rounded-xl font-sans font-[450] text-[15px] gap-4 px-3"
                   >
                     <Settings2Icon className="h-4 w-4" />
                     Filters

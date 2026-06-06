@@ -4,11 +4,9 @@ import { useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  LayoutDashboard,
-  Bot,
   Inbox,
   Workflow,
-  BookOpen,
+  Database,
   BarChart3,
   Puzzle,
   UsersRound,
@@ -18,10 +16,11 @@ import {
   Hop,
   LogOut,
   Home,
+  House,
   Moon,
   Sparkles,
   Globe,
-  Share2,
+  Bot,
   History,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -57,16 +56,16 @@ interface NavItem {
 }
 
 const WORKSPACE_NAV: NavItem[] = [
-  { href: "/dashboard", label: "Projects", icon: LayoutDashboard },
-  { href: "/dashboard/knowledge", label: "Knowledge Bases", icon: BookOpen },
-  { href: "/dashboard/skills", label: "Skills", icon: Sparkles },
+  { href: "/dashboard", label: "Projects", icon: House },
+  { href: "/dashboard/knowledge", label: "Knowledge Bases", icon: Database },
   { href: "/dashboard/connections", label: "Connections", icon: Puzzle },
-  { href: "/dashboard/inbox", label: "Inbox", icon: Inbox, badge: "12" },
-  { href: "/dashboard/runs", label: "Run History", icon: History },
-  { href: "/builder", label: "Workflows", icon: Workflow },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/skills", label: "Skills", icon: Sparkles },
+  // { href: "/dashboard/inbox", label: "Inbox", icon: Inbox, badge: "12" },
+  // { href: "/dashboard/runs", label: "Run History", icon: History },
+  // { href: "/builder", label: "Workflows", icon: Workflow },
   { href: "/dashboard/environments", label: "Environments", icon: Globe },
-  { href: "/dashboard/published-agents", label: "Published Agents", icon: Share2 },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/published-agents", label: "Published Agents", icon: Bot },
 ]
 
 const TEMPLATES_NAV: NavItem[] = [
@@ -87,7 +86,7 @@ export function AppSidebar() {
   const dropdownOpenRef = useRef(false)
 
   const email = user?.email ?? ""
-  const initials = email.slice(0, 2).toUpperCase() || "?"
+  const initials = email.slice(0, 1).toUpperCase() || "?"
   const displayName = email.split("@")[0] || "Workspace"
   const orgName = `${displayName.charAt(0).toUpperCase() + displayName.slice(1)}'s Workspace`
 
@@ -102,22 +101,22 @@ export function AppSidebar() {
       hoverExpand
       onMouseEnter={() => { isHoveringRef.current = true; setOpen(true) }}
       onMouseLeave={() => { isHoveringRef.current = false; if (!dropdownOpenRef.current) setOpen(false) }}
-      className="font-inter"
+      className="font-sans font-[450]"
     >
       <SidebarHeader className="gap-1.5 pb-2">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-1.5 py-1">
-          <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+        <div className="flex items-center gap-2.5 py-1">
+          <div className="h-8 w-8 shrink-0 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
             <Hop className="h-4 w-4" />
           </div>
-          <span className="text-[15px] font-semibold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+          <span className="text-[18px] font-semibold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
             PruneAI
           </span>
         </div>
 
         {/* Workspace selector */}
-        <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <div className="h-6 w-6 shrink-0 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[10px] font-semibold">
+        <button className="w-full flex items-center gap-2 px-1.5 py-1 mt-4 rounded-md hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <div className="h-8 w-8 shrink-0 rounded-lg bg-prune-lightGray text-gray-700 border flex items-center justify-center text-[20px] font-medium">
             {initials}
           </div>
           <div className="flex-1 min-w-0 text-left group-data-[collapsible=icon]:hidden">
@@ -128,7 +127,7 @@ export function AppSidebar() {
               Free
             </div>
           </div>
-          <ChevronsUpDown className="h-3.5 w-3.5 text-sidebar-foreground/40 shrink-0 group-data-[collapsible=icon]:hidden" />
+          <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/40 shrink-0 group-data-[collapsible=icon]:hidden" />
         </button>
       </SidebarHeader>
 
@@ -146,7 +145,7 @@ export function AppSidebar() {
                     isActive={isActive}
                     tooltip={item.label}
                     className={cn(
-                      "h-8 text-[13px] font-medium rounded-md",
+                      "h-8 text-[14px] font-medium rounded-md",
                       isActive
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
@@ -154,7 +153,7 @@ export function AppSidebar() {
                   >
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Link href={item.href as any}>
-                      <Icon className="h-[15px] w-[15px] shrink-0" />
+                      <Icon className="h-[16px] w-[16px] shrink-0" />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -169,7 +168,8 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarGroup className="group-data-[collapsible=icon]:py-1 p-1">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {/* <SidebarGroup className="group-data-[collapsible=icon]:py-1 p-1">
           <SidebarGroupLabel className="text-[10px] font-semibold tracking-widest text-sidebar-foreground/40 uppercase px-2 mb-0.5">
             Templates
           </SidebarGroupLabel>
@@ -185,20 +185,19 @@ export function AppSidebar() {
                     isActive={isActive}
                     tooltip={item.label}
                     className={cn(
-                      "h-8 text-[13px] font-medium rounded-md",
+                      "h-8 text-[14px] font-medium rounded-md",
                       isActive
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                     )}
                   >
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Link href={item.href as any}>
-                      <Icon className="h-[15px] w-[15px] shrink-0" />
+                      <Icon className="h-[16px] w-[16px] shrink-0" />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                   {item.badge && (
-                    <SidebarMenuBadge className="text-[10px] text-sidebar-foreground/40">
+                    <SidebarMenuBadge className="text-[12px] text-sidebar-foreground/40">
                       {item.badge}
                     </SidebarMenuBadge>
                   )}
@@ -206,9 +205,10 @@ export function AppSidebar() {
               )
             })}
           </SidebarMenu>
-        </SidebarGroup>
+        </SidebarGroup> */}
 
-        <SidebarGroup className="group-data-[collapsible=icon]:py-1 p-1">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {/* <SidebarGroup className="group-data-[collapsible=icon]:py-1 p-1">
           <SidebarGroupLabel className="text-[10px] font-semibold tracking-widest text-sidebar-foreground/40 uppercase px-2 mb-0.5">
             Settings
           </SidebarGroupLabel>
@@ -230,7 +230,6 @@ export function AppSidebar() {
                         : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                     )}
                   >
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <Link href={item.href as any}>
                       <Icon className="h-[15px] w-[15px] shrink-0" />
                       <span>{item.label}</span>
@@ -240,7 +239,7 @@ export function AppSidebar() {
               )
             })}
           </SidebarMenu>
-        </SidebarGroup>
+        </SidebarGroup> */}
       </SidebarContent>
 
       <SidebarFooter className="p-1 pb-2">

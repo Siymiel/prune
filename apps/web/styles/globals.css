@@ -81,3 +81,11 @@
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30%           { opacity: 1;   transform: translateY(-3px); }
 }
+
+/* Force SVG icon color override */
+.force-icon-color svg,
+.force-icon-color svg * {
+  fill: currentColor !important;
+}
+
+

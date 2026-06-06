@@ -3,6 +3,7 @@
 import { AlignLeft, Settings2 } from "lucide-react";
 import { type CanvasNode } from "@/lib/editor-nodes";
 import { Section, FieldLabel, SubLabel, Toggle } from "./panel-ui";
+import { Textarea } from "@/components/ui/textarea";
 
 const inputClass =
   "w-full px-3 py-2 text-xs bg-muted/30 border rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-prune-midGray";
@@ -19,26 +20,23 @@ export function TextInputPanelSections({
 }) {
   return (
     <>
-      <Section title="Value" icon={<AlignLeft className="h-3.5 w-3.5" />} defaultOpen>
-        <FieldLabel>Default value</FieldLabel>
-        <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
-          Pre-filled text — shown in the input field and used if the user submits without typing
-        </p>
-        <textarea
-          className={textareaClass}
+      <Section title="Input Text" icon={<AlignLeft className="h-4 w-4" />} defaultOpen>
+        <Textarea
+          className="overflow-y-auto p-2 border"
           rows={4}
           placeholder="Enter value or leave blank for user input…"
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
+          fontSize={16}
         />
       </Section>
 
-      <Section title="Options" icon={<Settings2 className="h-3.5 w-3.5" />}>
+      <Section title="Options" icon={<Settings2 className="h-4 w-4" />}>
         <div className="space-y-4">
           <div>
             <SubLabel>Variable name</SubLabel>
-            <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
-              State key this input writes to — referenced by downstream nodes
+            <p className="text-[12px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
+              State key this input writes to - referenced by downstream nodes
             </p>
             <input
               type="text"
@@ -53,7 +51,7 @@ export function TextInputPanelSections({
 
           <div>
             <SubLabel>Placeholder</SubLabel>
-            <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
+            <p className="text-[12px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
               Hint text shown inside the empty field in your interface
             </p>
             <input
@@ -70,7 +68,7 @@ export function TextInputPanelSections({
           <div className="flex items-center justify-between gap-3">
             <div>
               <SubLabel className="mb-0.5">Required</SubLabel>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
                 Block workflow execution if this field is left empty
               </p>
             </div>

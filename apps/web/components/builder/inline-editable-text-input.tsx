@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 export function InlineEditableTextInput({
   value,
   onCommit,
-  textSize = "text-[18px]",
+  textSize = "text-[16px]",
   editOnDoubleClick = false,
 }: {
   value: string;
@@ -106,7 +106,7 @@ export function InlineEditableTextInput({
           maxWidth: "100%",
         }}
         className={cn(
-          "relative z-10 h-auto border border-transparent bg-transparent px-1.5 py-0.5 font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
+          "relative z-10 h-auto border border-transparent bg-transparent px-1.5 py-1.5 font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
           textSize,
           isEditing
             ? "cursor-text"

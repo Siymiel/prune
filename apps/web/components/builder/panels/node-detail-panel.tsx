@@ -263,6 +263,15 @@ export function NodeDetailPanel({
               onUpdateLabel={onUpdateLabel}
             />
           </div>
+        ) : def.category === "apps" && def.integrationId ? (
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <ActionCategoryPicker
+              node={node}
+              onUpdateValue={onUpdateValue}
+              onUpdateLabel={onUpdateLabel}
+              initialProviderId={def.integrationId}
+            />
+          </div>
         ) : def.kind === "audio-input" ? (
           <div className="flex-1 overflow-y-auto py-[3px]">
             <AudioInputPanelSections node={node} onUpdateNode={onUpdateNode} />

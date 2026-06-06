@@ -46,6 +46,7 @@ const config: Config = {
           spaceGray: '#EFF0F0',
           commonGray: '#72727B',
           borderGray: '#E5E5E8',
+          pruneBlack: '#1D1D1D'
         },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',

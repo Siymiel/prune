@@ -43,7 +43,7 @@ export function NodeHandle({
   if (type === "input") {
     return (
       <button
-        style={{ top: HANDLE_Y_OFFSET - 10, left: -22 }}
+        style={{ top: HANDLE_Y_OFFSET -9, left: -22 }}
         onMouseDown={(e) => {
           e.stopPropagation();
           if (isConnecting) return;
@@ -92,7 +92,7 @@ export function NodeHandle({
 
   return (
     <button
-      style={{ top: HANDLE_Y_OFFSET - 10, right: -22 }}
+      style={{ top: HANDLE_Y_OFFSET -9, right: -22 }}
       onMouseDown={(e) => {
         e.stopPropagation();
         if (isConnecting) return;

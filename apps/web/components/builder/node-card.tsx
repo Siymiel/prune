@@ -28,6 +28,7 @@ import {
   Underline,
   List,
   ListOrdered,
+  RemoveFormatting,
   Loader2,
   X,
   AlertTriangle,
@@ -397,6 +398,14 @@ function StickyNoteEditor({
               H<sub className="text-[9px] relative bottom-[-1px]">3</sub>
             </span>
           </FmtBtn>
+          <div className="w-px h-3 bg-prune-lightGray mx-0.5 shrink-0" />
+          <FmtBtn
+            title="Clear formatting"
+            isActive={false}
+            onExecute={() => exec("removeFormat")}
+          >
+            <RemoveFormatting className="h-3.5 w-3.5" />
+          </FmtBtn>
         </div>
       )}
 
@@ -418,7 +427,7 @@ function StickyNoteEditor({
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
-            className="px-3 py-2.5 focus:outline-none leading-relaxed min-h-[72px] cursor-text prose prose-sm max-w-none"
+            className="px-3 py-2.5 focus:outline-none leading-relaxed cursor-text prose prose-sm max-w-none"
             onFocus={() => setIsFocused(true)}
             onBlur={() => {
               setIsFocused(false);
@@ -601,18 +610,16 @@ function NodeContent({
 
   if (def.kind === "text-input") {
     return (
-      <div className="px-3 pb-3">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
-          Value
-        </div>
+      <div className="px-3 pb-2">
         <Textarea
           rows={3}
-          className="max-h-[80px] overflow-y-auto"
+          className="overflow-y-auto"
           placeholder="Enter value or leave blank for user input…"
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
           onMouseDown={(e) => e.stopPropagation()}
           onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopPropagation(); }}
+          fontSize={12}
         />
       </div>
     );
@@ -785,8 +792,8 @@ function NodeContent({
 
   if (def.kind === "knowledge-base") {
     return (
-      <div className="px-3 pb-3">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
+      <div className="px-3 pb-1.5">
+        {/* <div className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1 font-medium">
           Source
         </div>
         <div
@@ -794,7 +801,7 @@ function NodeContent({
           onMouseDown={(e) => e.stopPropagation()}
         >
           Select a knowledge base…
-        </div>
+        </div> */}
       </div>
     );
   }
@@ -1180,7 +1187,7 @@ export function NodeCard({
       />
 
       {/* Header */}
-      <div className="mb-2.5">
+      <div className="mb-1.5">
         <div
           className="px-3 pt-2.5 pb-1 flex items-center gap-1"
         >
@@ -1234,7 +1241,7 @@ export function NodeCard({
             <InlineEditableTextInput
               value={node.label}
               onCommit={(label) => onUpdateLabel?.(node.id, label)}
-              textSize="text-sm"
+              textSize="text-xs"
               editOnDoubleClick
             />
           </div>
@@ -1316,7 +1323,7 @@ export function NodeCard({
         </div>
 
         {/* Node Description */}
-        <div className="px-3 pt-1 text-[12px] tracking-normal leading-4 font-inter font-[450] text-prune-darkGray line-clamp-2">
+        <div className="px-3 pt-0.5 text-[11px] tracking-normal leading-4 font-inter font-[450] text-prune-darkGray line-clamp-2">
           {actionConfig?.toolDescription ?? def.description}
         </div>
       </div>

@@ -2,8 +2,9 @@
 
 import { useState, useRef } from 'react';
 import {
-  Search, ChevronDown, ChevronRight, GripVertical,
+  Search, ChevronDown, ChevronRight,
   Download, Upload, Cpu, LayoutGrid, GitBranch, Settings2,
+  MenuIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -73,23 +74,26 @@ function NodeItem({
       onMouseLeave={onLeave}
       className="flex items-center gap-2.5 mx-2 mb-1 px-2 py-1 rounded-md border bg-background hover:bg-muted/30 cursor-grab active:cursor-grabbing select-none transition-colors"
     >
-      <div className="h-6 w-6 rounded-md bg-muted/60 border flex items-center justify-center shrink-0">
+      <div className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 font-[450] text-[#1D1D1D]">
         {def.integrationId
-          ? renderIntegrationIcon(def.integrationId, 13)
-          : <Icon className={cn('h-3 w-3', def.iconClass)} />}
+          ? renderIntegrationIcon(def.integrationId, 13, '#1D1D1D')
+          : <Icon className={cn('h-4 w-4 text-[#1D1D1D]', def.iconClass)} />}
       </div>
-      <span className="text-[14px] font-medium text-gray-500 flex-1 truncate">{def.label}</span>
-      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+      <span className="text-[15px] font-[450] flex-1 truncate">{def.label}</span>
+      <MenuIcon className="h-4 w-4 shrink-0" />
     </div>
   );
 }
 
+// ↓ Now accepts `expanded` — single DOM, labels conditionally shown
 function CategorySection({
   cat,
+  expanded,
   onHover,
   onLeave,
 }: {
   cat: typeof SIDEBAR_CATEGORIES[0];
+  expanded: boolean;
   onHover: (def: NodeDef, e: React.MouseEvent) => void;
   onLeave: () => void;
 }) {
@@ -98,18 +102,26 @@ function CategorySection({
   const CatIcon = CAT_ICONS[cat.id as NodeCategory];
 
   return (
-    <div>
+    <div className="my-0.5">
       <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted transition-colors"
+        // ↓ fixed: h-9 px-2 in BOTH states — icon never moves
+        onClick={() => expanded && setOpen(o => !o)}
+        className="w-full h-9 flex items-center gap-2.5 px-2 rounded-md hover:bg-prune-lightGray transition-colors"
       >
         <CatIcon className="h-5 w-5 text-foreground shrink-0" />
-        <span className="text-[15px] font-medium text-foreground flex-1 text-left">{cat.label}</span>
-        {open
-          ? <ChevronDown className="h-3.5 w-3.5 text-foreground/60 shrink-0" />
-          : <ChevronRight className="h-3.5 w-3.5 text-foreground/60 shrink-0" />}
+        {/* Only the label + chevron hide — the icon stays put */}
+        {expanded && (
+          <>
+            <span className="text-[15px] font-[450] text-foreground flex-1 text-left">
+              {cat.label}
+            </span>
+            {open
+              ? <ChevronDown className="h-4 w-4 text-foreground/60 shrink-0" />
+              : <ChevronRight className="h-4 w-4 text-foreground/60 shrink-0" />}
+          </>
+        )}
       </button>
-      {open && (
+      {expanded && open && (
         <div className="pb-2 pt-1 ml-4">
           {nodes.map(def => (
             <NodeItem key={def.kind} def={def} onHover={onHover} onLeave={onLeave} />
@@ -163,74 +175,58 @@ export function EditorSidebar() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{ width: sidebarWidthPx }}
-        className="absolute left-0 top-0 bottom-0 border-r bg-background flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out z-50"
+        className="absolute left-0 top-0 bottom-0 border-r bg-background flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out z-50 font-sans"
       >
-        {expanded ? (
-          <>
-            {/* Search */}
-            <div className="px-3 pt-3 pb-2.5 border-b shrink-0">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50 pointer-events-none" />
-                <input
-                  autoFocus={false}
-                  className="w-full pl-7 pr-3 py-1.5 text-xs bg-muted/40 border rounded-md outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/40"
-                  placeholder="Search nodes…"
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Sections */}
-            <div className="flex-1 overflow-y-auto">
-              {filtered ? (
-                filtered.length === 0 ? (
-                  <div className="text-xs text-muted-foreground text-center py-10 px-4">
-                    No results for &ldquo;{query}&rdquo;
-                  </div>
-                ) : (
-                  <div className="py-2">
-                    {filtered.map(def => (
-                      <NodeItem key={def.kind} def={def} onHover={handleItemHover} onLeave={clearTooltip} />
-                    ))}
-                  </div>
-                )
-              ) : (
-                SIDEBAR_CATEGORIES.map(cat => (
-                  <CategorySection
-                    key={cat.id}
-                    cat={cat}
-                    onHover={handleItemHover}
-                    onLeave={clearTooltip}
-                  />
-                ))
+        {/* ↓ Search — always present, always the same height. No more DOM swap. */}
+        <div className="px-2 pt-3 pb-2.5 border-b shrink-0">
+          <div className={cn(
+            'h-8 flex items-center rounded-md border bg-muted/40 transition-all duration-200',
+            expanded ? 'px-2.5 gap-2' : 'justify-center',
+          )}>
+            <Search className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            {/* Input collapses to zero-width instead of unmounting */}
+            <input
+              autoFocus={false}
+              tabIndex={expanded ? 0 : -1}
+              className={cn(
+                'text-xs bg-transparent outline-none placeholder:text-muted-foreground/40 transition-all duration-200',
+                expanded ? 'w-full' : 'w-0 p-0 pointer-events-none',
               )}
-            </div>
-          </>
-        ) : (
-          /* Collapsed — icons only */
-          <div className="flex flex-col items-center pt-3 gap-0.5 px-1.5">
-            <div className="h-9 w-9 flex items-center justify-center rounded-md text-foreground/40">
-              <Search className="h-4 w-4" />
-            </div>
-            <div className="w-full h-px bg-border my-1" />
-            {SIDEBAR_CATEGORIES.map(cat => {
-              const CatIcon = CAT_ICONS[cat.id as NodeCategory];
-              return (
-                <button
-                  key={cat.id}
-                  title={cat.label}
-                  className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-gray-200 text-foreground hover:text-foreground transition-colors"
-                >
-                  <CatIcon className="h-5 w-5" />
-                </button>
-              );
-            })}
+              placeholder="Search nodes…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
           </div>
-        )}
+        </div>
+
+        {/* ↓ Content — always the same DOM. CategorySection handles its own collapsed look. */}
+        <div className="flex-1 overflow-y-auto py-2 px-1.5">
+          {expanded && filtered ? (
+            filtered.length === 0 ? (
+              <div className="text-xs text-muted-foreground text-center py-10 px-4">
+                No results for &ldquo;{query}&rdquo;
+              </div>
+            ) : (
+              <div className="py-1">
+                {filtered.map(def => (
+                  <NodeItem key={def.kind} def={def} onHover={handleItemHover} onLeave={clearTooltip} />
+                ))}
+              </div>
+            )
+          ) : (
+            SIDEBAR_CATEGORIES.map(cat => (
+              <CategorySection
+                key={cat.id}
+                cat={cat}
+                expanded={expanded}   // ← pass expanded down
+                onHover={handleItemHover}
+                onLeave={clearTooltip}
+              />
+            ))
+          )}
+        </div>
       </aside>
 
-      {/* Floating tooltip */}
       {tooltip && expanded && (
         <NodeTooltip tooltip={tooltip} left={sidebarWidthPx} />
       )}

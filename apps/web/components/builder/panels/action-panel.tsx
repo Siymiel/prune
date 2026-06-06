@@ -93,6 +93,7 @@ type ActionConfig = {
   useEndUser?: boolean;
   retryOnFailure?: boolean;
   onError?: string;
+  connectionId?: string;
 };
 
 /* ── Static data ────────────────────────────────────────────────────────────── */
@@ -260,6 +261,15 @@ const PROVIDER_TOOLS: Record<string, ActionToolGroup[]> = {
     { id: "mysql-update", name: "Update Rows", description: "Update rows in a MySQL table." },
   ]}],
 };
+
+const INTEGRATION_TO_PROVIDER: Record<string, string> = {
+  "google-calendar": "gcal",
+  "google-drive":    "gdrive",
+};
+
+function resolveProviderId(integrationId: string): string {
+  return INTEGRATION_TO_PROVIDER[integrationId] ?? integrationId;
+}
 
 const ON_ERROR_OPTIONS = [
   { id: "stop",     label: "Stop workflow",   description: "Stop the workflow when this node fails.",                         Icon: AlertTriangle },
@@ -763,17 +773,15 @@ function InputFieldRow({
                 <p className="text-[11px] text-blue-700 leading-relaxed">{field.infoText}</p>
               </div>
             )}
-            {field.warningText && (
+            {field.warningText ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 <p className="text-[11px] text-amber-700">{field.warningText}</p>
               </div>
-            )}
-            {!field.warningText && (
-              <button className="w-full flex items-center justify-between px-3 py-2 border rounded-md text-xs hover:bg-muted/20 transition-colors">
-                <span className="text-muted-foreground">Select option…</span>
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              </button>
+            ) : field.options && field.options.length > 0 ? (
+              <EnumSelectField options={field.options} value={value} onChange={(v) => onChange(v)} />
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic">No options available.</p>
             )}
           </div>
         )}
@@ -998,12 +1006,23 @@ export function ActionCategoryPicker({
   node,
   onUpdateValue,
   onUpdateLabel,
+  initialProviderId,
 }: {
   node: CanvasNode;
   onUpdateValue: (id: string, value: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
+  initialProviderId?: string;
 }) {
-  const [nav, setNav] = useState<ActionNavStep>({ step: "categories" });
+  const resolvedInitialId = initialProviderId ? resolveProviderId(initialProviderId) : undefined;
+  const initialProvider = resolvedInitialId
+    ? ACTION_PROVIDERS.find((p) => p.id === resolvedInitialId)
+    : undefined;
+
+  const [nav, setNav] = useState<ActionNavStep>(
+    initialProvider
+      ? { step: "tools", catId: "all", catLabel: "All", catHeader: "ALL", providerId: initialProvider.id, providerName: initialProvider.name }
+      : { step: "categories" },
+  );
   const [search, setSearch] = useState("");
 
   const config = parseActionConfig(node.inputValue);
@@ -1011,6 +1030,8 @@ export function ActionCategoryPicker({
   const [useEndUser, setUseEndUser] = useState(config?.useEndUser ?? false);
   const [retryOnFailure, setRetryOnFailure] = useState(config?.retryOnFailure ?? false);
   const [onError, setOnError] = useState(config?.onError ?? "stop");
+
+  const [connectionOpen, setConnectionOpen] = useState(false);
 
   const saveConfig = (updates: Partial<ActionConfig>) => {
     if (!config) return;
@@ -1024,22 +1045,53 @@ export function ActionCategoryPicker({
           {/* Provider */}
           <div className="px-4 py-3 border-b">
             <SubLabel>Provider</SubLabel>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
-              <div
-                className="h-6 w-6 rounded flex items-center justify-center shrink-0 border overflow-hidden"
-                style={config.providerIcon.type === "letter" ? { backgroundColor: config.providerIcon.bg } : undefined}
-              >
-                {renderProviderIcon(config.providerIcon, 14)}
+            {initialProvider ? (
+              /* Fixed provider (app node) */
+              <div className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm bg-muted/10">
+                <div
+                  className="h-6 w-6 rounded flex items-center justify-center shrink-0 border overflow-hidden"
+                  style={config.providerIcon.type === "letter" ? { backgroundColor: config.providerIcon.bg } : undefined}
+                >
+                  {renderProviderIcon(config.providerIcon, 14)}
+                </div>
+                <span className="flex-1 text-left font-medium">{config.providerName}</span>
               </div>
-              <span className="flex-1 text-left font-medium">{config.providerName}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            </button>
+            ) : (
+              /* Changeable provider (action node) */
+              <button
+                onClick={() => { onUpdateValue(node.id, ""); setNav({ step: "categories" }); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors"
+              >
+                <div
+                  className="h-6 w-6 rounded flex items-center justify-center shrink-0 border overflow-hidden"
+                  style={config.providerIcon.type === "letter" ? { backgroundColor: config.providerIcon.bg } : undefined}
+                >
+                  {renderProviderIcon(config.providerIcon, 14)}
+                </div>
+                <span className="flex-1 text-left font-medium">{config.providerName}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </button>
+            )}
           </div>
 
           {/* Action */}
           <div className="px-4 py-3 border-b">
             <SubLabel>Action</SubLabel>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
+            <button
+              onClick={() => {
+                onUpdateValue(node.id, "");
+                setNav({
+                  step: "tools",
+                  catId: "all",
+                  catLabel: "All",
+                  catHeader: "ALL",
+                  providerId: config.providerId,
+                  providerName: config.providerName,
+                });
+                setSearch("");
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 border rounded-lg text-sm hover:bg-muted/30 transition-colors"
+            >
               <div
                 className="h-6 w-6 rounded flex items-center justify-center shrink-0 border overflow-hidden"
                 style={config.providerIcon.type === "letter" ? { backgroundColor: config.providerIcon.bg } : undefined}
@@ -1063,16 +1115,52 @@ export function ActionCategoryPicker({
             <p className="text-[12px] text-muted-foreground">
               Require end-users to authenticate at runtime
             </p>
-            <button className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
-              <span className="flex-1 text-left">Select a connection</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setConnectionOpen((o) => !o)}
+                className="w-full flex items-center gap-2 px-3 py-2 border rounded-md text-xs hover:bg-muted/30 transition-colors"
+              >
+                <span className="flex-1 text-left text-muted-foreground">
+                  {config.connectionId ?? "Select a connection"}
+                </span>
+                <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", connectionOpen && "rotate-180")} />
+              </button>
+              {connectionOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setConnectionOpen(false)} />
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-background border rounded-lg shadow-lg z-50 overflow-hidden">
+                    <div className="px-3 py-2 border-b">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {config.providerName} Connections
+                      </p>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto">
+                      <p className="text-[12px] text-muted-foreground text-center py-4">
+                        No connections yet.
+                      </p>
+                    </div>
+                    <div className="border-t">
+                      <button
+                        onClick={() => { setConnectionOpen(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-medium text-foreground hover:bg-muted/30 transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5 shrink-0" />
+                        Add {config.providerName} connection
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <p className="text-[12px] text-muted-foreground leading-relaxed">
-              <span className="underline cursor-pointer hover:text-foreground">
-                Your credentials are encrypted and can be removed at any time.
-              </span>{" "}
-              You can manage all your connections{" "}
-              <span className="underline cursor-pointer hover:text-foreground">here</span>.
+              Your credentials are encrypted and can be removed at any time.
+              You can manage all your connections in{" "}
+              <button
+                onClick={() => {}}
+                className="underline hover:text-foreground transition-colors"
+              >
+                Settings → Connections
+              </button>.
             </p>
           </div>
 
@@ -1276,22 +1364,37 @@ export function ActionCategoryPicker({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Provider dropdown */}
+      {/* Provider dropdown / display */}
       <div className="px-4 pt-3 pb-3 shrink-0 border-b border-prune-borderGray">
         <div className="text-[11px] font-medium text-muted-foreground mb-1.5">Provider</div>
-        <button
-          onClick={() => { setNav({ step: "providers", catId: nav.catId, catLabel: nav.catLabel, catHeader: nav.catHeader }); setSearch(""); }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-prune-borderGray bg-white hover:bg-muted/20 transition-colors text-left"
-        >
-          <div
-            className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 border overflow-hidden"
-            style={providerDef?.icon.type === "letter" ? { backgroundColor: providerDef.icon.bg } : {}}
-          >
-            {providerDef && renderProviderIcon(providerDef.icon, 14)}
+        {initialProvider ? (
+          /* Fixed provider (app node) — display only */
+          <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-prune-borderGray bg-white text-left">
+            <div
+              className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 border overflow-hidden"
+              style={providerDef?.icon.type === "letter" ? { backgroundColor: providerDef.icon.bg } : {}}
+            >
+              {providerDef && renderProviderIcon(providerDef.icon, 14)}
+            </div>
+            <span className="flex-1 text-[13px] font-medium text-foreground">{nav.providerName}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
           </div>
-          <span className="flex-1 text-[13px] font-medium text-foreground">{nav.providerName}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        </button>
+        ) : (
+          /* Selectable provider (action node) — navigates back */
+          <button
+            onClick={() => { setNav({ step: "providers", catId: nav.catId, catLabel: nav.catLabel, catHeader: nav.catHeader }); setSearch(""); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-prune-borderGray bg-white hover:bg-muted/20 transition-colors text-left"
+          >
+            <div
+              className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 border overflow-hidden"
+              style={providerDef?.icon.type === "letter" ? { backgroundColor: providerDef.icon.bg } : {}}
+            >
+              {providerDef && renderProviderIcon(providerDef.icon, 14)}
+            </div>
+            <span className="flex-1 text-[13px] font-medium text-foreground">{nav.providerName}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </button>
+        )}
       </div>
 
       {/* Search */}
