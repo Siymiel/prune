@@ -230,7 +230,7 @@ function PickerRow({ def, onSelect }: { def: NodeDef; onSelect: (kind: NodeKind)
       <div className="h-7 w-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
         {def.integrationId
           ? renderIntegrationIcon(def.integrationId, 14)
-          : <Icon className={cn('h-3.5 w-3.5', def.iconClass)} />
+          : <Icon className={cn('h-4 w-4', def.iconClass)} />
         }
       </div>
       <div className="min-w-0 flex-1">

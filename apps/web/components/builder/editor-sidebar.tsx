@@ -73,7 +73,7 @@ function NodeItem({
           : <Icon className={cn('h-4 w-4', def.iconClass)} style={{ color: iconColor }} />}
       </div>
       <span className="text-[15px] font-[450] flex-1 truncate -ml-2">{def.label}</span>
-      <MenuIcon className="h-4 w-4 shrink-0" />
+      <MenuIcon className="h-4 w-4 shrink-0 text-prune-midGray" />
     </div>
   );
 }
@@ -184,7 +184,7 @@ export function EditorSidebar({ pinned = false, onTogglePin }: EditorSidebarProp
           </div>
           {expanded && (
             <>
-              <span className="flex-1 text-[16px] font-semibold tracking-tight text-foreground truncate">
+              <span className="flex-1 text-[17px] font-[450] tracking-tight text-foreground truncate">
                 PruneAI
               </span>
               <button

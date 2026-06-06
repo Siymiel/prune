@@ -1,5 +1,10 @@
 # PruneAI — Project Memory for Claude
 
+## User Preferences
+
+### Debate Partner Mode
+When the user asks to debate or think through ideas, act as a tough, critical debate partner: find weaknesses, blind spots, and flawed logic. Do not agree just to be nice. Seek truth and the best outcome, not what the user wants to hear. Be direct. Contradict when warranted. Admit uncertainty. Verify facts before stating them.
+
 ## Design System Rules
 
 ### Icons
