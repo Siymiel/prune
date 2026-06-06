@@ -7,7 +7,7 @@ export default function EditorLayout({
 }) {
   return (
     <TooltipProvider>
-      <div className="h-screen w-screen overflow-hidden bg-background flex flex-col">
+      <div className="h-screen w-screen overflow-hidden bg-background flex">
         {children}
       </div>
     </TooltipProvider>

@@ -1,5 +1,52 @@
 # Session Handoff
 
+---
+
+## Session 2 — Editor UI Overhaul
+
+### What was done
+
+#### 1. Sticky note auto-height (`node-card.tsx`)
+Removed `min-h-[72px]` from the sticky note `contentEditable` div. Notes now auto-size to their content.
+
+#### 2. Clear formatting button (`node-card.tsx`)
+Added a "Clear formatting" toolbar button using the `RemoveFormatting` lucide icon. Uses both `document.execCommand("removeFormat")` (strips inline styles) and `document.execCommand("formatBlock", false, "div")` (resets block-level headings H1–H3). This combination is necessary because `removeFormat` alone does not affect heading elements.
+
+#### 3. NodeItem configurable icon color (`editor-sidebar.tsx`)
+Added `iconColor?: string` prop to `NodeItem` (defaults to `'#1D1D1D'`). Applied via `style={{ color: iconColor }}` and passed to `renderIntegrationIcon`. Allows black icons in the editor sidebar while supporting different colors elsewhere.
+
+#### 4. Full-height pinnable sidebar (`editor-sidebar.tsx`, `builder-editor.tsx`, `(editor)/layout.tsx`)
+
+**Layout change**: `(editor)/layout.tsx` changed from `flex flex-col` to `flex`. `BuilderEditor` now returns a flex row — sidebar on left, right column (`flex flex-col`) containing topbar + content.
+
+**Sidebar behavior**:
+- When **pinned**: `relative shrink-0 h-full` at 270px — in layout flow, pushes right column. Always expanded.
+- When **unpinned**: `absolute left-0 top-0 bottom-0 z-50` at 52px (collapsed) / 270px (hover-expanded).
+- `sidebarPinned` state lives in `BuilderEditor`, passed to `EditorSidebar` and `EditorTopbar`.
+
+**Sidebar header** (`h-12 border-b`): `Hop` logo icon + "PruneAI" brand text + pin toggle button (`PanelLeftClose` when pinned, `PanelRightClose` when unpinned). Logo removed from `EditorTopbar`.
+
+#### 5. EditorTopbar redesign (`editor-topbar.tsx`)
+
+**Left — workspace breadcrumb**:
+- `FolderOpen` icon → workspace name (muted, links to `/dashboard`) → `/` separator → inline-editable project name.
+- Project name: click → chromeless input (`bg-prune-lightGray`, no border/outline), auto-selects text, saves on Enter/blur, cancels on Escape. Width driven by a hidden sizer `<span>` that mirrors the value.
+- Save state indicator sits directly after the project name.
+
+**Center — tabs**:
+- Absolutely centered in the header (`left-1/2 -translate-x-1/2`). Always truly centered regardless of breadcrumb or action widths.
+- Labels capitalised: Workflow, Export, Analytics, Manager.
+
+**Right — actions**: unchanged (Examples, Share, Run, Deploy).
+
+**`sidebarPinned` prop**: applies `pl-[56px]` when `false` to clear the 52px collapsed sidebar overlay; normal `pl-3 md:pl-4` when `true`.
+
+### All TypeScript checks passed (`npx tsc --noEmit` — zero errors).
+
+---
+
+# Previous Session
+
 ## Goal
 
 Build out the **workflow builder's node detail panel** to be fully interactive and production-ready. Specifically:

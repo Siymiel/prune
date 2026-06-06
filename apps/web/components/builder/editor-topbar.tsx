@@ -2,12 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Share2, Play, Rocket, Hop, Loader2, Check, AlertCircle, Cloud, CloudOff, FlaskConical, ChevronDown } from 'lucide-react';
+import {
+  Share2, Play, Rocket, Loader2, Check, AlertCircle,
+  Cloud, CloudOff, FlaskConical, ChevronDown, FolderOpen, Pencil,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RunPhase } from '@/lib/editor-nodes';
 import { DeployModal } from '@/components/builder/deploy-modal';
 
 export type EditorTab = 'workflow' | 'export' | 'analytics' | 'manager';
+
+const TAB_LABELS: Record<EditorTab, string> = {
+  workflow:  'Workflow',
+  export:    'Export',
+  analytics: 'Analytics',
+  manager:   'Manager',
+};
 
 interface ExampleDef {
   label: string;
@@ -25,12 +35,29 @@ interface EditorTopbarProps {
   onTabChange?: (tab: EditorTab) => void;
   onUpdateWorkflowName?: (name: string) => void;
   examples?: ExampleDef[];
+  workspaceName?: string;
+  sidebarPinned?: boolean;
 }
 
-export function EditorTopbar({ templateName, templateSlug, workflowId, saveState = 'idle', onRun, runPhase = 'idle', activeTab = 'workflow', onTabChange, onUpdateWorkflowName, examples }: EditorTopbarProps) {
+export function EditorTopbar({
+  templateName,
+  templateSlug,
+  workflowId,
+  saveState = 'idle',
+  onRun,
+  runPhase = 'idle',
+  activeTab = 'workflow',
+  onTabChange,
+  onUpdateWorkflowName,
+  examples,
+  workspaceName = 'Prune AI',
+  sidebarPinned = false,
+}: EditorTopbarProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [localName, setLocalName] = useState(templateName ?? 'Untitled Workflow');
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const nameSizerRef = useRef<HTMLSpanElement>(null);
+  const [inputWidth, setInputWidth] = useState(140);
   const [examplesOpen, setExamplesOpen] = useState(false);
   const examplesRef = useRef<HTMLDivElement>(null);
   const [deployOpen, setDeployOpen] = useState(false);
@@ -48,6 +75,16 @@ export function EditorTopbar({ templateName, templateSlug, workflowId, saveState
 
   useEffect(() => { setLocalName(templateName ?? 'Untitled Workflow'); }, [templateName]);
 
+  useEffect(() => {
+    if (nameSizerRef.current) {
+      setInputWidth(Math.min(nameSizerRef.current.offsetWidth + 12, 220));
+    }
+  }, [localName]);
+
+  function startEditing() {
+    setIsEditingName(true);
+  }
+
   function commitName() {
     setIsEditingName(false);
     const name = localName.trim() || 'Untitled Workflow';
@@ -55,99 +92,114 @@ export function EditorTopbar({ templateName, templateSlug, workflowId, saveState
     if (name !== templateName) onUpdateWorkflowName?.(name);
   }
 
-  const backHref = templateSlug ? `/templates/${templateSlug}` : workflowId ? '/dashboard' : '/dashboard';
+  function cancelEditing() {
+    setLocalName(templateName ?? 'Untitled Workflow');
+    setIsEditingName(false);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const backHref: any = templateSlug ? `/templates/${templateSlug}` : '/dashboard';
 
   return (
-    <header className="h-12 border-b bg-background flex items-center gap-2 md:gap-3 px-3 md:px-4 shrink-0 z-20 min-w-0">
-      {/* Logo */}
-      <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-        <Hop className="h-4 w-4" />
+    <header className={cn(
+      'h-12 border-b bg-background relative flex items-center shrink-0 z-20 min-w-0 pr-3 md:pr-4 font-sans',
+      sidebarPinned ? 'pl-3 md:pl-4' : 'pl-[56px]',
+    )}>
+
+      {/* Left: Workspace breadcrumb */}
+      <div className="flex items-center gap-1 shrink-0 min-w-0 ml-2">
+        <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+
+        <Link
+          href={backHref}
+          className="text-[13px] ml-1 text-muted-foreground hover:text-foreground transition-colors shrink-0 truncate max-w-[100px] lg:max-w-[140px]"
+        >
+          {workspaceName}
+        </Link>
+
+        <span className="text-[13px] text-muted-foreground/40 mx-1 shrink-0 select-none">/</span>
+
+        {/* Inline-editable project name */}
+        <div className="relative flex items-center min-w-0">
+          {/* Hidden sizer span — measures text width for the input */}
+          <span
+            ref={nameSizerRef}
+            aria-hidden
+            className="absolute invisible whitespace-pre text-[13px] font-[450] px-1 pointer-events-none"
+          >
+            {localName}
+          </span>
+
+          {isEditingName ? (
+            <input
+              ref={nameInputRef}
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); commitName(); }
+                if (e.key === 'Escape') { cancelEditing(); }
+              }}
+              style={{ width: inputWidth }}
+              className="text-[13px] font-[450] text-foreground bg-prune-lightGray rounded-md px-1.5 py-0.5 outline-none border-none min-w-[60px]"
+              autoFocus
+              onFocus={(e) => e.target.select()}
+            />
+          ) : (
+            <button
+              onClick={startEditing}
+              className="group flex items-center gap-1 text-[13px] font-[450] text-foreground hover:bg-muted/60 rounded-md px-1.5 py-0.5 transition-colors cursor-pointer max-w-[200px]"
+              title="Click to rename"
+            >
+              <span className="truncate">{localName}</span>
+              <Pencil className="h-2.5 w-2.5 shrink-0 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )}
+        </div>
+
+        {/* Save state — sits right after project name */}
+        <div className="ml-2 flex items-center shrink-0">
+          {saveState === 'saving' && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span className="hidden md:inline">Saving…</span>
+            </span>
+          )}
+          {saveState === 'saved' && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Cloud className="h-3 w-3" />
+              <span className="hidden md:inline">Saved</span>
+            </span>
+          )}
+          {saveState === 'error' && (
+            <span className="flex items-center gap-1 text-[11px] text-destructive">
+              <CloudOff className="h-3 w-3" />
+              <span className="hidden md:inline">Save failed</span>
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="w-px h-5 bg-border shrink-0" />
-
-      {/* Back */}
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <Link
-        href={backHref as any}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 min-w-0"
-      >
-        <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-        <span className="hidden sm:inline truncate max-w-[120px] lg:max-w-none">
-          {templateName ?? 'Templates'}
-        </span>
-      </Link>
-
-      <div className="w-px h-5 bg-border shrink-0" />
-
-      {/* Tabs — scrollable on narrow viewports */}
-      <nav className="flex items-center bg-prune-lightGray gap-0.5 sm:gap-1 p-1 rounded-lg overflow-x-auto [&::-webkit-scrollbar]:hidden shrink-0">
+      {/* Center: Tabs — absolutely centered in the header */}
+      <nav className="absolute left-1/2 -translate-x-1/2 flex items-center bg-prune-lightGray gap-0.5 p-1 rounded-lg pointer-events-auto">
         {(['workflow', 'export', 'analytics', 'manager'] as EditorTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => onTabChange?.(tab)}
             className={cn(
-              'px-1.5 sm:px-2 py-1 text-[11px] sm:text-[13px] rounded-md font-medium capitalize transition-colors whitespace-nowrap',
+              'px-2.5 py-1 text-[13px] rounded-md font-medium transition-colors whitespace-nowrap',
               activeTab === tab
-                ? 'bg-white text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-prune-lightGray',
+                ? 'bg-white text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {tab}
+            {TAB_LABELS[tab]}
           </button>
         ))}
       </nav>
 
-      {/* Editable workflow title — centered in available space */}
-      <div className="flex-1 flex items-center justify-center min-w-0 px-3">
-        {isEditingName ? (
-          <input
-            ref={nameInputRef}
-            value={localName}
-            onChange={(e) => setLocalName(e.target.value)}
-            onBlur={commitName}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); commitName(); }
-              if (e.key === 'Escape') { setLocalName(templateName ?? 'Untitled Workflow'); setIsEditingName(false); }
-            }}
-            className="text-sm font-medium text-center bg-transparent border-b border-foreground/40 outline-none w-full max-w-[240px] px-1"
-            autoFocus
-          />
-        ) : (
-          <button
-            onClick={() => setIsEditingName(true)}
-            className="text-sm font-medium text-foreground hover:text-foreground/60 transition-colors truncate max-w-[240px]"
-            title="Click to rename"
-          >
-            {localName}
-          </button>
-        )}
-      </div>
-
-      {/* Save state indicator */}
-      <div className="flex items-center shrink-0">
-        {saveState === 'saving' && (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground mr-3">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Saving…
-          </span>
-        )}
-        {saveState === 'saved' && (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground mr-3">
-            <Cloud className="h-3 w-3" />
-            Saved
-          </span>
-        )}
-        {saveState === 'error' && (
-          <span className="flex items-center gap-1 text-[11px] text-destructive mr-3">
-            <CloudOff className="h-3 w-3" />
-            Save failed
-          </span>
-        )}
-      </div>
-
-      {/* Right actions */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Right: Actions */}
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
         {examples && examples.length > 0 && (
           <div className="relative" ref={examplesRef}>
             <button
@@ -174,29 +226,32 @@ export function EditorTopbar({ templateName, templateSlug, workflowId, saveState
             )}
           </div>
         )}
+
         <button className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-muted hover:text-foreground transition-colors">
           <Share2 className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline">Share</span>
         </button>
+
         <button
           onClick={onRun}
           disabled={runPhase === 'running'}
           className={cn(
             'inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs border rounded-md transition-all duration-200 disabled:cursor-not-allowed',
             runPhase === 'running' && 'opacity-60',
-            runPhase === 'done' && 'border-green-300 text-green-600 bg-green-50 hover:bg-green-100',
-            runPhase === 'error' && 'border-red-300 text-red-600 hover:bg-red-50',
-            (runPhase === 'idle') && 'hover:bg-muted',
+            runPhase === 'done'    && 'border-green-300 text-green-600 bg-green-50 hover:bg-green-100',
+            runPhase === 'error'   && 'border-red-300 text-red-600 hover:bg-red-50',
+            runPhase === 'idle'    && 'hover:bg-muted',
           )}
         >
           {runPhase === 'running' ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-          : runPhase === 'done'    ? <Check className="h-3.5 w-3.5 shrink-0" />
-          : runPhase === 'error'   ? <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          : runPhase === 'done'   ? <Check className="h-3.5 w-3.5 shrink-0" />
+          : runPhase === 'error'  ? <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           : <Play className="h-3.5 w-3.5 shrink-0" fill="currentColor" />}
           <span className="hidden sm:inline">
             {runPhase === 'running' ? 'Running…' : runPhase === 'done' ? 'Done' : runPhase === 'error' ? 'Failed' : 'Run'}
           </span>
         </button>
+
         <button
           onClick={() => setDeployOpen(true)}
           className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium"

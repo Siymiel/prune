@@ -5,6 +5,7 @@ import {
   Terminal, GitBranch, Shuffle, Repeat2,
   StickyNote, Timer, Brain, HardDrive, Table, SearchCode,
   CreditCard, MessageSquare, Database,
+  PencilLineIcon,
 } from 'lucide-react';
 import type { IntegrationId, LucideIcon } from '@/lib/types';
 
@@ -44,14 +45,14 @@ export const SIDEBAR_CATEGORIES: { id: NodeCategory; label: string }[] = [
 
 export const NODE_DEFS: NodeDef[] = [
   // INPUTS
-  { kind: 'text-input',  label: 'Text Input', description: 'Accept text from users or upstream nodes', icon: Type,     category: 'inputs', badge: 'Input', badgeClass: 'bg-blue-500/10 text-blue-600',   iconClass: 'text-blue-500'   },
+  { kind: 'text-input',  label: 'Text Input', description: 'Accept text from users or upstream nodes', icon: PencilLineIcon,     category: 'inputs', badge: 'Input', badgeClass: 'bg-blue-500/10 text-blue-600',   iconClass: 'text-blue-500'   },
   { kind: 'files',        label: 'Files',       description: 'Upload documents, PDFs, or images',        icon: Files,    category: 'inputs', badge: 'Input', badgeClass: 'bg-blue-500/10 text-blue-600',   iconClass: 'text-blue-500'   },
   { kind: 'trigger',      label: 'Trigger',     description: 'Start the workflow on a specific event',   icon: Zap,      category: 'inputs', badge: 'Input', badgeClass: 'bg-amber-500/10 text-amber-600', iconClass: 'text-amber-500'  },
   { kind: 'url',          label: 'URL',          description: 'Fetch and process content from a URL',    icon: Globe,    category: 'inputs', badge: 'Input', badgeClass: 'bg-blue-500/10 text-blue-600',   iconClass: 'text-blue-500'   },
   { kind: 'audio-input', label: 'Audio',        description: 'Record or upload audio as input',           icon: Mic,      category: 'inputs', badge: 'Input', badgeClass: 'bg-blue-500/10 text-blue-600',   iconClass: 'text-blue-500'   },
 
   // OUTPUTS
-  { kind: 'output',        label: 'Output',       description: 'Return a text result to the caller',       icon: Send,           category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
+  { kind: 'output',        label: 'Output',       description: 'Return a text result to the caller',       icon: PencilLineIcon,           category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
   { kind: 'action',        label: 'Action',        description: 'Perform a task in another app',            icon: Play,           category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
   { kind: 'audio-output', label: 'Audio',         description: 'Generate audio from text',              icon: Headphones,     category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },
   { kind: 'template-out', label: 'Template',      description: 'Render a formatted message template',     icon: LayoutTemplate, category: 'outputs', badge: 'Output', badgeClass: 'bg-emerald-500/10 text-emerald-600', iconClass: 'text-emerald-500' },

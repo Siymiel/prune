@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import {
   Search, ChevronDown, ChevronRight,
   Download, Upload, Cpu, LayoutGrid, GitBranch, Settings2,
-  MenuIcon,
+  MenuIcon, Hop, PanelLeftClose, PanelRightClose,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -28,24 +28,15 @@ interface TooltipState {
 }
 
 function NodeTooltip({ tooltip, left }: { tooltip: TooltipState; left: number }) {
-  const Icon = tooltip.def.icon;
   return (
     <div
-      className="fixed z-[200] bg-card border rounded-lg shadow-xl p-3 w-52 pointer-events-none"
+      className="fixed z-[200] bg-card border rounded-lg shadow-xl p-3 w-54 font-sans font-[450] pointer-events-none"
       style={{ top: tooltip.top - 32, left: left + 2 }}
     >
-      <div className="flex items-center gap-2 mb-2">
-        <div className="h-7 w-7 rounded-md border bg-muted/50 flex items-center justify-center shrink-0">
-          {tooltip.def.integrationId
-            ? renderIntegrationIcon(tooltip.def.integrationId, 14)
-            : <Icon className={cn('h-3.5 w-3.5', tooltip.def.iconClass)} />}
-        </div>
-        <span className="text-xs font-semibold">{tooltip.def.label}</span>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[16px] font-semibold">{tooltip.def.label}</span>
       </div>
-      <p className="text-[10px] text-muted-foreground leading-relaxed">{tooltip.def.description}</p>
-      <span className={cn('mt-2 inline-flex text-[10px] px-1.5 py-0.5 rounded-full', tooltip.def.badgeClass)}>
-        {tooltip.def.badge}
-      </span>
+      <p className="text-[14px] text-muted-foreground leading-relaxed">{tooltip.def.description}</p>
     </div>
   );
 }
@@ -54,10 +45,12 @@ function NodeItem({
   def,
   onHover,
   onLeave,
+  iconColor = '#1D1D1D',
 }: {
   def: NodeDef;
   onHover: (def: NodeDef, e: React.MouseEvent) => void;
   onLeave: () => void;
+  iconColor?: string;
 }) {
   const Icon = def.icon;
 
@@ -72,20 +65,19 @@ function NodeItem({
       onDragStart={handleDragStart}
       onMouseEnter={(e) => onHover(def, e)}
       onMouseLeave={onLeave}
-      className="flex items-center gap-2.5 mx-2 mb-1 px-2 py-1 rounded-md border bg-background hover:bg-muted/30 cursor-grab active:cursor-grabbing select-none transition-colors"
+      className="flex items-center gap-2.5 mx-2 mb-1 px-2 py-0.5 rounded-md shadow-sm border bg-background hover:bg-prune-lightGray cursor-grab active:cursor-grabbing select-none transition-colors"
     >
-      <div className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 font-[450] text-[#1D1D1D]">
+      <div className="h-6 w-6 rounded-md flex items-center shrink-0 font-[450]" style={{ color: iconColor }}>
         {def.integrationId
-          ? renderIntegrationIcon(def.integrationId, 13, '#1D1D1D')
-          : <Icon className={cn('h-4 w-4 text-[#1D1D1D]', def.iconClass)} />}
+          ? renderIntegrationIcon(def.integrationId, 13, iconColor)
+          : <Icon className={cn('h-4 w-4', def.iconClass)} style={{ color: iconColor }} />}
       </div>
-      <span className="text-[15px] font-[450] flex-1 truncate">{def.label}</span>
+      <span className="text-[15px] font-[450] flex-1 truncate -ml-2">{def.label}</span>
       <MenuIcon className="h-4 w-4 shrink-0" />
     </div>
   );
 }
 
-// ↓ Now accepts `expanded` — single DOM, labels conditionally shown
 function CategorySection({
   cat,
   expanded,
@@ -104,12 +96,10 @@ function CategorySection({
   return (
     <div className="my-0.5">
       <button
-        // ↓ fixed: h-9 px-2 in BOTH states — icon never moves
         onClick={() => expanded && setOpen(o => !o)}
         className="w-full h-9 flex items-center gap-2.5 px-2 rounded-md hover:bg-prune-lightGray transition-colors"
       >
         <CatIcon className="h-5 w-5 text-foreground shrink-0" />
-        {/* Only the label + chevron hide — the icon stays put */}
         {expanded && (
           <>
             <span className="text-[15px] font-[450] text-foreground flex-1 text-left">
@@ -132,21 +122,31 @@ function CategorySection({
   );
 }
 
-export function EditorSidebar() {
-  const [expanded, setExpanded] = useState(false);
+interface EditorSidebarProps {
+  pinned?: boolean;
+  onTogglePin?: () => void;
+}
+
+export function EditorSidebar({ pinned = false, onTogglePin }: EditorSidebarProps) {
+  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [query, setQuery] = useState('');
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  const sidebarRef = useRef<HTMLDivElement>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // When pinned, sidebar is always expanded; hover has no effect
+  const expanded = pinned || hoverExpanded;
+  const sidebarWidthPx = expanded ? 270 : 52;
+
   function handleMouseEnter() {
+    if (pinned) return;
     clearTimeout(collapseTimer.current);
-    setExpanded(true);
+    setHoverExpanded(true);
   }
 
   function handleMouseLeave() {
+    if (pinned) return;
     setTooltip(null);
-    collapseTimer.current = setTimeout(() => setExpanded(false), 180);
+    collapseTimer.current = setTimeout(() => setHoverExpanded(false), 180);
   }
 
   function handleItemHover(def: NodeDef, e: React.MouseEvent) {
@@ -157,8 +157,6 @@ export function EditorSidebar() {
   function clearTooltip() {
     setTooltip(null);
   }
-
-  const sidebarWidthPx = expanded ? 270 : 52;
 
   const filtered = query.trim()
     ? NODE_DEFS.filter(
@@ -171,25 +169,49 @@ export function EditorSidebar() {
   return (
     <>
       <aside
-        ref={sidebarRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{ width: sidebarWidthPx }}
-        className="absolute left-0 top-0 bottom-0 border-r bg-background flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out z-50 font-sans"
+        className={cn(
+          'top-0 bottom-0 border-r bg-background flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out z-50 font-sans',
+          pinned ? 'relative shrink-0 h-full' : 'absolute left-0',
+        )}
       >
-        {/* ↓ Search — always present, always the same height. No more DOM swap. */}
+        {/* Header: logo + brand + pin toggle */}
+        <div className="h-12 border-b shrink-0 flex items-center gap-2 px-2">
+          <div className="h-7 w-7 shrink-0 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+            <Hop className="h-4 w-4" />
+          </div>
+          {expanded && (
+            <>
+              <span className="flex-1 text-[16px] font-semibold tracking-tight text-foreground truncate">
+                PruneAI
+              </span>
+              <button
+                onClick={onTogglePin}
+                className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                title={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
+              >
+                {pinned
+                  ? <PanelLeftClose className="h-4 w-4" />
+                  : <PanelRightClose className="h-4 w-4" />}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Search */}
         <div className="px-2 pt-3 pb-2.5 border-b shrink-0">
           <div className={cn(
-            'h-8 flex items-center rounded-md border bg-muted/40 transition-all duration-200',
+            'h-8 flex items-center transition-all duration-200',
             expanded ? 'px-2.5 gap-2' : 'justify-center',
           )}>
-            <Search className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            {/* Input collapses to zero-width instead of unmounting */}
+            <Search className="h-4 w-4 text-muted-foreground/50 shrink-0" />
             <input
               autoFocus={false}
               tabIndex={expanded ? 0 : -1}
               className={cn(
-                'text-xs bg-transparent outline-none placeholder:text-muted-foreground/40 transition-all duration-200',
+                'text-[14px] rounded-lg px-2 py-1 bg-prune-lightGray outline-none placeholder:text-muted-foreground/70 transition-all duration-200',
                 expanded ? 'w-full' : 'w-0 p-0 pointer-events-none',
               )}
               placeholder="Search nodes…"
@@ -199,7 +221,7 @@ export function EditorSidebar() {
           </div>
         </div>
 
-        {/* ↓ Content — always the same DOM. CategorySection handles its own collapsed look. */}
+        {/* Node list */}
         <div className="flex-1 overflow-y-auto py-2 px-1.5">
           {expanded && filtered ? (
             filtered.length === 0 ? (
@@ -218,7 +240,7 @@ export function EditorSidebar() {
               <CategorySection
                 key={cat.id}
                 cat={cat}
-                expanded={expanded}   // ← pass expanded down
+                expanded={expanded}
                 onHover={handleItemHover}
                 onLeave={clearTooltip}
               />

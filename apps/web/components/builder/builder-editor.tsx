@@ -655,6 +655,7 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   }, []);
 
   const [askAIOpen, setAskAIOpen] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
 
   // ── Checklist modal ───────────────────────────────────────────────────────
   const [showChecklist, setShowChecklist] = useState(false);
@@ -672,136 +673,146 @@ export function BuilderEditor({ templateSlug, workflowId = null }: BuilderEditor
   }, [panelWidth, isPanelOpen]);
 
   return (
-    <>
-      <EditorTopbar
-        templateName={workflowName}
-        templateSlug={templateSlug}
-        workflowId={apiWorkflowId}
-        saveState={saveState}
-        onRun={runWorkflow}
-        runPhase={runState.phase}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onUpdateWorkflowName={updateWorkflowName}
-        examples={[
-          { label: 'Code example',   onLoad: loadExample },
-          { label: 'LLM example',    onLoad: loadLLMExample },
-          { label: 'KB Q&A example', onLoad: loadKBExample },
-        ]}
+    // Outer row: sidebar (full-height) + right column
+    <div className="flex flex-1 overflow-hidden relative">
+      <EditorSidebar
+        pinned={sidebarPinned}
+        onTogglePin={() => setSidebarPinned(v => !v)}
       />
-      {activeTab === 'export' ? (
-        <ExportView workflowId={apiWorkflowId} />
-      ) : (
-      <div className="flex flex-1 overflow-hidden relative">
-        <EditorSidebar />
-        <AskAIPanel
-          open={askAIOpen}
-          onClose={() => setAskAIOpen(false)}
-          workflowName={workflowName}
-          nodes={nodes}
-          edges={edges}
-        />
-        <RunProgressPanel
-          open={showRunPanel}
-          onClose={() => setShowRunPanel(false)}
-          nodes={nodes}
-          edges={edges}
-          runPhase={runState.phase}
-          runResult={runResult}
-          nodeRunStatuses={runState.nodeStatuses}
-          runError={runState.errorMessage}
-        />
-        <EditorCanvas
-          nodes={nodes}
-          edges={edges}
-          selectedNodeId={selectedNodeId}
-          onAddNode={addNode}
-          onMoveNode={moveNode}
-          onUpdateValue={updateValue}
-          onRemoveNode={removeNode}
-          onAddEdge={addEdge}
-          onRemoveEdge={removeEdge}
-          onSelectNode={selectNode}
-          onDeselect={() => { setSelectedNodeId(null); setDetailSection(null); }}
-          onOpenDetail={(nodeId, section) => { setSelectedNodeId(nodeId); setDetailSection({ section, trigger: Date.now() }); setShowRunPanel(false); }}
-          onAddConnectedNode={addConnectedNode}
-          onUpdateLabel={updateLabel}
-          onArrangeNodes={arrangeNodes}
-          onUndo={undo}
-          onRedo={redo}
-          canUndo={history.past.length > 0}
-          canRedo={history.future.length > 0}
-          onToggleStickyNote={toggleStickyNote}
-          onUpdateStickyNote={updateStickyNote}
-          onUpdateStickyNoteColor={updateStickyNoteColor}
-          onToggleAllStickyNotes={toggleAllStickyNotes}
-          nodeRunStatuses={runState.nodeStatuses}
-          nodeOutputs={nodeOutputs}
-          runPhase={runState.phase}
-          runCurrentNodeLabel={runState.currentNodeLabel}
-          lastSavedAt={lastSavedAt}
-          focusRequest={focusRequest}
-          onAskAI={() => setAskAIOpen(o => !o)}
-          allKbs={allKbs}
-          onRemoveKbFromNode={removeKbFromNode}
-        />
-        {/* ── Bottom-right: Run History + Checklist ──────────────────────── */}
-        <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
-          <button
-            onClick={() => { setShowChecklist(false); setShowRunPanel(true); setSelectedNodeId(null); setDetailSection(null); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[14px] font-[450] bg-prune-lightGray border border-prune-borderGray rounded-full hover:bg-white transition-colors"
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Run history
-          </button>
-          <button
-            onClick={() => setShowChecklist(v => !v)}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 text-[14px] font-[450] bg-prune-lightGray border border-prune-borderGray rounded-full hover:bg-white transition-colors"
-          >
-            <ListChecks className="h-3.5 w-3.5" />
-            Checklist
-            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-orange-400 border border-white" />
-          </button>
-        </div>
 
-        <ChecklistModal
-          open={showChecklist}
-          onClose={() => setShowChecklist(false)}
+      {/* Right column: topbar + content area */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <EditorTopbar
+          templateName={workflowName}
+          templateSlug={templateSlug}
+          workflowId={apiWorkflowId}
+          saveState={saveState}
+          onRun={runWorkflow}
+          runPhase={runState.phase}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          onUpdateWorkflowName={updateWorkflowName}
+          sidebarPinned={sidebarPinned}
+          examples={[
+            { label: 'Code example',   onLoad: loadExample },
+            { label: 'LLM example',    onLoad: loadLLMExample },
+            { label: 'KB Q&A example', onLoad: loadKBExample },
+          ]}
         />
 
-        <div
-          className={cn(
-            'absolute right-3 top-3 bottom-3 z-10',
-            !isDragging && 'transition-[transform,opacity] duration-300 ease-in-out',
-            isPanelOpen
-              ? 'translate-x-0 opacity-100'
-              : 'translate-x-[calc(100%+12px)] opacity-0',
-          )}
-          style={{ width: panelWidth, pointerEvents: isPanelOpen ? 'auto' : 'none' }}
-        >
-          {panelNode && (
-            <NodeDetailPanel
-              node={panelNode}
+        {activeTab === 'export' ? (
+          <ExportView workflowId={apiWorkflowId} />
+        ) : (
+          <div className="flex flex-1 overflow-hidden relative">
+            <AskAIPanel
+              open={askAIOpen}
+              onClose={() => setAskAIOpen(false)}
+              workflowName={workflowName}
               nodes={nodes}
-              onClose={() => { setSelectedNodeId(null); setDetailSection(null); }}
-              onUpdateValue={updateValue}
-              onUpdateSystemPrompt={updateSystemPrompt}
-              onUpdateLabel={updateLabel}
-              onUpdateModel={updateModel}
-              onUpdateKnowledgeBases={updateKnowledgeBases}
-              onUpdateSubflowTools={updateSubflowTools}
-              onUpdateNode={updateNodeFields}
-              onRemoveNode={removeNode}
-              onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
-              onResizeMouseDown={handleResizeMouseDown}
-              scrollToSection={detailSection}
-              runOutput={nodeOutputs[panelNode.id]}
-              runSources={runSources.length > 0 ? runSources : undefined}
+              edges={edges}
             />
-          )}
-        </div>
+            <RunProgressPanel
+              open={showRunPanel}
+              onClose={() => setShowRunPanel(false)}
+              nodes={nodes}
+              edges={edges}
+              runPhase={runState.phase}
+              runResult={runResult}
+              nodeRunStatuses={runState.nodeStatuses}
+              runError={runState.errorMessage}
+            />
+            <EditorCanvas
+              nodes={nodes}
+              edges={edges}
+              selectedNodeId={selectedNodeId}
+              onAddNode={addNode}
+              onMoveNode={moveNode}
+              onUpdateValue={updateValue}
+              onRemoveNode={removeNode}
+              onAddEdge={addEdge}
+              onRemoveEdge={removeEdge}
+              onSelectNode={selectNode}
+              onDeselect={() => { setSelectedNodeId(null); setDetailSection(null); }}
+              onOpenDetail={(nodeId, section) => { setSelectedNodeId(nodeId); setDetailSection({ section, trigger: Date.now() }); setShowRunPanel(false); }}
+              onAddConnectedNode={addConnectedNode}
+              onUpdateLabel={updateLabel}
+              onArrangeNodes={arrangeNodes}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={history.past.length > 0}
+              canRedo={history.future.length > 0}
+              onToggleStickyNote={toggleStickyNote}
+              onUpdateStickyNote={updateStickyNote}
+              onUpdateStickyNoteColor={updateStickyNoteColor}
+              onToggleAllStickyNotes={toggleAllStickyNotes}
+              nodeRunStatuses={runState.nodeStatuses}
+              nodeOutputs={nodeOutputs}
+              runPhase={runState.phase}
+              runCurrentNodeLabel={runState.currentNodeLabel}
+              lastSavedAt={lastSavedAt}
+              focusRequest={focusRequest}
+              onAskAI={() => setAskAIOpen(o => !o)}
+              allKbs={allKbs}
+              onRemoveKbFromNode={removeKbFromNode}
+            />
+            {/* Bottom-right: Run History + Checklist */}
+            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+              <button
+                onClick={() => { setShowChecklist(false); setShowRunPanel(true); setSelectedNodeId(null); setDetailSection(null); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[14px] font-[450] bg-prune-lightGray border border-prune-borderGray rounded-full hover:bg-white transition-colors"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                Run history
+              </button>
+              <button
+                onClick={() => setShowChecklist(v => !v)}
+                className="relative flex items-center gap-1.5 px-3 py-1.5 text-[14px] font-[450] bg-prune-lightGray border border-prune-borderGray rounded-full hover:bg-white transition-colors"
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                Checklist
+                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-orange-400 border border-white" />
+              </button>
+            </div>
+
+            <ChecklistModal
+              open={showChecklist}
+              onClose={() => setShowChecklist(false)}
+            />
+
+            <div
+              className={cn(
+                'absolute right-3 top-3 bottom-3 z-10',
+                !isDragging && 'transition-[transform,opacity] duration-300 ease-in-out',
+                isPanelOpen
+                  ? 'translate-x-0 opacity-100'
+                  : 'translate-x-[calc(100%+12px)] opacity-0',
+              )}
+              style={{ width: panelWidth, pointerEvents: isPanelOpen ? 'auto' : 'none' }}
+            >
+              {panelNode && (
+                <NodeDetailPanel
+                  node={panelNode}
+                  nodes={nodes}
+                  onClose={() => { setSelectedNodeId(null); setDetailSection(null); }}
+                  onUpdateValue={updateValue}
+                  onUpdateSystemPrompt={updateSystemPrompt}
+                  onUpdateLabel={updateLabel}
+                  onUpdateModel={updateModel}
+                  onUpdateKnowledgeBases={updateKnowledgeBases}
+                  onUpdateSubflowTools={updateSubflowTools}
+                  onUpdateNode={updateNodeFields}
+                  onRemoveNode={removeNode}
+                  onFocusNode={(id) => setFocusRequest({ id, at: Date.now() })}
+                  onResizeMouseDown={handleResizeMouseDown}
+                  scrollToSection={detailSection}
+                  runOutput={nodeOutputs[panelNode.id]}
+                  runSources={runSources.length > 0 ? runSources : undefined}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      )}
-    </>
+    </div>
   );
 }
