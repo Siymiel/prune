@@ -36,7 +36,9 @@ import {
   HANDLE_SIDE_OFFSET,
 } from "./node-card";
 import { NodePickerModal } from "./node-picker-modal";
+import { NodePickerPreview } from "./node-picker-preview";
 import { cn } from "@/lib/utils";
+import { Label } from "@radix-ui/react-select";
 
 const CANVAS_W = 4000;
 const CANVAS_H = 3000;
@@ -273,6 +275,7 @@ export function EditorCanvas({
     null,
   );
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [mouseClientPos, setMouseClientPos] = useState({ x: 0, y: 0 });
   const [dragOver, setDragOver] = useState(false);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -358,6 +361,18 @@ export function EditorCanvas({
     return () => document.removeEventListener("keydown", handler);
   }, [onUndo, onRedo]);
 
+  // ── Escape cancels active connection or open picker ───────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConnecting(null);
+        setPicker(null);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   // ── Outer mouse events ────────────────────────────────────────────────────
   function handleOuterMouseDown(e: React.MouseEvent) {
     if (connecting) return; // don't start panning while drawing a connection
@@ -375,6 +390,7 @@ export function EditorCanvas({
     if (isDraggingRef.current) return; // native drag listener handles this
     const c = toCanvas(e.clientX, e.clientY);
     setMousePos(c);
+    setMouseClientPos({ x: e.clientX, y: e.clientY });
     if (panning) {
       setPan({
         x: panning.startPX + e.clientX - panning.startMX,
@@ -383,10 +399,26 @@ export function EditorCanvas({
     }
   }
 
-  function handleMouseUp() {
-    if (connecting) setConnecting(null);
+  function handleMouseUp(e: React.MouseEvent) {
+    if (connecting) {
+      const canvasPos = toCanvas(e.clientX, e.clientY);
+      setPicker({
+        anchorId: connecting.sourceId,
+        screenX: e.clientX,
+        screenY: e.clientY,
+        side: 'output',
+        canvasDropX: canvasPos.x,
+        canvasDropY: canvasPos.y,
+      });
+      setConnecting(null);
+    }
     setPanning(null);
     // drag cleanup is handled by native listeners in startNodeDrag
+  }
+
+  function handleMouseLeave() {
+    if (connecting) setConnecting(null);
+    setPanning(null);
   }
 
   // ── Effective nodes (local position overrides during drag) ───────────────
@@ -496,6 +528,8 @@ export function EditorCanvas({
     screenY: number;
     side: "input" | "output";
     popupWidth?: number;
+    canvasDropX?: number;
+    canvasDropY?: number;
   } | null>(null);
 
   const openPicker = useCallback(
@@ -513,7 +547,16 @@ export function EditorCanvas({
   const handlePickerSelect = useCallback(
     (kind: NodeKind) => {
       if (!picker) return;
-      if (!picker.anchorId) {
+      if (picker.canvasDropX !== undefined && picker.canvasDropY !== undefined) {
+        // Drag-to-connect: place node at the canvas position where the user released
+        onAddConnectedNode(
+          kind,
+          Math.max(0, picker.canvasDropX - NODE_WIDTH / 2),
+          Math.max(0, picker.canvasDropY - 40),
+          picker.anchorId,
+          picker.side,
+        );
+      } else if (!picker.anchorId) {
         const rect = outerRef.current?.getBoundingClientRect();
         const cx = rect
           ? (rect.width / 2 - panRef.current.x) / zoomRef.current
@@ -677,7 +720,7 @@ export function EditorCanvas({
       onMouseDown={handleOuterMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       onClick={() => onDeselect?.()}
       onDragOver={handleDragOver}
       onDragLeave={() => setDragOver(false)}
@@ -850,6 +893,14 @@ export function EditorCanvas({
           />
         ))}
       </div>
+
+      {/* Preview skeleton — follows cursor while dragging from an output handle */}
+      {connecting && (
+        <NodePickerPreview
+          screenX={mouseClientPos.x}
+          screenY={mouseClientPos.y}
+        />
+      )}
 
       {/* Node picker modal — outside transform so it uses raw screen coords */}
       {picker && (
@@ -1370,29 +1421,42 @@ function Minimap({
 }
 
 // ── Autosave pill ─────────────────────────────────────────────────────────────
-
 function AutosavePill({ savedAt }: { savedAt: number }) {
-  const [, tick] = useState(0);
+  const getLabel = () => {
+    const secs = Math.floor((Date.now() - savedAt) / 1000);
+    if (secs < 1) return "Auto-saved draft just now";
+    if (secs < 5) return "Auto-saved draft 1 seconds ago";
+    if (secs < 60) return "Auto-saved draft 1 min ago";
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `Auto-saved draft ${mins} min ago`;
+    return `Auto-saved draft ${Math.floor(mins / 60)}h ago`;
+  };
+
+  const [label, setLabel] = useState(getLabel);
 
   useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+    setLabel(getLabel());
 
-  const secs = Math.floor((Date.now() - savedAt) / 1000);
-  const label =
-    secs < 5
-      ? "just now"
-      : secs < 60
-        ? `${secs} seconds ago`
-        : secs < 3600
-          ? `${Math.floor(secs / 60)}m ago`
-          : `${Math.floor(secs / 3600)}h ago`;
+    const secs = Math.floor((Date.now() - savedAt) / 1000);
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const initialDelay = secs < 5 ? (5 - secs) * 1000 : (60 - (secs % 60)) * 1000;
+
+    const timeoutId = setTimeout(() => {
+      setLabel(getLabel());
+      intervalId = setInterval(() => setLabel(getLabel()), 60_000);
+    }, initialDelay);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
+  }, [savedAt]);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 text-[15px] text-muted-foreground whitespace-nowrap select-none font-medium">
+    <div className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 text-[14px] text-muted-foreground whitespace-nowrap select-none font-[450]">
       <span className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-black shrink-0" />
-      Auto-saved draft <span className="text-prune-darkGray">{label}</span>
+      {label}
     </div>
   );
 }

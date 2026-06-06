@@ -51,7 +51,7 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   // When opened from the toolbar Add button, match the toolbar's exact width and align to its left edge.
   // Otherwise use the default adaptive width and offset to the right of the anchor point.
-  const POPUP_W = popupWidth ?? Math.min(420, vw - 32);
+  const POPUP_W = popupWidth ?? Math.min(560, vw - 32);
   const POPUP_H = Math.min(460, vh - 48);
   const left = popupWidth != null
     ? Math.max(16, Math.min(screenX, vw - POPUP_W - 16))
@@ -106,7 +106,7 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
       {/* Inner panel */}
       <div
         ref={panelRef}
-        className="flex bg-background border rounded-2xl shadow-xl overflow-hidden w-full font-inter"
+        className="flex bg-background border rounded-2xl shadow-xl overflow-hidden w-full font-inter animate-zoom-out"
         style={{ maxHeight: POPUP_H }}
       >
         {/* Icon sidebar */}
