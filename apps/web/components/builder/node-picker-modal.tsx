@@ -153,7 +153,7 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
             {searchResults ? (
               <div>
                 <SectionLabel>Results</SectionLabel>
-                {searchResults.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} />)}
+                {searchResults.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />)}
                 {searchResults.length === 0 && (
                   <p className="text-xs text-muted-foreground px-3 py-4 text-center">No matching nodes</p>
                 )}
@@ -162,11 +162,11 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
               <div className="grid grid-cols-2 gap-x-1">
                 <div>
                   <SectionLabel>Popular nodes</SectionLabel>
-                  {popularNodes.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} />)}
+                  {popularNodes.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />)}
                 </div>
                 <div>
                   <SectionLabel>Popular apps</SectionLabel>
-                  {popularApps.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} />)}
+                  {popularApps.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />)}
                 </div>
               </div>
             ) : activeCategory === 'io' ? (
@@ -174,13 +174,13 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
                 <div>
                   <SectionLabel>Inputs</SectionLabel>
                   {NODE_DEFS.filter(d => d.category === 'inputs').map(def => (
-                    <PickerRow key={def.kind} def={def} onSelect={onSelect} />
+                    <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />
                   ))}
                 </div>
                 <div>
                   <SectionLabel>Outputs</SectionLabel>
                   {NODE_DEFS.filter(d => d.category === 'outputs').map(def => (
-                    <PickerRow key={def.kind} def={def} onSelect={onSelect} />
+                    <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />
                   ))}
                 </div>
               </div>
@@ -188,17 +188,17 @@ export function NodePickerModal({ screenX, screenY, popupWidth, onSelect, onClos
               <div>
                 <SectionLabel>Logic</SectionLabel>
                 {NODE_DEFS.filter(d => d.category === 'logic').map(def => (
-                  <PickerRow key={def.kind} def={def} onSelect={onSelect} />
+                  <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />
                 ))}
                 <SectionLabel>Utils</SectionLabel>
                 {NODE_DEFS.filter(d => d.category === 'utils').map(def => (
-                  <PickerRow key={def.kind} def={def} onSelect={onSelect} />
+                  <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />
                 ))}
               </div>
             ) : (
               <div>
                 <SectionLabel>{SIDEBAR_ITEMS.find(s => s.key === activeCategory)?.label}</SectionLabel>
-                {categoryDefs.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} />)}
+                {categoryDefs.map(def => <PickerRow key={def.kind} def={def} onSelect={onSelect} onClose={onClose} />)}
                 {categoryDefs.length === 0 && (
                   <p className="text-xs text-muted-foreground px-3 py-4 text-center">No nodes in this category</p>
                 )}
@@ -220,12 +220,21 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function PickerRow({ def, onSelect }: { def: NodeDef; onSelect: (kind: NodeKind) => void }) {
+function PickerRow({ def, onSelect, onClose }: { def: NodeDef; onSelect: (kind: NodeKind) => void; onClose: () => void }) {
   const Icon = def.icon;
+
+  function handleDragStart(e: React.DragEvent) {
+    e.dataTransfer.setData('text/plain', def.kind);
+    e.dataTransfer.effectAllowed = 'copy';
+    setTimeout(onClose, 0);
+  }
+
   return (
-    <button
+    <div
+      draggable
+      onDragStart={handleDragStart}
       onClick={() => onSelect(def.kind)}
-      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white border border-border/40 hover:border-border hover:bg-prune-lightGray transition-colors text-left mb-1"
+      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white border border-border/40 hover:border-border hover:bg-prune-lightGray transition-colors text-left mb-1 cursor-grab active:cursor-grabbing select-none"
     >
       <div className="h-7 w-7 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
         {def.integrationId
@@ -237,6 +246,6 @@ function PickerRow({ def, onSelect }: { def: NodeDef; onSelect: (kind: NodeKind)
         <div className="text-sm font-medium text-foreground leading-tight">{def.label}</div>
         <div className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">{def.description}</div>
       </div>
-    </button>
+    </div>
   );
 }
