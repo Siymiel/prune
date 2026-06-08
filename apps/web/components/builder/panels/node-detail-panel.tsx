@@ -206,7 +206,7 @@ export function NodeDetailPanel({
 
         {/* Description */}
         <div className="bg-prune-lightGray">
-          <div className="shrink-0 mx-3 my-2 px-3 py-2 bg-prune-lightGray border-2 border-transparent rounded-md transition-all duration-150 hover:border-gray-300 hover:bg-gray-200/70">
+          <div className="shrink-0 mx-3 py-2 px-3 bg-prune-lightGray border-2 border-transparent rounded-md transition-all duration-150 hover:border-gray-300 hover:bg-gray-200/70 font-[450]">
             {isEditingDescription ? (
               <Textarea
                 ref={textareaRef}
@@ -223,7 +223,7 @@ export function NodeDetailPanel({
             ) : (
               <div
                 onClick={() => setIsEditingDescription(true)}
-                className="cursor-text text-[14px] font-medium border-transparent rounded-md leading-relaxed text-muted-foreground whitespace-pre-wrap min-h-[24px] transition-colors"
+                className="cursor-text font-sans font-[480] text-[14px] border-transparent rounded-md leading-relaxed text-[#86868E] whitespace-pre-wrap min-h-[24px] transition-colors"
               >
                 {descriptionValue}
               </div>

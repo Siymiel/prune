@@ -2,6 +2,52 @@
 
 ---
 
+## Session 4 — StackAI Alignment + Connection Drag Flow
+
+### Goal
+
+Two parallel tracks:
+1. Implement the full **connection drag → node picker** UX: drag from an output handle, see a skeleton preview follow the cursor, release to open the real picker, auto-connect the selected node.
+2. Align PruneAI's node catalog and integration surface to match **StackAI's platform** — same node categories, same major SaaS integrations, same breadth.
+
+### What Was Built
+
+#### Connection Drag → Node Picker (complete)
+
+- **`NodePickerPreview`** — new file `apps/web/components/builder/node-picker-preview.tsx`. Skeleton ghost of the picker modal. `pointer-events-none`, follows cursor via `mouseClientPos` state in `editor-canvas.tsx`. Width = 540px. Smart viewport-edge flip (right→left, bottom→top). `animate-fade-in`.
+- **`editor-canvas.tsx`**:
+  - `mouseClientPos` state tracks raw screen coords separately from `mousePos` (canvas coords).
+  - `handleMouseUp` — when releasing while `connecting` is active, captures both screen and canvas coords, opens picker with `canvasDropX/Y` set, clears `connecting`.
+  - `handleMouseLeave` — separate from `handleMouseUp`: cancels connection silently without opening picker.
+  - Picker state type extended with `canvasDropX?: number; canvasDropY?: number`.
+  - `handlePickerSelect` first branch checks for `canvasDropX !== undefined` → calls `onAddConnectedNode` at the exact release position.
+  - Escape key clears both `connecting` and `picker`.
+  - `NodePickerPreview` rendered during `connecting` state.
+- **`NodePickerModal`**: `animate-zoom-out` entrance (skeleton→modal transition). `PickerRow` is draggable (`<div draggable>`), `handleDragStart` uses `setTimeout(onClose, 0)` to defer modal unmount so browser drag data survives.
+
+**Critical architecture note**: `NodeHandle.onMouseUp` calls `e.stopPropagation()` — intentional. Prevents canvas `mouseup` from triggering the picker when connecting to an existing node.
+
+#### StackAI Node/Integration Alignment (complete)
+
+Added 20 new `NodeKind` values, 13 new `IntegrationId` values, full `NODE_DEFS`/`KIND_PREFIX`/`INTEGRATIONS` entries for: `notion-app`, `hubspot-app`, `salesforce-app`, `airtable-app`, `github-app`, `jira-app`, `stripe-app`, `postgresql-app`, `snowflake-app`, `zapier-app`, `typeform-app`, `linear-app`, `zendesk-app`, plus `image-input`, `typeform-trigger`, `image-output`, `human-in-the-loop`, `python-code`, `custom-api`, `web-search`.
+
+Microsoft services (Teams, Outlook, SharePoint) skipped — icons absent from installed react-icons/si version.
+
+TypeScript: `npx tsc --noEmit` passes with zero errors.
+
+### What Was Tried and Failed (this session)
+
+1. **Synchronous `onClose` in drag start** — removed modal from DOM during `dragstart`, cancelling browser drag before data was captured. Fix: `setTimeout(onClose, 0)`.
+2. **Missing `onClose` prop on all PickerRow sites** — TS error 2741 on 8 call sites. Fix: `replace_all: true` in one Edit.
+3. **`canvasDropX` not declared in picker state type** — TS error on `setPicker(...)`. Fix: extend the `useState<{...}>` type union.
+4. **Microsoft react-icons** — `SiMicrosoftteams` etc. don't exist in installed version. Skipped.
+
+### Next Steps (this session's open items)
+
+See consolidated list in the section below.
+
+---
+
 ## Session 2 — Editor UI Overhaul
 
 ### What was done
@@ -172,3 +218,5 @@ This sits between `def.kind === "action"` and `def.kind === "audio-input"` in th
 - App nodes have `def.category === "apps"` and `def.integrationId` set. Action nodes have `def.kind === "action"`. The routing in `node-detail-panel.tsx` checks `kind` first, then `category` — don't reorder.
 - The `initialProviderId` prop locks the provider as display-only in both the tool-picker view and the config view. This is intentional: app nodes have a fixed identity (a Slack node is always Slack).
 - `PROVIDER_TOOLS` keys must exactly match `ActionProviderDef.id` values in `ACTION_PROVIDERS`. The `INTEGRATION_TO_PROVIDER` map bridges `def.integrationId` → provider ID only when they differ.
+- Two coordinate spaces on the canvas: **screen coords** (`clientX/Y`) for UI positioning, **canvas coords** (pan/zoom transformed) for node placement. `toCanvas(clientX, clientY)` converts. `mouseClientPos` = screen; `mousePos` = canvas. Both are needed simultaneously for the drag-to-create flow.
+- `NodeHandle.onMouseUp` calls `e.stopPropagation()` — do not remove this. It prevents canvas `mouseup` from opening the picker when completing a connection on an existing node.

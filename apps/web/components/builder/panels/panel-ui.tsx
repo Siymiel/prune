@@ -9,6 +9,7 @@ import {
   Plus,
   Mic,
   Wand2,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -74,10 +75,33 @@ export function FieldLabel({ children }: { children: ReactNode }) {
 export function SubLabel({
   children,
   className,
+  hint,
 }: {
   children: ReactNode;
   className?: string;
+  hint?: string;
 }) {
+  if (hint) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              "inline-flex items-center gap-1 text-[14px] font-medium text-gray-800 underline decoration-dashed underline-offset-4 mb-2 cursor-default",
+              className,
+            )}
+          >
+            {children}
+            <Info className="h-3 w-3 text-muted-foreground shrink-0" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-[260px] text-[14px] font-sans font-[450] leading-relaxed">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
     <div
       className={cn(

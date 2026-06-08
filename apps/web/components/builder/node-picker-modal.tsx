@@ -6,8 +6,8 @@ import { NODE_DEFS, type NodeKind, type NodeDef } from '@/lib/editor-nodes';
 import { renderIntegrationIcon } from '@/components/templates/integration-logo';
 import { cn } from '@/lib/utils';
 
-const POPULAR_NODES: NodeKind[] = ['text-input', 'ai-agent', 'output', 'knowledge-base', 'code', 'files'];
-const POPULAR_APPS: NodeKind[]  = ['gmail-app', 'whatsapp', 'slack-app', 'google-calendar-app', 'google-drive-app', 'google-maps-app'];
+const POPULAR_NODES: NodeKind[] = ['text-input', 'ai-agent', 'output', 'knowledge-base', 'code', 'human-in-the-loop'];
+const POPULAR_APPS: NodeKind[]  = ['whatsapp', 'slack-app', 'gmail-app', 'notion-app', 'hubspot-app', 'stripe-app'];
 
 type CategoryKey = 'home' | 'io' | 'triggers' | 'actions' | 'apps' | 'logic';
 

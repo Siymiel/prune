@@ -24,7 +24,7 @@ export function TextInputPanelSections({
         <Textarea
           className="overflow-y-auto p-2 border"
           rows={4}
-          placeholder="Enter value or leave blank for user input…"
+          placeholder=""
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
           fontSize={16}
@@ -34,10 +34,7 @@ export function TextInputPanelSections({
       <Section title="Options" icon={<Settings2 className="h-4 w-4" />}>
         <div className="space-y-4">
           <div>
-            <SubLabel>Variable name</SubLabel>
-            <p className="text-[12px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
-              State key this input writes to - referenced by downstream nodes
-            </p>
+            <SubLabel hint="State key this input writes to — referenced by downstream nodes">Variable name</SubLabel>
             <input
               type="text"
               className={inputClass}
@@ -50,10 +47,7 @@ export function TextInputPanelSections({
           </div>
 
           <div>
-            <SubLabel>Placeholder</SubLabel>
-            <p className="text-[12px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
-              Hint text shown inside the empty field in your interface
-            </p>
+            <SubLabel hint="Hint text shown inside the empty field in your interface">Placeholder</SubLabel>
             <input
               type="text"
               className={inputClass}
@@ -67,10 +61,7 @@ export function TextInputPanelSections({
 
           <div className="flex items-center justify-between gap-3">
             <div>
-              <SubLabel className="mb-0.5">Required</SubLabel>
-              <p className="text-[12px] text-muted-foreground leading-relaxed">
-                Block workflow execution if this field is left empty
-              </p>
+              <SubLabel className="mb-0.5" hint="Block workflow execution if this field is left empty">Required</SubLabel>
             </div>
             <Toggle
               checked={node.required ?? false}

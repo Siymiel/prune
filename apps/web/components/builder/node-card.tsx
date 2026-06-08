@@ -614,7 +614,7 @@ function NodeContent({
         <Textarea
           rows={3}
           className="overflow-y-auto"
-          placeholder="Enter value or leave blank for user input…"
+          placeholder=""
           value={node.inputValue ?? ""}
           onChange={(e) => onUpdateValue(node.id, e.target.value)}
           onMouseDown={(e) => e.stopPropagation()}

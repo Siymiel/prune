@@ -567,10 +567,7 @@ export function AIAgentPanelSections({
       >
         <div className="space-y-4 ml-2">
           <div className="mt-4">
-            <SubLabel>Instructions</SubLabel>
-            <p className="text-[11px] text-muted-foreground -mt-1 mb-2 leading-relaxed">
-              System prompt — your AI&apos;s persona, scope, and persistent rules across all runs
-            </p>
+            <SubLabel hint="System prompt — your AI's persona, scope, and persistent rules across all runs">Instructions</SubLabel>
             <div className="border rounded-lg overflow-hidden">
               <Textarea
                 placeholder="You are a helpful assistant that…"

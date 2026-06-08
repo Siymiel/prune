@@ -37,7 +37,20 @@ export type IntegrationId =
   | 'google-drive'
   | 'gmail'
   | 'slack'
-  | 'google-maps';
+  | 'google-maps'
+  | 'notion'
+  | 'hubspot'
+  | 'salesforce'
+  | 'airtable'
+  | 'github'
+  | 'jira'
+  | 'stripe'
+  | 'postgresql'
+  | 'snowflake'
+  | 'zapier'
+  | 'typeform'
+  | 'linear'
+  | 'zendesk';
 
 export interface WorkflowNodePreview {
   type: NodeType;
